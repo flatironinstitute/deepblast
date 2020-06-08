@@ -42,27 +42,27 @@ class TestViterbiUtils(unittest.TestCase):
         _, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
         resE = _backward_pass(Q)
-        self.assertEqual(resE.shape, (self.N + 1, self.M + 1, 3))
+        self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
 
-    def test_adjoint_forward_pass(self, operator):
+    def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
         E = _backward_pass(Q)
         res = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
-                                    self.A, operator)
+                                    self.operator)
         self.assertEqual(len(res), 2)
         resVd, resQd = res
-        self.assertEqual(resV.shape, (self.N + 1, self.M + 1))
-        self.assertEqual(resQ.shape, (self.N + 2, self.M + 2))
+        self.assertEqual(resVd.shape, (self.N + 1, self.M + 1, 3))
+        self.assertEqual(resQd.shape, (self.N + 2, self.M + 2, 3, 3))
 
     def test_adjoint_backward_pass(self):
         V, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
         E = _backward_pass(Q)
         Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
-                                    self.A, self.operator)
+                                       self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
-        self.assertEqual(resEd.shape, (self.N, self.M))
+        self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, 3))
 
 
 class TestViterbiDecoder(unittest.TestCase):

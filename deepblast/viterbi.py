@@ -6,9 +6,9 @@ from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 class HardMaxOp:
     @staticmethod
     def max(X):
-        M, _ = torch.max(X, keepdim=True)
+        M, _ = torch.max(X)
         A = (M == X).float()
-        A = A / torch.sum(A, keepdim=True)
+        A = A / torch.sum(A)
 
         return M.squeeze(), A.squeeze()
 
@@ -31,7 +31,7 @@ class SoftMaxOp:
     @staticmethod
     def hessian_product(P, Z):
         prod = P * Z
-        return prod - P * torch.sum(prod, keepdim=True)
+        return prod - P * torch.sum(prod)
 
 
 class SparseMaxOp:
@@ -61,9 +61,9 @@ class SparseMaxOp:
     @staticmethod
     def hessian_product(P, Z):
         S = (P > 0).type(Z.type())
-        support = torch.sum(S, keepdim=True)
+        support = torch.sum(S)
         prod = S * Z
-        return prod - S * torch.sum(prod, keepdim=True) / support
+        return prod - S * torch.sum(prod) / support
 
 
 operators = {'softmax': SoftMaxOp, 'sparsemax': SparseMaxOp,
@@ -126,13 +126,13 @@ def _forward_pass(theta, psi, phi, A, operator='softmax'):
                 torch.Tensor([
                     psi[i] + logd + V[i-1, j, m],
                     psi[i] + loge + V[i-1, j, x],
-                    0
+                    torch.Tensor([-float('inf')])
                 ])
             )
             V[i, j, y], Q[i, j, y] = operator.max(
                 torch.Tensor([
                     phi[i] + logd + V[i, j-1, m],
-                    0,
+                    torch.Tensor([-float('inf')]),
                     phi[i] + loge + V[i, j-1, y]
                 ])
             )
@@ -145,12 +145,12 @@ def _backward_pass(Q):
     Parameters
     ----------
     Q : torch.Tensor
-        Derivatives of max theta + v of dimension N x M x 3.
+        Derivatives of max theta + v of dimension N x M x S x S.
 
     Returns
     -------
     E : torch.Tensor
-        Traceback matrix of dimension N x M
+        Traceback matrix of dimension N x M x S
     """
     n_1, m_1, _, _ = Q.shape
     new = Q.new
@@ -168,7 +168,7 @@ def _backward_pass(Q):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
-    return E[1:, 1:]
+    return E
 
 
 def _adjoint_forward_pass(Q, E, Ztheta, Zpsi, Zphi, operator='softmax'):
@@ -177,49 +177,52 @@ def _adjoint_forward_pass(Q, E, Ztheta, Zpsi, Zphi, operator='softmax'):
     Parameters
     ----------
     Q : torch.Tensor
-        Derivatives of max theta + v of dimension N x M
+        Derivatives of max theta + v of dimension N x M x S x S
     E : torch.Tensor
-        Traceback matrix of dimension N x M
+        Traceback matrix of dimension N x M x S
     Ztheta : torch.Tensor
-        Derivative of theta
+        Derivative of theta of dimension N x M
     Zpsi : torch.Tensor
-        Derivative of psi
+        Derivative of psi of dimension N
     Zphi : torch.Tensor
-        Derivative of phi
+        Derivative of phi of dimension M
     operator : str
         The smoothed maximum operator.
 
     Returns
     -------
     Vd : torch.Tensor
-        Derivatives of V of dimension N x M
+        Derivatives of V of dimension N x M x S
     Qd : torch.Tensor
-        Derivatives of Q of dimension N x M
+        Derivatives of Q of dimension N x M x S x S
     """
     operator = operators[operator]
     new = Ztheta.new
     N, M = Ztheta.size()
 
     Vd = new(N + 1, M + 1, 3).zero_()
-    Qd = new(N + 2, M + 2, 3).zero_()
+    Qd = new(N + 2, M + 2, 3, 3).zero_()
     m, x, y = 0, 1, 2 # state numbering
 
     # Forward pass
-    for i in range(1, M + 1):
+    for i in range(1, N + 1):
         for j in range(1, M + 1):
+            # Need to double check these indices - they maybe wrong.
             Vd[i, j, m] = Ztheta[i - 1, j - 1] + \
-                Q[i, j, m] * Vd[i - 1, j - 1, m] + \
-                Q[i, j, x] * Vd[i - 1, j - 1, x] + \
-                Q[i, j, y] * Vd[i - 1, j - 1, y]
+                Q[i, j, m] @  torch.Tensor([Vd[i - 1, j - 1, m],
+                                            Vd[i - 1, j - 1, x],
+                                            Vd[i - 1, j - 1, y]])
             Vd[i, j, x] = Zpsi[i - 1] + \
-                Q[i, j, m] * Vd[i - 1, j, m] + \
-                Q[i, j, x] * Vd[i - 1, j, x]
+                Q[i, j, x] @ torch.Tensor([Vd[i - 1, j, m],
+                                           Vd[i - 1, j, x],
+                                           0])
             Vd[i, j, y] = Zphi[j - 1] + \
-                Q[i, j, m] * Vd[i, j - 1, m] + \
-                Q[i, j, y] * Vd[i, j - 1, y]
+                Q[i, j, y] @ torch.Tensor([Vd[i, j - 1, m],
+                                           0,
+                                           Vd[i, j - 1, y]])
             vm = torch.Tensor([Vd[i - 1, j - 1, m], Vd[i - 1, j - 1, x], Vd[i - 1, j - 1, y]])
-            vx = torch.Tensor([Vd[i - 1, j, m], Vd[i - 1, j, x]])
-            vy = torch.Tensor([Vd[i, j - 1, m], Vd[i, j - 1, y]])
+            vx = torch.Tensor([Vd[i - 1, j, m], Vd[i - 1, j, x], 0])
+            vy = torch.Tensor([Vd[i, j - 1, m], 0, Vd[i, j - 1, y]])
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
@@ -232,7 +235,7 @@ def _adjoint_backward_pass(Q, Qd, E):
     Parameters
     ----------
     Q : torch.Tensor
-        Derivatives of max theta + v of dimension N x M
+        Derivatives of max theta + v of dimension N x M x S x S
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M
     E : torch.Tensor
@@ -243,23 +246,18 @@ def _adjoint_backward_pass(Q, Qd, E):
     Ed : torch.Tensor
         Derivative of traceback matrix of dimension N x M.
     """
-    N_1, M_1, _ = Vd.shape()
-    N, M = N_1 - 1, M_1 - 1
+    N_1, M_1, _, _ = Q.size()
+    N, M = N_1 - 2, M_1 - 2
+    new = Qd.new
     Ed = new(N + 2, M + 2, 3).zero_()
-
+    m, x, y = 0, 1, 2 # state numbering
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-            Ed[i, j, m] = \
-                Qd[i+1, j+1, m]*E[i+1, j+1, m] + Q[i+1, j+1, m]*Ed[i+1, j+1, m] + \
-                Qd[i+1, j+1, x]*E[i+1, j+1, x] + Q[i+1, j+1, x]*Ed[i+1, j+1, x] + \
-                Qd[i+1, j+1, y]*E[i+1, j+1, y] + Q[i+1, j+1, y]*Ed[i+1, j+1, y]
-            Ed[i, j, x] = \
-                Qd[i+1, j, m]*E[i+1, j, m] + Q[i+1, j, m]*Ed[i+1, j, m] + \
-                Qd[i+1, j, x]*E[i+1, j, x] + Q[i+1, j, x]*Ed[i+1, j, x]
-            Ed[i, j, y] = \
-                Qd[i, j+1, m]*E[i, j+1, m] + Q[i, j+1, m]*Ed[i, j+1, m] + \
-                Qd[i, j+1, y]*E[i, j+1, y] + Q[i, j+1, y]*Ed[i, j+1, y]
+
+            Ed[i, j, m] = Qd[i+1, j+1, m] @ E[i+1, j+1] + Q[i+1, j+1, m] @ Ed[i+1, j+1]
+            Ed[i, j, x] = Qd[i+1, j, x] @ E[i+1, j] + Q[i+1, j, x] @ Ed[i+1, j]
+            Ed[i, j, y] = Qd[i, j+1, y] @ E[i, j+1] + Q[i, j+1, y] @ Ed[i, j+1]
     return Ed
 
 
