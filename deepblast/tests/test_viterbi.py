@@ -46,9 +46,10 @@ class TestViterbiUtils(unittest.TestCase):
             self.theta, self.psi, self.phi, self.A, self.operator)
         self.assertEqual(len(res), self.S)
         resVt, resQt, resQ = res
-        self.assertFalse(torch.isnan(resVt))
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, self.S, self.S))
         self.assertEqual(resQt.shape[0], self.S)
+        self.assertFalse(torch.isnan(resVt))
+        self.assertFalse(torch.isnan(resQt).any())
         self.assertFalse(torch.isnan(resQ).any())
 
     def test_backward_pass(self):
@@ -56,6 +57,8 @@ class TestViterbiUtils(unittest.TestCase):
             self.theta, self.psi, self.phi, self.A, self.operator)
         resE = _backward_pass(self.Et, Qt, Q)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
+        self.assertFalse(torch.isnan(resE).any())
+
 
     def test_adjoint_forward_pass(self):
         Vt, Qt, Q = _forward_pass(
@@ -69,6 +72,10 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(resQtd.shape, (self.S, self.S))
         self.assertEqual(resQd.shape, (self.N + 2, self.M + 2, self.S, self.S))
 
+        self.assertFalse(torch.isnan(resVtd).any())
+        self.assertFalse(torch.isnan(resQtd).any())
+        self.assertFalse(torch.isnan(resQd).any())
+
     def test_adjoint_backward_pass(self):
         Vt, Qt, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
@@ -77,6 +84,7 @@ class TestViterbiUtils(unittest.TestCase):
                                          self.Zphi, self.ZA, self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
         self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, self.S))
+        self.assertFalse(torch.isnan(resEd).any())
 
 
 class TestViterbiDecoder(TestViterbiUtils):
