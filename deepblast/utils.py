@@ -58,3 +58,11 @@ def make_data(T=20):
             + log_transition_matrix[np.newaxis, :, :]
 
     return states, emissions, theta
+
+
+def make_alignment_data():
+    rng = np.random.RandomState(0)
+    m, n = 2, 2
+    X = rng.randn(m, 3)
+    Y = rng.randn(n, 3)
+    return pairwise_distances(X, Y) / 10

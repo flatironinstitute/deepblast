@@ -10,6 +10,7 @@ from deepblast.viterbi import (
     ViterbiFunction, ViterbiFunctionBackward,
     ViterbiDecoder
 )
+from deepblast.utils import make_data, make_alignment_data
 import unittest
 
 
@@ -18,63 +19,79 @@ class TestViterbiUtils(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)
-        N, M = 4, 5
-        self.theta = torch.randn(N, M)
-        self.psi = torch.randn(N)
-        self.phi = torch.randn(M)
-        self.Ztheta = torch.randn(N, M)
-        self.Zpsi = torch.randn(N)
-        self.Zphi = torch.randn(M)
-        self.A = torch.Tensor([0.2, 0.1])
-        self.N = N
-        self.M = M
+        S, N, M = 3, 4, 5
+        self.theta = torch.randn(N, M, requires_grad=True, dtype=torch.float64)
+        self.psi = torch.randn(N, requires_grad=True, dtype=torch.float64)
+        self.phi = torch.randn(M, requires_grad=True, dtype=torch.float64)
+        self.Ztheta = torch.randn(N, M, requires_grad=True, dtype=torch.float64)
+        self.Zpsi = torch.randn(N, requires_grad=True, dtype=torch.float64)
+        self.Zphi = torch.randn(M, requires_grad=True, dtype=torch.float64)
+
+        self.Et = torch.ones(S)
+        de= torch.randn(2, requires_grad=True, dtype=torch.float64)
+        d, e = de[0], de[1]
+        self.A = torch.log(
+            torch.Tensor([[(1 - 2 * d), d, d],
+                          [(1 - e), e, 0],
+                          [(1 - e), 0, e]]))
+        self.ZA = torch.Tensor([[1 / (1 - 2 * d), 1 / d, 1 / d],
+                                [1 / (1 - e), 1 / e, 0],
+                                [1 / (1 - e), 0, 1 / e]])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
     def test_forward_pass(self):
         res = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
-        self.assertEqual(len(res), 2)
-        resV, resQ = res
-        self.assertEqual(resV.shape, (self.N + 1, self.M + 1, 3))
-        self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, 3, 3))
+        self.assertEqual(len(res), self.S)
+        resVt, resQt, resQ = res
+        self.assertFalse(torch.isnan(resVt))
+        self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, self.S, self.S))
+        self.assertEqual(resQt.shape[0], self.S)
 
     def test_backward_pass(self):
-        _, Q = _forward_pass(
+        _, Qt, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
-        resE = _backward_pass(Q)
-        self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
+        resE = _backward_pass(self.Et, Qt, Q)
+        self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
 
     def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
         E = _backward_pass(Q)
-        res = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
+        res = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi,
+                                    self.Zphi, self.ZA,
                                     self.operator)
         self.assertEqual(len(res), 2)
         resVd, resQd = res
-        self.assertEqual(resVd.shape, (self.N + 1, self.M + 1, 3))
-        self.assertEqual(resQd.shape, (self.N + 2, self.M + 2, 3, 3))
+        self.assertEqual(resVd.shape, (self.N + 1, self.M + 1, self.S))
+        self.assertEqual(resQd.shape, (self.N + 2, self.M + 2, self.S, self.S))
 
     def test_adjoint_backward_pass(self):
         V, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
         E = _backward_pass(Q)
-        Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
+        Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi,
+                                       self.Zphi, self.ZA,
                                        self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
-        self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, 3))
+        self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, self.S))
 
 
-class TestViterbiDecoder(unittest.TestCase):
+class TestViterbiDecoder(TestViterbiUtils):
 
-    def setUp(self):
-        pass
+    def test_grad_viterbi_function(self):
+        viterbi = ViterbiDecoder(self.operator)
+        inputs = (self.theta, self.psi, self.phi, self.A)
+        for i in inputs:
+            print(i.shape)
+        gradcheck(viterbi, inputs)
 
-    def test_forward(self):
-        pass
-
-    def test_decode(self):
-        pass
+    def test_hessian_viterbi_function_backward(self):
+        viterbi = ViterbiDecoder(self.operator)
+        inputs = (self.theta, self.psi, self.phi, self.A)
+        gradgradcheck(viterbi, inputs)
 
 
 if __name__ == "__main__":
