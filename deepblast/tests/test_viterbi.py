@@ -20,23 +20,23 @@ class TestViterbiUtils(unittest.TestCase):
         # smoke tests
         torch.manual_seed(0)
         S, N, M = 3, 4, 5
-        self.theta = torch.randn(N, M, requires_grad=True, dtype=torch.float64)
-        self.psi = torch.randn(N, requires_grad=True, dtype=torch.float64)
-        self.phi = torch.randn(M, requires_grad=True, dtype=torch.float64)
-        self.Ztheta = torch.randn(N, M, requires_grad=True, dtype=torch.float64)
-        self.Zpsi = torch.randn(N, requires_grad=True, dtype=torch.float64)
-        self.Zphi = torch.randn(M, requires_grad=True, dtype=torch.float64)
+        self.theta = torch.randn(N, M, requires_grad=True, dtype=torch.float32)
+        self.psi = torch.randn(N, requires_grad=True, dtype=torch.float32)
+        self.phi = torch.randn(M, requires_grad=True, dtype=torch.float32)
+        self.Ztheta = torch.randn(N, M, requires_grad=True, dtype=torch.float32)
+        self.Zpsi = torch.randn(N, requires_grad=True, dtype=torch.float32)
+        self.Zphi = torch.randn(M, requires_grad=True, dtype=torch.float32)
 
         self.Et = torch.ones(S)
-        de= torch.randn(2, requires_grad=True, dtype=torch.float64)
-        d, e = de[0], de[1]
+        eps = 1e-12
+        d, e = 0.2, 0.1
         self.A = torch.log(
             torch.Tensor([[(1 - 2 * d), d, d],
-                          [(1 - e), e, 0],
-                          [(1 - e), 0, e]]))
+                          [(1 - e), e, eps],
+                          [(1 - e), eps, e]]))
         self.ZA = torch.Tensor([[1 / (1 - 2 * d), 1 / d, 1 / d],
-                                [1 / (1 - e), 1 / e, 0],
-                                [1 / (1 - e), 0, 1 / e]])
+                                [1 / (1 - e), 1 / e, eps],
+                                [1 / (1 - e), eps, 1 / e]])
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
@@ -49,6 +49,7 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertFalse(torch.isnan(resVt))
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, self.S, self.S))
         self.assertEqual(resQt.shape[0], self.S)
+        self.assertFalse(torch.isnan(resQ).any())
 
     def test_backward_pass(self):
         _, Qt, Q = _forward_pass(
@@ -57,24 +58,23 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
 
     def test_adjoint_forward_pass(self):
-        V, Q = _forward_pass(
+        Vt, Qt, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
-        E = _backward_pass(Q)
-        res = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi,
-                                    self.Zphi, self.ZA,
-                                    self.operator)
-        self.assertEqual(len(res), 2)
-        resVd, resQd = res
-        self.assertEqual(resVd.shape, (self.N + 1, self.M + 1, self.S))
+        E = _backward_pass(self.Et, Qt, Q)
+        res = _adjoint_forward_pass(Qt, Q, self.Ztheta, self.Zpsi,
+                                    self.Zphi, self.ZA, self.operator)
+        self.assertEqual(len(res), 3)
+        resVtd, resQtd, resQd = res
+        self.assertEqual(resVtd.shape[0], self.S)
+        self.assertEqual(resQtd.shape, (self.S, self.S))
         self.assertEqual(resQd.shape, (self.N + 2, self.M + 2, self.S, self.S))
 
     def test_adjoint_backward_pass(self):
-        V, Q = _forward_pass(
+        Vt, Qt, Q = _forward_pass(
             self.theta, self.psi, self.phi, self.A, self.operator)
-        E = _backward_pass(Q)
-        Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi,
-                                       self.Zphi, self.ZA,
-                                       self.operator)
+        E = _backward_pass(self.Et, Qt, Q)
+        _, _, Qd = _adjoint_forward_pass(Qt, Q, self.Ztheta, self.Zpsi,
+                                         self.Zphi, self.ZA, self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
         self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, self.S))
 

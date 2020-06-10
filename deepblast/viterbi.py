@@ -111,8 +111,7 @@ def _forward_pass(theta, psi, phi, A, operator='softmax'):
     V = torch.zeros(N + 1, M + 1, 3)    # N x M x S
     Q = torch.zeros(N + 2, M + 2, 3, 3) # N x M x S x S
 
-    m, x, y = 0, 1, 2 # state numbering
-    e = 1e-10
+    m, x, y = 0, 1, 2 # state numberingo
     # Forward pass
     for i in range(1, N):
         for j in range(1, M):
@@ -161,10 +160,11 @@ def _backward_pass(Et, Qt, Q):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
+
     return E
 
 
-def _adjoint_forward_pass(Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
+def _adjoint_forward_pass(Qt, Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
@@ -197,7 +197,7 @@ def _adjoint_forward_pass(Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
     Vd = new(N + 1, M + 1, 3).zero_()
     Vtd = new(3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
-    Qtd = new(N + 2, M + 2, 3).zero_()
+    Qtd = new(3, 3).zero_()
     m, x, y = 0, 1, 2 # state numbering
     # Forward pass
     for i in range(1, N + 1):
@@ -214,14 +214,14 @@ def _adjoint_forward_pass(Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
     # Compute terminal score
-    Vtd = Q[N, M, m] @ Vd[N, M] + Q[N, M, x] @ Vd[N, M] + Q[N, M, y] @ Vd[N, M]
+    Vtd = Q[N, M] @ Vd[N, M]
     vtm = Vd[N - 1, M - 1]
     vtx = torch.Tensor([Vd[N - 1, M, m], Vd[N - 1, M, x], 0])
     vty = torch.Tensor([Vd[N, M - 1, m], 0, Vd[N, M - 1, y]])
-    Qtd[N, M, m] = operator.hessian_product(Qt[N, M, m], vm)
-    Qtd[N, M, x] = operator.hessian_product(Qt[N, M, x], vx)
-    Qtd[N, M, y] = operator.hessian_product(Qt[N, M, y], vy)
-    return Vtd, Qtd, Q
+    Qtd[m] = operator.hessian_product(Qt[m], vm)
+    Qtd[x] = operator.hessian_product(Qt[x], vx)
+    Qtd[y] = operator.hessian_product(Qt[y], vy)
+    return Vtd, Qtd, Qd
 
 
 def _adjoint_backward_pass(Q, Qd, E):
