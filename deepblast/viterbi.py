@@ -99,31 +99,25 @@ def _forward_pass(theta, A, operator='softmax'):
     operator = operators[operator]
     new = theta.new
     N, M, _ = theta.size()
-    m, x, y = 0, 1, 2 # state numberingo
-    psi = theta.mean(axis=0)    # X gap score. dim M
-    phi = theta.mean(axis=1)    # Y gap score. dim N
-    theta = theta.mean(axis=2)  # XY match score. dim N
-    #Note that theta is indexed from zero, whereas V is indexed from 1.
-
+    m, x, y = 1, 0, 2              # state numbering
+    # Note that theta is indexed from zero, whereas V is indexed from 1.
     # Initialize the matrices of interest. The 3rd axis here represents the
     # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
-    V = torch.zeros(N + 1, M + 1, 3)    # N x M x S
-    Q = torch.zeros(N + 2, M + 2, 3, 3) # N x M x S x S
+    V = new(N + 1, M + 1, 3).zero_()     # N x M x S
+    Q = new(N + 2, M + 2, 3, 3).zero_()  # N x M x S x S
     V[0, 0, m] = 1
     # Forward pass
-    for i in range(1, N):
-        for j in range(1, M):
-            V[i, j, m], Q[i, j, m] = operator.max(
-                theta[i, j] + A[m] + V[i-1, j-1]
-            )
-            V[i, j, x], Q[i, j, x] = operator.max(
-                phi[i] + A[x] + V[i-1, j]
-            )
-            V[i, j, y], Q[i, j, y] = operator.max(
-                psi[j] + A[y] + V[i, j-1]
-            )
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            V[i, j, m], Q[i, j, m] = operator.max(A[m] + V[i-1, j-1])
+            V[i, j, x], Q[i, j, x] = operator.max(A[x] + V[i-1, j])
+            V[i, j, y], Q[i, j, y] = operator.max(A[y] + V[i, j-1])
+            V[i, j, m] += theta[i-1, j-1, m]
+            V[i, j, x] += theta[i-1, j-1, x]
+            V[i, j, y] += theta[i-1, j-1, y]
     # Compute terminal score
     Vt, Qt = operator.max(V[N, M])
+    # Q[N + 1, M + 1, m, m] = 1
     return Vt, Qt, Q
 
 
@@ -147,14 +141,16 @@ def _backward_pass(Et, Qt, Q):
     n_1, m_1, _, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
-    m, x, y = 0, 1, 2 # state numbering
+    m, x, y = 1, 0, 2 # state numbering
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
-    E[N + 1, M + 1, m] = Et
+    E[N, M] = Et * Qt
+
     # Backward pass
-    for i in reversed(range(1, N + 1)):
-        for j in reversed(range(1, M + 1)):
-            E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
+    for i in reversed(range(1, N)):
+        for j in reversed(range(1, M)):
+            # Beware, there is an indexing issue with Q and E
+            E[i, j, m] = Q[i, j, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
     return E
@@ -183,39 +179,34 @@ def _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
-    m, x, y = 0, 1, 2 # state numbering
+    m, x, y = 1, 0, 2 # state numbering
     operator = operators[operator]
     N, M, _, _ = Q.size()
     N, M = N - 2, M - 2
-
     new = Ztheta.new
-    # TODO: Make sure that this unpacking procedure is legit
-    Zphi = Ztheta.mean(axis=[0, 2])   # X gap score. dim N
-    Zpsi = Ztheta.mean(axis=[1, 2])   # Y gap score. dim M
-    Ztheta = Ztheta.mean(axis=2)      # XY match score. dim N x M
     Vd = new(N + 1, M + 1, 3).zero_()
     Vtd = new(3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
     Qtd = new(3, 3).zero_()
     # Forward pass
-    for i in range(1, N):
-        for j in range(1, M):
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
             vm = Vd[i - 1, j - 1] + ZA[m]
             vx = Vd[i - 1, j] + ZA[x]
             vy = Vd[i, j - 1] + ZA[y]
             # nullify illegal actions (TODO make unittest for this)
             # vx[y] = 0 vy[x] = 0
-            Vd[i, j, m] = Ztheta[i, j] + Q[i, j, m] @ vm
-            Vd[i, j, x] = Zpsi[i] + Q[i, j, x] @ vx
-            Vd[i, j, y] = Zphi[j] + Q[i, j, y] @ vy
+            Vd[i, j, m] = Ztheta[i - 1, j - 1, m] + Q[i, j, m] @ vm
+            Vd[i, j, x] = Ztheta[i - 1, j, x] + Q[i, j, x] @ vx
+            Vd[i, j, y] = Ztheta[i, j - 1, y] + Q[i, j, y] @ vy
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
     # Compute terminal score
     Vtd = Q[N, M] @ Vd[N, M]
     vtm = Vd[N - 1, M - 1]
-    vtx = torch.Tensor([Vd[N - 1, M, m], Vd[N - 1, M, x], 0])
-    vty = torch.Tensor([Vd[N, M - 1, m], 0, Vd[N, M - 1, y]])
+    vtx = torch.Tensor([Vd[N - 1, M, x], Vd[N - 1, M, m], 0])
+    vty = torch.Tensor([0, Vd[N, M - 1, m], Vd[N, M - 1, y]])
     Qtd[m] = operator.hessian_product(Qt[m], vm)
     Qtd[x] = operator.hessian_product(Qt[x], vx)
     Qtd[y] = operator.hessian_product(Qt[y], vy)
@@ -243,7 +234,7 @@ def _adjoint_backward_pass(Q, Qd, E):
     N, M = N_1 - 2, M_1 - 2
     new = Qd.new
     Ed = new(N + 2, M + 2, 3).zero_()
-    m, x, y = 0, 1, 2 # state numbering
+    m, x, y = 1, 0, 2 # state numbering
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):

@@ -20,9 +20,9 @@ class TestViterbiUtils(unittest.TestCase):
         # smoke tests
         torch.manual_seed(0)
         S, N, M = 3, 4, 5
-        self.theta = torch.randn(
+        self.theta = torch.rand(
             N, M, S, requires_grad=True, dtype=torch.float32)
-        self.Ztheta = torch.randn(
+        self.Ztheta = torch.rand(
             N, M, S, requires_grad=True, dtype=torch.float32)
 
         self.Et = 1.
@@ -57,7 +57,6 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
         self.assertFalse(torch.isnan(resE).any())
 
-
     def test_adjoint_forward_pass(self):
         Vt, Qt, Q = _forward_pass(
             self.theta, self.A, self.operator)
@@ -85,11 +84,34 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertFalse(torch.isnan(resEd).any())
 
 
-class TestViterbiDecoder(TestViterbiUtils):
+class TestViterbiDecoder(unittest.TestCase):
+    def setUp(self):
+        # smoke tests
+        torch.manual_seed(0)
+        S, N, M = 3, 1, 1
+        self.theta = torch.rand(
+            N, M, S, requires_grad=True, dtype=torch.float32)
+        self.Ztheta = torch.rand(
+            N, M, S, requires_grad=True, dtype=torch.float32)
+
+        self.Et = 1.
+        eps = 1e-12
+        d, e = 0.2, 0.1
+        self.A = torch.log(
+            torch.Tensor([[(1 - 2 * d), d, d],
+                          [(1 - e), e, eps],
+                          [(1 - e), eps, e]]))
+        self.ZA = torch.Tensor([[1 / (1 - 2 * d), 1 / d, 1 / d],
+                                [1 / (1 - e), 1 / e, eps],
+                                [1 / (1 - e), eps, 1 / e]])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
 
     def test_grad_viterbi_function(self):
         viterbi = ViterbiDecoder(self.operator)
-        inputs = (self.theta, self.A)
+        inputs = (self.theta.double(), self.A.double())
+        output = viterbi(*inputs)
         gradcheck(viterbi, inputs)
 
     def test_hessian_viterbi_function(self):
