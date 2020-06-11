@@ -20,14 +20,12 @@ class TestViterbiUtils(unittest.TestCase):
         # smoke tests
         torch.manual_seed(0)
         S, N, M = 3, 4, 5
-        self.theta = torch.randn(N, M, requires_grad=True, dtype=torch.float32)
-        self.psi = torch.randn(N, requires_grad=True, dtype=torch.float32)
-        self.phi = torch.randn(M, requires_grad=True, dtype=torch.float32)
-        self.Ztheta = torch.randn(N, M, requires_grad=True, dtype=torch.float32)
-        self.Zpsi = torch.randn(N, requires_grad=True, dtype=torch.float32)
-        self.Zphi = torch.randn(M, requires_grad=True, dtype=torch.float32)
+        self.theta = torch.randn(
+            N, M, S, requires_grad=True, dtype=torch.float32)
+        self.Ztheta = torch.randn(
+            N, M, S, requires_grad=True, dtype=torch.float32)
 
-        self.Et = torch.ones(S)
+        self.Et = 1.
         eps = 1e-12
         d, e = 0.2, 0.1
         self.A = torch.log(
@@ -43,7 +41,7 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_forward_pass(self):
         res = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         self.assertEqual(len(res), self.S)
         resVt, resQt, resQ = res
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, self.S, self.S))
@@ -54,7 +52,7 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_backward_pass(self):
         _, Qt, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         resE = _backward_pass(self.Et, Qt, Q)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
         self.assertFalse(torch.isnan(resE).any())
@@ -62,10 +60,10 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_adjoint_forward_pass(self):
         Vt, Qt, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         E = _backward_pass(self.Et, Qt, Q)
-        res = _adjoint_forward_pass(Qt, Q, self.Ztheta, self.Zpsi,
-                                    self.Zphi, self.ZA, self.operator)
+        res = _adjoint_forward_pass(Qt, Q, self.Ztheta,
+                                    self.ZA, self.operator)
         self.assertEqual(len(res), 3)
         resVtd, resQtd, resQd = res
         self.assertEqual(resVtd.shape[0], self.S)
@@ -78,10 +76,10 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_adjoint_backward_pass(self):
         Vt, Qt, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         E = _backward_pass(self.Et, Qt, Q)
-        _, _, Qd = _adjoint_forward_pass(Qt, Q, self.Ztheta, self.Zpsi,
-                                         self.Zphi, self.ZA, self.operator)
+        _, _, Qd = _adjoint_forward_pass(Qt, Q, self.Ztheta,
+                                         self.ZA, self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
         self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, self.S))
         self.assertFalse(torch.isnan(resEd).any())
@@ -91,14 +89,12 @@ class TestViterbiDecoder(TestViterbiUtils):
 
     def test_grad_viterbi_function(self):
         viterbi = ViterbiDecoder(self.operator)
-        inputs = (self.theta, self.psi, self.phi, self.A)
-        for i in inputs:
-            print(i.shape)
+        inputs = (self.theta, self.A)
         gradcheck(viterbi, inputs)
 
-    def test_hessian_viterbi_function_backward(self):
+    def test_hessian_viterbi_function(self):
         viterbi = ViterbiDecoder(self.operator)
-        inputs = (self.theta, self.psi, self.phi, self.A)
+        inputs = (self.theta, self.A)
         gradgradcheck(viterbi, inputs)
 
 

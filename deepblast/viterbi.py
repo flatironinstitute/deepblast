@@ -70,20 +70,14 @@ operators = {'softmax': SoftMaxOp, 'sparsemax': SparseMaxOp,
              'hardmax': HardMaxOp}
 
 
-def _forward_pass(theta, psi, phi, A, operator='softmax'):
+def _forward_pass(theta, A, operator='softmax'):
     """  Forward pass to calculate DP alignment matrix
 
     Parameters
     ----------
     theta : torch.Tensor
-        Input Potentials of dimension N x M. This represents the
-        pairwise residue distance.
-    psi : torch.Tensor
-        Input Potentials of dimension N. This represents the
-        gap score for the first sequence X.
-    phi : torch.Tensor
-        Input Potentials of dimension M. This represents the
-        gap score for the second sequence Y.
+        Input potentials of dimension N x M x S. This represents the
+        pairwise residue match and gap scores.
     A : torch.Tensor
         3x3 matrix of transition log probabilities.
         log([[1-2d, d, d],
@@ -104,25 +98,29 @@ def _forward_pass(theta, psi, phi, A, operator='softmax'):
     """
     operator = operators[operator]
     new = theta.new
-    N, M = theta.size()
+    N, M, _ = theta.size()
+    m, x, y = 0, 1, 2 # state numberingo
+    psi = theta.mean(axis=0)    # X gap score. dim M
+    phi = theta.mean(axis=1)    # Y gap score. dim N
+    theta = theta.mean(axis=2)  # XY match score. dim N
+    #Note that theta is indexed from zero, whereas V is indexed from 1.
 
     # Initialize the matrices of interest. The 3rd axis here represents the
     # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
     V = torch.zeros(N + 1, M + 1, 3)    # N x M x S
     Q = torch.zeros(N + 2, M + 2, 3, 3) # N x M x S x S
-
-    m, x, y = 0, 1, 2 # state numberingo
+    V[0, 0, m] = 1
     # Forward pass
     for i in range(1, N):
         for j in range(1, M):
             V[i, j, m], Q[i, j, m] = operator.max(
                 theta[i, j] + A[m] + V[i-1, j-1]
             )
-            V[i, j, m], Q[i, j, x] = operator.max(
-                psi[i] + A[x] + V[i-1, j]
+            V[i, j, x], Q[i, j, x] = operator.max(
+                phi[i] + A[x] + V[i-1, j]
             )
-            V[i, j, m], Q[i, j, m] = operator.max(
-                phi[j] + A[y] + V[i, j-1]
+            V[i, j, y], Q[i, j, y] = operator.max(
+                psi[j] + A[y] + V[i, j-1]
             )
     # Compute terminal score
     Vt, Qt = operator.max(V[N, M])
@@ -152,33 +150,27 @@ def _backward_pass(Et, Qt, Q):
     m, x, y = 0, 1, 2 # state numbering
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
-    E[N + 1, M + 1] = Qt @ Et  # these dimensions look weird
-    Q[N + 1, M + 1] = 1        # this may also be wrong
+    E[N + 1, M + 1, m] = Et
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
-
     return E
 
 
-def _adjoint_forward_pass(Qt, Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
+def _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator='softmax'):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
     ----------
+    Qt : torch.Tensor
+        Terminal Derivatives of max theta + v of dimension S
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S
-    E : torch.Tensor
-        Traceback matrix of dimension N x M x S
     Ztheta : torch.Tensor
         Derivative of theta of dimension N x M
-    Zpsi : torch.Tensor
-        Derivative of psi of dimension N
-    Zphi : torch.Tensor
-        Derivative of phi of dimension M
     ZA : torch.Tensor
         Derivative of log transition probabilities of dimension S x S.
     operator : str
@@ -191,25 +183,31 @@ def _adjoint_forward_pass(Qt, Q, Ztheta, Zpsi, Zphi, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
+    m, x, y = 0, 1, 2 # state numbering
     operator = operators[operator]
+    N, M, _, _ = Q.size()
+    N, M = N - 2, M - 2
+
     new = Ztheta.new
-    N, M = Ztheta.size()
+    # TODO: Make sure that this unpacking procedure is legit
+    Zphi = Ztheta.mean(axis=[0, 2])   # X gap score. dim N
+    Zpsi = Ztheta.mean(axis=[1, 2])   # Y gap score. dim M
+    Ztheta = Ztheta.mean(axis=2)      # XY match score. dim N x M
     Vd = new(N + 1, M + 1, 3).zero_()
     Vtd = new(3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
     Qtd = new(3, 3).zero_()
-    m, x, y = 0, 1, 2 # state numbering
     # Forward pass
-    for i in range(1, N + 1):
-        for j in range(1, M + 1):
+    for i in range(1, N):
+        for j in range(1, M):
             vm = Vd[i - 1, j - 1] + ZA[m]
             vx = Vd[i - 1, j] + ZA[x]
             vy = Vd[i, j - 1] + ZA[y]
             # nullify illegal actions (TODO make unittest for this)
             # vx[y] = 0 vy[x] = 0
-            Vd[i, j, m] = Ztheta[i - 1, j - 1] + Q[i, j, m] @ vm
-            Vd[i, j, x] = Zpsi[i - 1] + Q[i, j, x] @ vx
-            Vd[i, j, y] = Zphi[j - 1] + Q[i, j, y] @ vy
+            Vd[i, j, m] = Ztheta[i, j] + Q[i, j, m] @ vm
+            Vd[i, j, x] = Zpsi[i] + Q[i, j, x] @ vx
+            Vd[i, j, y] = Zphi[j] + Q[i, j, y] @ vy
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
@@ -258,11 +256,11 @@ def _adjoint_backward_pass(Q, Qd, E):
 class ViterbiFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, theta, psi, phi, A, operator):
+    def forward(ctx, theta, A, operator):
         # Return both the alignment matrix
-        inputs = (theta, psi, phi, A)
-        Vt, Qt, Q = _forward_pass(theta, psi, phi, A, operator)
-        ctx.save_for_backward(theta, psi, phi, Qt, Q)
+        inputs = (theta, A)
+        Vt, Qt, Q = _forward_pass(theta, A, operator)
+        ctx.save_for_backward(theta, A, Qt, Q)
         ctx.others = operator
         return Vt
 
@@ -274,26 +272,26 @@ class ViterbiFunction(torch.autograd.Function):
         ctx : ?
            Some autograd context object
         Et : torch.Tensor
-           Derivative of Vt (essentially an arg max) of dimension S.
+           Last alignment trace (scalar value)
         """
-        theta, psi, phi, Q = ctx.saved_tensors
+        theta, A, Qt, Q = ctx.saved_tensors
         operator = ctx.others
-        E = ViterbiFunctionBackward.apply(
-            theta, psi, phi, Et, Qt, Q, operator)
-        return E[1:-1, 1:-1]
+        E, A = ViterbiFunctionBackward.apply(
+            theta, A, Et, Qt, Q, operator)
+        return E[1:-1, 1:-1], A, None, None, None
 
 
 class ViterbiFunctionBackward(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, theta, psi, phi, Et, Qt, Q, operator):
+    def forward(ctx, theta, A, Et, Qt, Q, operator):
         E = _backward_pass(Et, Qt, Q)
         ctx.save_for_backward(Et, E, Qt, Q)
         ctx.others = operator
-        return E
+        return E, A
 
     @staticmethod
-    def backward(ctx, Ztheta, Zphi, Zpsi):
+    def backward(ctx, Ztheta, ZA):
         """
         Parameters
         ----------
@@ -301,16 +299,15 @@ class ViterbiFunctionBackward(torch.autograd.Function):
            Some autograd context object
         Ztheta : torch.Tensor
             Derivative of theta of dimension N x M
-        Zpsi : torch.Tensor
-            Derivative of psi of dimension N
-        Zphi : torch.Tensor
-            Derivative of phi of dimension M
+        ZA : torch.Tensor
+            Derivative of transition matrix of dimension 3 x 3
         """
         Et, E, Qt, Q = ctx.saved_tensors
         operator = ctx.others
-        Vd, Qd = _adjoint_forward_pass(Q, E, Ztheta, Zpsi, Zphi, operator)
+        Vtd, Qtd, Qd = _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator)
         Ed = _adjoint_backward_pass(Q, Qd, E)
-        return Ed, Vd, None
+        Ed = Ed[1:-1, 1:-1]
+        return Ed, Vtd, None, None, None, None
 
 
 class ViterbiDecoder(nn.Module):
@@ -319,18 +316,18 @@ class ViterbiDecoder(nn.Module):
         super().__init__()
         self.operator = operator
 
-    def forward(self, theta, psi, phi, A):
+    def forward(self, theta, A):
         return ViterbiFunction.apply(
-            theta, psi, phi, A, self.operator)
+            theta, A, self.operator)
 
-    def decode(self, theta, psi, phi, A):
+    def decode(self, theta, A):
         """ Shortcut for doing inference. """
         # data, batch_sizes = theta
         with torch.enable_grad():
             # data.requires_grad_()
-            nll = self.forward(theta, psi, phi, A)
+            nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, = torch.autograd.grad(
-                v, (theta.data, psi.data, phi.data,),
+                v, (theta.data, A.data,),
                 create_graph=True)
         return v_grad
