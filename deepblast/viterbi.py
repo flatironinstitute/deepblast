@@ -1,73 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
-
-
-class HardMaxOp:
-    @staticmethod
-    def max(X):
-        M, _ = torch.max(X)
-        A = (M == X).float()
-        A = A / torch.sum(A)
-
-        return M.squeeze(), A.squeeze()
-
-    @staticmethod
-    def hessian_product(P, Z):
-        return torch.zeros_like(Z)
-
-
-class SoftMaxOp:
-    @staticmethod
-    def max(X):
-        M = torch.max(X)
-        X = X - M
-        A = torch.exp(X)
-        S = torch.sum(A)
-        M = M + torch.log(S)
-        A /= S
-        return M.squeeze(), A.squeeze()
-
-    @staticmethod
-    def hessian_product(P, Z):
-        prod = P * Z
-        return prod - P * torch.sum(prod)
-
-
-class SparseMaxOp:
-    @staticmethod
-    def max(X):
-        seq_len, n_batch, n_states = X.shape
-        X_sorted, _ = torch.sort(X, descending=True)
-        cssv = torch.cumsum(X_sorted) - 1
-        ind = X.new(n_states)
-        for i in range(n_states):
-            ind[i] = i + 1
-        cond = X_sorted - cssv / ind > 0
-        rho = cond.long().sum()
-        cssv = cssv.view(-1, n_states)
-        rho = rho.view(-1)
-
-        tau = (torch.gather(cssv, dim=1, index=rho[:, None] - 1)[:, 0]
-               / rho.type(X.type()))
-        tau = tau.view(seq_len, n_batch)
-        A = torch.clamp(X - tau[:, :, None], min=0)
-        # A /= A.sum(dim=2, keepdim=True)
-
-        M = torch.sum(A * (X - .5 * A))
-
-        return M.squeeze(), A.squeeze()
-
-    @staticmethod
-    def hessian_product(P, Z):
-        S = (P > 0).type(Z.type())
-        support = torch.sum(S)
-        prod = S * Z
-        return prod - S * torch.sum(prod) / support
-
-
-operators = {'softmax': SoftMaxOp, 'sparsemax': SparseMaxOp,
-             'hardmax': HardMaxOp}
+from deepblast.ops import operators
 
 
 def _forward_pass(theta, A, operator='softmax'):
@@ -117,7 +51,7 @@ def _forward_pass(theta, A, operator='softmax'):
             V[i, j, y] += theta[i-1, j-1, y]
     # Compute terminal score
     Vt, Qt = operator.max(V[N, M])
-    # Q[N + 1, M + 1, m, m] = 1
+    Q[N + 1, M + 1, m] = Qt
     return Vt, Qt, Q
 
 
@@ -145,14 +79,15 @@ def _backward_pass(Et, Qt, Q):
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
     E[N, M] = Et * Qt
-
     # Backward pass
-    for i in reversed(range(1, N)):
-        for j in reversed(range(1, M)):
+    for i in reversed(range(0, N)):
+        for j in reversed(range(0, M)):
+            print(i, j)
             # Beware, there is an indexing issue with Q and E
-            E[i, j, m] = Q[i, j, m] @ E[i + 1, j + 1]
+            E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
+    print(E)
     return E
 
 
@@ -213,17 +148,21 @@ def _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator='softmax'):
     return Vtd, Qtd, Qd
 
 
-def _adjoint_backward_pass(Q, Qd, E):
+def _adjoint_backward_pass(Et, E, Qt, Q, Qtd, Qd):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
     ----------
+    Et : torch.Tensor
+        Terminal alignment edges of dimension S.
+    E : torch.Tensor
+        Traceback matrix of dimension N x M
+    Qt : torch.Tensor
+        Terminal Derivatives of max theta + v of dimension S
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M
-    E : torch.Tensor
-        Traceback matrix of dimension N x M
 
     Returns
     -------
@@ -235,9 +174,10 @@ def _adjoint_backward_pass(Q, Qd, E):
     new = Qd.new
     Ed = new(N + 2, M + 2, 3).zero_()
     m, x, y = 1, 0, 2 # state numbering
+    Ed[N, M] = Qtd * Et + Qt * Etd
     # Backward pass
-    for i in reversed(range(1, N + 1)):
-        for j in reversed(range(1, M + 1)):
+    for i in reversed(range(1, N)):
+        for j in reversed(range(1, M)):
             Ed[i, j, m] = Qd[i+1, j+1, m] @ E[i+1, j+1] + Q[i+1, j+1, m] @ Ed[i+1, j+1]
             Ed[i, j, x] = Qd[i+1, j, x] @ E[i+1, j] + Q[i+1, j, x] @ Ed[i+1, j]
             Ed[i, j, y] = Qd[i, j+1, y] @ E[i, j+1] + Q[i, j+1, y] @ Ed[i, j+1]

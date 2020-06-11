@@ -19,7 +19,7 @@ class TestViterbiUtils(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)
-        S, N, M = 3, 4, 5
+        S, N, M = 3, 2, 1
         self.theta = torch.rand(
             N, M, S, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
@@ -54,6 +54,7 @@ class TestViterbiUtils(unittest.TestCase):
         _, Qt, Q = _forward_pass(
             self.theta, self.A, self.operator)
         resE = _backward_pass(self.Et, Qt, Q)
+        print(resE)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
         self.assertFalse(torch.isnan(resE).any())
 
@@ -88,7 +89,7 @@ class TestViterbiDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)
-        S, N, M = 3, 1, 1
+        S, N, M = 3, 1, 2
         self.theta = torch.rand(
             N, M, S, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
