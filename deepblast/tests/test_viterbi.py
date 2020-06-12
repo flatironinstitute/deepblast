@@ -89,7 +89,7 @@ class TestViterbiDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)
-        S, N, M = 3, 1, 2
+        S, N, M = 3, 2, 2
         self.theta = torch.rand(
             N, M, S, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
