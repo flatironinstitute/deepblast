@@ -11,7 +11,23 @@ from deepblast.nw import (
     NeedlemanWunschDecoder
 )
 from deepblast.utils import make_data, make_alignment_data
+from sklearn.metrics.pairwise import pairwise_distances
+
 import unittest
+import numpy.testing as npt
+
+
+def make_data():
+    rng = np.random.RandomState(0)
+    m, n, k = 2, 1, 3
+    M = rng.randn(k, 3)
+    X = rng.randn(m, 3)
+    Y = rng.randn(n, 3)
+    X = np.concatenate((X, M), axis=0)
+    Y = np.concatenate((M, Y), axis=0)
+    print(X.shape, Y.shape)
+    eps = 0.1
+    return 1 / (pairwise_distances(X, Y) + eps)
 
 
 class TestNeedlemanWunschDecoder(unittest.TestCase):
@@ -28,6 +44,18 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
+
+    def test_decoding(self):
+        theta = torch.from_numpy(make_data())
+        theta.requires_grad_()
+        A = torch.Tensor([0.1])
+        needle = NeedlemanWunschDecoder(self.operator)
+        v = needle(theta, A)
+        print(v)
+        v.backward()
+        decoded = needle.traceback(theta.grad)
+        states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
+        self.assertListEqual(states, decoded)
 
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)

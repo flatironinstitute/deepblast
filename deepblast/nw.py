@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 from deepblast.ops import operators
+import numpy as np
 
 
 def _forward_pass(theta, A, operator='softmax'):
@@ -32,6 +33,7 @@ def _forward_pass(theta, A, operator='softmax'):
     V[:, 0] = -1e10
     V[0, :] = -1e10
     V[0, 0] = 0.
+    Q[N+1, M+1] = 1
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             v = torch.Tensor([
@@ -66,7 +68,6 @@ def _backward_pass(Et, Q):
     N, M = n_1 - 2, m_1 - 2
     E = new(N + 2, M + 2).zero_()
     E[N+1, M+1] = 1 * Et
-    Q[N+1, M+1, m] = 1
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
@@ -217,6 +218,42 @@ class NeedlemanWunschDecoder(nn.Module):
     def forward(self, theta, A):
         return NeedlemanWunschFunction.apply(
             theta, A, self.operator)
+
+    def traceback(self, grad):
+        """ Computes traceback
+
+        Parameters
+        ----------
+        grad : torch.Tensor
+            Gradients of the alignment matrix.
+
+        Returns
+        -------
+        states : list of tuple
+            Indices representing matches.
+        """
+        m, x, y = 1, 0, 2
+        N, M = grad.shape
+        states = torch.zeros(max(N, M))
+        T = max(N, M)
+        i, j = N - 1, M - 1
+        states = [(i, j)]
+        for t in reversed(range(T)):
+            idx = torch.Tensor([
+                [i - 1, j],
+                [i - 1, j - 1],
+                [i, j - 1]
+            ]).long()
+            ij = torch.argmax(
+                   torch.Tensor([
+                       grad[i - 1, j],
+                       grad[i - 1, j - 1],
+                       grad[i, j - 1]
+                   ])
+            )
+            i, j = int(idx[ij][0]), int(idx[ij][1])
+            states.append((i, j))
+        return states[::-1]
 
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
