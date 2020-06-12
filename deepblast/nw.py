@@ -72,7 +72,6 @@ def _backward_pass(Et, Q):
             E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
                 Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
                 Q[i, j + 1, y] * E[i, j + 1]
-            #print(Q[i + 1, j, x], Q[i + 1, j + 1, m], Q[i, j + 1, m])
     return E
 
 
@@ -97,15 +96,32 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
-    pass
+    m, x, y = 1, 0, 2
+    operator = operators[operator]
+    new = Ztheta.new
+    N, M = Ztheta.size()
+    N, M = N - 2, M - 2
+    Vd = new(N + 1, M + 1).zero_()     # N x M
+    Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            Vd[i, j] = Ztheta[i, j] + \
+                       Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
+                       Q[i, j, m] * Vd[i - 1, j - 1] + \
+                       Q[i, j, y] * (ZA + Vd[i, j - 1])
+            v = torch.Tensor([(ZA + Vd[i - 1, j]),
+                              Vd[i - 1, j - 1],
+                              (ZA + Vd[i, j - 1])])
+            Qd[i, j] = operator.hessian_product(Q[i, j], v)
 
-def _adjoint_backward_pass(Et, E, Q, Qd):
+    return Vd[N, M], Qd
+
+
+def _adjoint_backward_pass(E, Q, Qd):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
     ----------
-    Et : torch.Tensor
-        Terminal alignment edge (scalar valued)..
     E : torch.Tensor
         Traceback matrix of dimension N x M
     Q : torch.Tensor
@@ -118,7 +134,21 @@ def _adjoint_backward_pass(Et, E, Q, Qd):
     Ed : torch.Tensor
         Derivative of traceback matrix of dimension N x M.
     """
-    pass
+    m, x, y = 1, 0, 2
+    n_1, m_1, _ = Q.shape
+    new = Q.new
+    N, M = n_1 - 2, m_1 - 2
+    Ed = new(N + 2, M + 2).zero_()
+    for i in reversed(range(1, N + 1)):
+        for j in reversed(range(1, M + 1)):
+            Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
+                       Q[i + 1, j, x] * Ed[i + 1, j] + \
+                       Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                       Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
+                       Qd[i, j + 1, y] * E[i, j + 1] + \
+                       Q[i, j + 1, y] * Ed[i, j + 1]
+
+    return Ed
 
 
 class NeedlemanWunschFunction(torch.autograd.Function):
@@ -154,7 +184,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
     @staticmethod
     def forward(ctx, theta, A, Et, Q, operator):
         E = _backward_pass(Et, Q)
-        ctx.save_for_backward(Et, E, Q)
+        ctx.save_for_backward(E, Q)
         ctx.others = operator
         return E, A
 
@@ -170,12 +200,12 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         ZA : torch.Tensor
             Derivative of transition matrix of dimension 3 x 3
         """
-        Et, E, Qt, Q = ctx.saved_tensors
+        E, Q = ctx.saved_tensors
         operator = ctx.others
-        Vtd, Qtd, Qd = _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator)
-        Ed = _adjoint_backward_pass(Q, Qd, E)
+        Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
+        Ed = _adjoint_backward_pass(E, Q, Qd)
         Ed = Ed[1:-1, 1:-1]
-        return Ed, Vtd, None, None, None, None
+        return Ed, None, Vtd, None, None, None
 
 
 class NeedlemanWunschDecoder(nn.Module):

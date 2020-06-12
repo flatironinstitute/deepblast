@@ -39,7 +39,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs)
+        gradgradcheck(needle, inputs, eps=1e-1)
 
 
 if __name__ == "__main__":
