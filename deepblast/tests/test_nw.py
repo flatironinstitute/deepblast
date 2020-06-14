@@ -51,7 +51,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         A = torch.Tensor([0.1])
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
-        print(v)
         v.backward()
         decoded = needle.traceback(theta.grad)
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
