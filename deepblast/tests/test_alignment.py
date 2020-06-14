@@ -13,8 +13,8 @@ class TestAlignmentModel(unittest.TestCase):
         self.embedding.load_state_dict(torch.load(path))
         self.embedding.eval()
         self.tokenizer = UniprotTokenizer()
-        nin, nembed, nunits, nout = 22, 1024, 1024, 1024
-        self.aligner = NeedlemanWunschAligner(nin, nembed, nunits, nout)
+        nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
+        self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
 
     def test_alignment(self):
         x = torch.Tensor(
