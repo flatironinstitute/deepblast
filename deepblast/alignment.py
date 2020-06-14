@@ -6,17 +6,37 @@ from deepblast.nw import NeedlemanWunschDecoder
 from deepblast.embedding import StackedRNN
 
 
-class AlignmentModel(nn.Module):
+class NeedlemanWunschAligner(nn.Module):
 
-    def __init__(self, **embedding_args):
-        if 'lm' not in embedding_args:
+    def __init__(self, nin, nembed, nunits, nout, nlayers=2, lm=None):
+        """
+        Parameters
+        ----------
+        nin : int
+           Input dimensions (default 22)
+        nembed : int
+           Number of embedding dimensions
+        nunits : int
+           Number of hidden units in RNN.
+        nout : int
+           Output dimensions (default 22)
+        nlayers : int
+           Number of RNN layers.
+        lm : BiLM
+           Pretrained language model (optional)
+        padding_idx : int
+           Location of padding index in embedding (default -1)
+        transform : function
+           Activation function (default relu)
+        sparse : False?
+        """
+        super(NeedlemanWunschAligner, self).__init__()
+        if lm is None:
             path = pretrained_language_models['bilstm']
-            self.lm = BiLM(**lm_args)
+            self.lm = BiLM()
             self.lm.load_state_dict(torch.load(path))
             self.lm.eval()
-            embedding_args.update('lm', lm)
-        self.embedding = StackedRNN(**embedding_args)
-        nembed = embedding_args.pop('nembed')
+        self.embedding = StackedRNN(nin, nembed, nunits, nout, nlayers, lm)
         self.gap_score = nn.Linear(nembed * 2, 1)
         self.nw = NeedlemanWunschDecoder(operator='softmax')
 
@@ -38,6 +58,7 @@ class AlignmentModel(nn.Module):
         zx = self.embedding(x)    # dim B x N x D
         zy = self.embedding(y)    # dim B x M x D
         # Obtain theta through an inner product across latent dimensions
+        print(zx.shape, zy.shape)
         theta = torch.einsum('bij,bjk->bij', zx, zy)
         xmean = zx.mean(axis=1)   # dim B x D
         ymean = zy.mean(axis=1)   # dim B x D
