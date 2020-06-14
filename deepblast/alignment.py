@@ -58,11 +58,10 @@ class NeedlemanWunschAligner(nn.Module):
         zx = self.embedding(x)    # dim B x N x D
         zy = self.embedding(y)    # dim B x M x D
         # Obtain theta through an inner product across latent dimensions
-        print(zx.shape, zy.shape)
-        theta = torch.einsum('bij,bjk->bij', zx, zy)
+        theta = torch.einsum('bid,bjd->bij', zx, zy)
         xmean = zx.mean(axis=1)   # dim B x D
         ymean = zy.mean(axis=1)   # dim B x D
-        merged = torch.concat((xmean, ymean), axis=1) # dim B x 2D
+        merged = torch.cat((xmean, ymean), axis=1) # dim B x 2D
         A = self.gap_score(merged)
         aln = self.nw(theta, A)
         return aln
