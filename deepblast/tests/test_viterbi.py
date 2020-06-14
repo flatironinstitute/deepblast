@@ -15,7 +15,7 @@ import unittest
 
 
 class TestViterbiUtils(unittest.TestCase):
-
+    # Careful, we know that these tests are broken
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)
@@ -86,6 +86,7 @@ class TestViterbiUtils(unittest.TestCase):
 
 
 class TestViterbiDecoder(unittest.TestCase):
+    # Careful, we know that these tests are broken
     def setUp(self):
         # smoke tests
         torch.manual_seed(0)

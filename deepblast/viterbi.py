@@ -131,8 +131,8 @@ def _adjoint_forward_pass(Qt, Q, Ztheta, ZA, operator='softmax'):
             # nullify illegal actions (TODO make unittest for this)
             # vx[y] = 0 vy[x] = 0
             Vd[i, j, m] = Ztheta[i - 1, j - 1, m] + Q[i, j, m] @ vm
-            Vd[i, j, x] = Ztheta[i - 1, j - 1, x] + Q[i, j, x] @ vx
-            Vd[i, j, y] = Ztheta[i - 1, j - 1, y] + Q[i, j, y] @ vy
+            Vd[i, j, x] = Ztheta[i - 1, j, x] + Q[i, j, x] @ vx
+            Vd[i, j, y] = Ztheta[i, j - 1, y] + Q[i, j, y] @ vy
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
