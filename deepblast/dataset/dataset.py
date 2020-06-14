@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
 from scipy.sparse import coo_matrix
+from deepblast.dataset.alphabet import UniprotTokenizer
 
 
 def state_f(z):
@@ -30,10 +31,10 @@ def states2matrix(states, N, M):
             i += 1
             j += 1
         coords.append((i, j))
-    data = numpy.ones(len(coords))
+    data = np.ones(len(coords))
     row, col = list(zip(*coords))
     row, col = np.array(row), np.array(col)
-    mat = coo_matrix(data, (row, col), shape=(N, M)).toarray()
+    mat = coo_matrix((data, (row, col)), shape=(N, M)).toarray()
     return mat
 
 
@@ -55,7 +56,7 @@ def collate(xs):
 
 class AlignmentDataset(Dataset):
     """ Dataset for training and testing. """
-    def __init__(self, pairs, tokenizer=seq2onehot):
+    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
         """ Read in pairs of proteins
 
         Parameters
@@ -92,11 +93,12 @@ class AlignmentDataset(Dataset):
         gene = self.pairs.loc[i, 0]
         pos = self.pairs.loc[i, 1]
         assert len(gene) == len(pos)
-        raw_gene = self.tokenizer(gene.replace('-', ''))
-        raw_pos = self.tokenizer(gene.replace('-', ''))
         alnstr = list(zip(list(gene), list(pos)))
         states = torch.Tensor(list(map(state_f, alnstr)))
-        alignment_matrix = torch.from_numpy(states2matrix(states))
+        gene = self.tokenizer(str.encode(gene.replace('-', '')))
+        pos = self.tokenizer(str.encode(pos.replace('-', '')))
+        N, M = len(gene), len(pos)
+        alignment_matrix = torch.from_numpy(states2matrix(states, N, M))
         return gene, pos, states, alignment_matrix
 
     def __iter__(self):
