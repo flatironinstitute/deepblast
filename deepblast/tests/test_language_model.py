@@ -6,15 +6,16 @@ import unittest
 
 class TestBiLM(unittest.TestCase):
 
-    def test_bilm(self):
+    def setUp(self):
         path = pretrained_language_models['bilstm']
-        embedding = BiLM()
-        embedding.load_state_dict(torch.load(path))
-        embedding.eval()
+        self.embedding = BiLM()
+        self.embedding.load_state_dict(torch.load(path))
+        self.embedding.eval()
+        self.tokenizer = UniprotTokenizer()
 
-        tokenizer = UniprotTokenizer()
-        toks = torch.Tensor(tokenizer(b'ABC')).long().unsqueeze(0)
-        res = embedding(toks)
+    def test_bilm(self):
+        toks = torch.Tensor(self.tokenizer(b'ABC')).long().unsqueeze(0)
+        res = self.embedding(toks)
         self.assertEqual(res.shape, (1, 5, 21))
 
 
