@@ -63,7 +63,11 @@ class NeedlemanWunschAligner(nn.Module):
         ymean = zy.mean(axis=1)   # dim B x D
         merged = torch.cat((xmean, ymean), axis=1) # dim B x 2D
         A = self.gap_score(merged)
-        aln = self.nw(theta, A)
+        # TODO enable batching on needleman-wunsch
+        B, N, M = theta.shape
+        aln = torch.zeros((B, N, M))
+        for b in range(B):
+            aln[b] = self.nw(theta[b], A[b])
         return aln
 
     def traceback(self, x, y):

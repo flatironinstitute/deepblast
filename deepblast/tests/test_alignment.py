@@ -24,10 +24,8 @@ class TestAlignmentModel(unittest.TestCase):
             self.tokenizer(b'ARNDCQEGHILKARNDCQMFPSTWYVXOUBZ')
         ).unsqueeze(0).long()
         aln = self.aligner(x, y)
-        self.assertEqual(aln.shape, (21, 25))
-
-    def test_decode(self):
-        pass
+        N, M = x.shape[1], y.shape[1]
+        self.assertEqual(aln.shape, (1, N, M))
 
 
 if __name__ == '__main__':
