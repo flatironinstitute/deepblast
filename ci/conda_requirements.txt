@@ -1,4 +1,3 @@
-name: gert
 channels:
   - pytorch
   - conda-forge
