@@ -39,7 +39,6 @@ class TestTrainer(unittest.TestCase):
 
     def tearDown(self):
         shutil.rmtree(self.output_dir)
-        pass
 
     def test_run(self):
         # Smoke test to make sure that it runs.
