@@ -38,6 +38,14 @@ def states2matrix(states, N, M):
     return mat
 
 
+def collate_pairs(args):
+    x = [a[0] for a in args]
+    y = [a[1] for a in args]
+    s = [a[2] for a in args]
+    A = [a[3] for a in args]
+    return x, y, s, A
+
+
 class AlignmentDataset(Dataset):
     """ Dataset for training and testing. """
     def __init__(self, pairs, tokenizer=UniprotTokenizer()):

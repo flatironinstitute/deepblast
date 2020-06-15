@@ -106,16 +106,19 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     N, M = N - 2, M - 2
     Vd = new(B, N + 1, M + 1).zero_()     # N x M
     Qd = new(B, N + 2, M + 2, 3).zero_()  # N x M x S
+    z = new(ZA.shape).zero_()
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             v1 = ZA + Vd[:, i - 1, j]
-            v2 = Vd[:, i - 1, j - 1]
+            v2 = z + Vd[:, i - 1, j - 1]
             v3 = ZA + Vd[:, i, j - 1]
             Vd[:, i, j] = Ztheta[:, i, j] + \
                        Q[:, i, j, x] * v1 + \
                        Q[:, i, j, m] * v2 + \
                        Q[:, i, j, y] * v3
             v = torch.stack((v1, v2, v3), dim=1)
+            print('adjoint fwd', v.shape, v1.shape, v2.shape, v3.shape)
+            print(Q.shape)
             Qd[:, i, j] = operator.hessian_product(Q[:, i, j], v)
 
     return Vd[:, N, M], Qd

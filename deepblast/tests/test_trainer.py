@@ -19,7 +19,7 @@ class TestTrainer(unittest.TestCase):
             '--valid-pairs', get_data_path('valid.txt'),
             '--output-directory', self.output_dir,
             '--epochs', '1',
-            '--batch-size', '1',
+            '--batch-size', '2',
             '--num-workers', '1'
         ]
         parser = argparse.ArgumentParser(add_help=False)
@@ -34,7 +34,7 @@ class TestTrainer(unittest.TestCase):
             max_nb_epochs=1,
             # profiler=profiler,
             # fast_dev_run=True
-            #auto_scale_batch_size='power'
+            # auto_scale_batch_size='power'
         )
 
     def tearDown(self):

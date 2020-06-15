@@ -69,9 +69,7 @@ class NeedlemanWunschAligner(nn.Module):
         A = self.gap_score(merged)
         # TODO enable batching on needleman-wunsch
         B, N, M = theta.shape
-        aln = torch.zeros((B, N, M))
-        for b in range(B):
-            aln[b] = self.nw.decode(theta[b], A[b])
+        aln = self.nw.decode(theta, A)
         return aln
 
     def traceback(self, x, y):
