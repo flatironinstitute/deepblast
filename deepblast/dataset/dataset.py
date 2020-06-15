@@ -1,14 +1,13 @@
 import numpy as np
-
+import math
 import torch
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import PackedSequence, pack_padded_sequence, pad_packed_sequence
 from scipy.sparse import coo_matrix
 from deepblast.dataset.alphabet import UniprotTokenizer
 
 
 def state_f(z):
-    x, m, y = 0, 1, 2 # state numberings
+    x, m, y = 0, 1, 2  # state numberings
     if z[0] == '-':
         return x
     if z[1] == '-':
@@ -16,9 +15,10 @@ def state_f(z):
     else:
         return m
 
+
 def states2matrix(states, N, M):
     """ Converts state string to alignment matrix. """
-    x, m, y = 0, 1, 2 # state numberings
+    x, m, y = 0, 1, 2  # state numberings
     # Encode as sparse matrix
     i, j = 0, 0
     coords = [(i, j)]
@@ -27,9 +27,11 @@ def states2matrix(states, N, M):
             j += 1
         elif st == y:
             i += 1
-        else:
+        elif st == m:
             i += 1
             j += 1
+        else:
+            raise ValueError(f'`st` {st} is not supported.')
         coords.append((i, j))
     data = np.ones(len(coords))
     row, col = list(zip(*coords))

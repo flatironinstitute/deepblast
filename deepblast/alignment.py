@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw import NeedlemanWunschDecoder
 from deepblast.embedding import StackedRNN, EmbedLinear
@@ -8,8 +7,10 @@ from deepblast.embedding import StackedRNN, EmbedLinear
 
 class NeedlemanWunschAligner(nn.Module):
 
-    def __init__(self, n_alpha, n_input, n_units, n_embed, n_layers=2, lm=None):
-        """
+    def __init__(self, n_alpha, n_input, n_units, n_embed,
+                 n_layers=2, lm=None):
+        """ NeedlemanWunsch Alignment model
+
         Parameters
         ----------
         n_alpha : int
@@ -37,7 +38,8 @@ class NeedlemanWunschAligner(nn.Module):
             self.lm.load_state_dict(torch.load(path))
             self.lm.eval()
         if n_layers > 1:
-            self.embedding = StackedRNN(n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+            self.embedding = StackedRNN(
+                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
         else:
             self.embedding = EmbedLinear(n_alpha, n_input, n_embed, lm=lm)
 
@@ -65,7 +67,7 @@ class NeedlemanWunschAligner(nn.Module):
         theta = torch.einsum('bid,bjd->bij', zx, zy)
         xmean = zx.mean(axis=1)   # dim B x D
         ymean = zy.mean(axis=1)   # dim B x D
-        merged = torch.cat((xmean, ymean), axis=1) # dim B x 2D
+        merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
         A = self.gap_score(merged)
         # TODO enable batching on needleman-wunsch
         B, N, M = theta.shape
@@ -81,7 +83,7 @@ class NeedlemanWunschAligner(nn.Module):
         theta = torch.einsum('bij,bjk->bij', zx, zy)
         xmean = zx.mean(axis=1)   # dim B x D
         ymean = zy.mean(axis=1)   # dim B x D
-        merged = torch.concat((xmean, ymean), axis=1) # dim B x 2D
+        merged = torch.concat((xmean, ymean), axis=1)  # dim B x 2D
         A = self.gap_score(merged)
         aln = self.nw(theta, A)
         aln.backward()

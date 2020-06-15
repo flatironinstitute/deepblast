@@ -66,4 +66,3 @@ class SparseMaxOp:
 
 operators = {'softmax': SoftMaxOp, 'sparsemax': SparseMaxOp,
              'hardmax': HardMaxOp}
-

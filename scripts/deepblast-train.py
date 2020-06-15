@@ -1,20 +1,9 @@
 #!/usr/bin/env python3
 
 import argparse
-import pandas as pd
-import matplotlib.pyplot as plt
-import datetime
-import glob
 import os
-import re
-from Bio import SeqIO
 
 import torch
-from torch import optim
-from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import StepLR
-import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
@@ -35,7 +24,7 @@ def main(args):
         check_val_every_n_epoch=0.1,
         # profiler=profiler,
         # fast_dev_run=True
-        #auto_scale_batch_size='power'
+        # auto_scale_batch_size='power'
     )
 
     ckpt_path = os.path.join(

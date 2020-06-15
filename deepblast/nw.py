@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 from deepblast.ops import operators
-import numpy as np
 
 
 def _forward_pass(theta, A, operator='softmax'):
@@ -156,7 +154,6 @@ class NeedlemanWunschFunction(torch.autograd.Function):
     @staticmethod
     def forward(ctx, theta, A, operator):
         # Return both the alignment matrix
-        inputs = (theta, A)
         Vt, Q = _forward_pass(theta, A, operator)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
@@ -231,7 +228,7 @@ class NeedlemanWunschDecoder(nn.Module):
         states : list of tuple
             Indices representing matches.
         """
-        m, x, y = 1, 0, 2
+        # m, x, y = 1, 0, 2
         N, M = grad.shape
         states = torch.zeros(max(N, M))
         T = max(N, M)

@@ -1,20 +1,10 @@
 import numpy as np
-import pytest
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
-from deepblast.nw import (
-    _forward_pass, _backward_pass,
-    _adjoint_forward_pass, _adjoint_backward_pass,
-    NeedlemanWunschFunction, NeedlemanWunschFunctionBackward,
-    NeedlemanWunschDecoder
-)
-from deepblast.utils import make_data, make_alignment_data
+from deepblast.nw import NeedlemanWunschDecoder
 from sklearn.metrics.pairwise import pairwise_distances
-
 import unittest
-import numpy.testing as npt
 
 
 def make_data():
@@ -58,7 +48,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
 
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = ()
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(needle, (theta, A), eps=1e-2)
@@ -71,5 +60,3 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
