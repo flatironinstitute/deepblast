@@ -14,7 +14,7 @@ before_install:
   - conda install -c anaconda setuptools
   - conda update -q conda
   - conda info -a
-  - conda env create -q -n test_env --file ci/conda_requirements.txt
+  - conda env create -q -n test_env --file ci/conda_requirements.yml
   - source activate test_env
   - pip install -e .
 script:
