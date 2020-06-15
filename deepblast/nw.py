@@ -11,39 +11,38 @@ def _forward_pass(theta, A, operator='softmax'):
     Parameters
     ----------
     theta : torch.Tensor
-        Input potentials of dimension N x M. This represents the
+        Input potentials of dimension B x N x M. This represents the
         pairwise residue match scores.
     A : torch.Tensor
-        Gap penality (scalar valued)
+        Gap penality of dimension B
     operator : str
         The smoothed maximum operator.
 
     Returns
     -------
     Vt : torch.Tensor
-        Terminal alignment score (just 1 dimension)
+        Terminal alignment score of dimension B
     Q : torch.Tensor
-        Derivatives of max theta + v of dimension N x M x S.
+        Derivatives of max theta + v of dimension B x N x M x S.
     """
     operator = operators[operator]
     new = theta.new
-    N, M = theta.size()
-    V = new(N + 1, M + 1).zero_()     # N x M
-    Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-    V[:, 0] = -1e10
-    V[0, :] = -1e10
-    V[0, 0] = 0.
-    Q[N+1, M+1] = 1
+    B, N, M = theta.size()
+    V = new(B, N + 1, M + 1).zero_()     # N x M
+    Q = new(B, N + 2, M + 2, 3).zero_()  # N x M x S
+    V[:, :, 0] = -1e10
+    V[:, 0, :] = -1e10
+    V[:, 0, 0] = 0.
+    Q[:, N+1, M+1] = 1
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            v = torch.Tensor([
-                A + V[i-1, j],
-                V[i-1, j-1],
-                A + V[i, j-1]
-            ])
-            v, Q[i, j] = operator.max(v)
-            V[i, j] = theta[i-1, j-1] + v
-    Vt = V[N, M]
+            v1 = A + V[:, i-1, j]
+            v2 = V[:, i-1, j-1]
+            v3 = A + V[:, i, j-1]
+            v = torch.stack((v1, v2, v3), dim=1)
+            v, Q[:, i, j] = operator.max(v)
+            V[:, i, j] = theta[:, i-1, j-1] + v
+    Vt = V[:, N, M]
     return Vt, Q
 
 
@@ -53,26 +52,26 @@ def _backward_pass(Et, Q):
     Parameters
     ----------
     Et : torch.Tensor
-        Terminal alignment edge (scalar valued).
+        Terminal alignment edges of dimension B
     Q : torch.Tensor
-        Derivatives of max (theta + v) of dimension N x M x S.
+        Derivatives of max (theta + v) of dimension B x N x M x S.
 
     Returns
     -------
     E : torch.Tensor
-        Traceback matrix of dimension N x M x S
+        Traceback matrix of dimension B x N x M
     """
     m, x, y = 1, 0, 2
-    n_1, m_1, _ = Q.shape
+    B, n_1, m_1, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
-    E = new(N + 2, M + 2).zero_()
-    E[N+1, M+1] = 1 * Et
+    E = new(B, N + 2, M + 2).zero_()
+    E[:, N+1, M+1] = 1 * Et
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
-                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                Q[i, j + 1, y] * E[i, j + 1]
+            E[:, i, j] = Q[:, i + 1, j, x] * E[:, i + 1, j] + \
+                Q[:, i + 1, j + 1, m] * E[:, i + 1, j + 1] + \
+                Q[:, i, j + 1, y] * E[:, i, j + 1]
     return E
 
 
@@ -82,11 +81,11 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Parameters
     ----------
     Q : torch.Tensor
-        Derivatives of max theta + v of dimension N x M x S
+        Derivatives of max theta + v of dimension B x N x M x S
     Ztheta : torch.Tensor
-        Derivative of theta of dimension N x M
+        Derivative of theta of dimension B x N x M
     ZA : torch.Tensor
-        Derivative of gap score.
+        Derivative of gap score of dimension B
     operator : str
         The smoothed maximum operator.
 
@@ -100,22 +99,23 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     m, x, y = 1, 0, 2
     operator = operators[operator]
     new = Ztheta.new
-    N, M = Ztheta.size()
+    B, N, M = Ztheta.size()
     N, M = N - 2, M - 2
-    Vd = new(N + 1, M + 1).zero_()     # N x M
-    Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
+    Vd = new(B, N + 1, M + 1).zero_()     # N x M
+    Qd = new(B, N + 2, M + 2, 3).zero_()  # N x M x S
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            Vd[i, j] = Ztheta[i, j] + \
-                       Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
-                       Q[i, j, m] * Vd[i - 1, j - 1] + \
-                       Q[i, j, y] * (ZA + Vd[i, j - 1])
-            v = torch.Tensor([(ZA + Vd[i - 1, j]),
-                              Vd[i - 1, j - 1],
-                              (ZA + Vd[i, j - 1])])
-            Qd[i, j] = operator.hessian_product(Q[i, j], v)
+            v1 = ZA + Vd[:, i - 1, j]
+            v2 = Vd[:, i - 1, j - 1]
+            v3 = ZA + Vd[:, i, j - 1]
+            Vd[:, i, j] = Ztheta[:, i, j] + \
+                       Q[:, i, j, x] * v1 + \
+                       Q[:, i, j, m] * v2 + \
+                       Q[:, i, j, y] * v3
+            v = torch.stack((v1, v2, v3), dim=1)
+            Qd[:, i, j] = operator.hessian_product(Q[:, i, j], v)
 
-    return Vd[N, M], Qd
+    return Vd[:, N, M], Qd
 
 
 def _adjoint_backward_pass(E, Q, Qd):
@@ -136,18 +136,18 @@ def _adjoint_backward_pass(E, Q, Qd):
         Derivative of traceback matrix of dimension N x M.
     """
     m, x, y = 1, 0, 2
-    n_1, m_1, _ = Q.shape
+    B, n_1, m_1, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
-    Ed = new(N + 2, M + 2).zero_()
+    Ed = new(B, N + 2, M + 2).zero_()
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-            Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
-                       Q[i + 1, j, x] * Ed[i + 1, j] + \
-                       Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                       Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
-                       Qd[i, j + 1, y] * E[i, j + 1] + \
-                       Q[i, j + 1, y] * Ed[i, j + 1]
+            Ed[:, i, j] = Qd[:, i + 1, j, x] * E[:, i + 1, j] + \
+                       Q[:, i + 1, j, x] * Ed[:, i + 1, j] + \
+                       Qd[:, i + 1, j + 1, m] * E[:, i + 1, j + 1] + \
+                       Q[:, i + 1, j + 1, m] * Ed[:, i + 1, j + 1] + \
+                       Qd[:, i, j + 1, y] * E[:, i, j + 1] + \
+                       Q[:, i, j + 1, y] * Ed[:, i, j + 1]
     return Ed
 
 
@@ -176,7 +176,7 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         operator = ctx.others
         E, A = NeedlemanWunschFunctionBackward.apply(
             theta, A, Et, Q, operator)
-        return E[1:-1, 1:-1], A, None, None, None
+        return E[:, 1:-1, 1:-1], A, None, None, None
 
 
 class NeedlemanWunschFunctionBackward(torch.autograd.Function):
@@ -204,7 +204,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         operator = ctx.others
         Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
         Ed = _adjoint_backward_pass(E, Q, Qd)
-        Ed = Ed[1:-1, 1:-1]
+        Ed = Ed[:, 1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
 
 
@@ -224,7 +224,7 @@ class NeedlemanWunschDecoder(nn.Module):
         Parameters
         ----------
         grad : torch.Tensor
-            Gradients of the alignment matrix.
+            Gradients of the alignment matrix of dimension N x M.
 
         Returns
         -------

@@ -25,7 +25,6 @@ def make_data():
     Y = rng.randn(n, 3)
     X = np.concatenate((X, M), axis=0)
     Y = np.concatenate((M, Y), axis=0)
-    print(X.shape, Y.shape)
     eps = 0.1
     return 1 / (pairwise_distances(X, Y) + eps)
 
@@ -34,14 +33,14 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        S, N, M = 3, 5, 5
+        B, S, N, M = 2, 3, 5, 5
         self.theta = torch.rand(
-            N, M, requires_grad=True, dtype=torch.float32)
+            B, N, M, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
-            N, M, requires_grad=True, dtype=torch.float32)
-        self.Et = 1.
-        self.A = torch.Tensor([-1])
-        self.S, self.N, self.M = S, N, M
+            B, N, M, requires_grad=True, dtype=torch.float32)
+        self.Et = torch.Tensor([1., 1.])
+        self.A = torch.Tensor([-1., -1.])
+        self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
