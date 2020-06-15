@@ -71,7 +71,7 @@ class NeedlemanWunschAligner(nn.Module):
         B, N, M = theta.shape
         aln = torch.zeros((B, N, M))
         for b in range(B):
-            aln[b] = self.nw(theta[b], A[b])
+            aln[b] = self.nw.decode(theta[b], A[b])
         return aln
 
     def traceback(self, x, y):

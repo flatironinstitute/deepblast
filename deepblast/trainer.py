@@ -20,10 +20,6 @@ class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
         super(LightningAligner, self).__init__()
-        path = pretrained_language_models['bilstm']
-        self.embedding = BiLM()
-        self.embedding.load_state_dict(torch.load(path))
-        self.embedding.eval()
         self.tokenizer = UniprotTokenizer()
         self.hparams = args
         self.initialize_aligner()
@@ -34,9 +30,10 @@ class LightningAligner(pl.LightningModule):
         n_embed = self.hparams.embedding_dim
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
+        n_layers = self.hparams.layers
         if self.hparams.aligner == 'nw':
             self.aligner = NeedlemanWunschAligner(
-                n_alpha, n_input, n_units, n_embed)
+                n_alpha, n_input, n_units, n_embed, n_layers)
         else:
             raise NotImplemented(
                 f'Aligner {self.hparams.aligner_type} not implemented.')
@@ -114,8 +111,6 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument('--train-pairs', help='Training pairs file', required=True)
         parser.add_argument('--test-pairs', help='Testing pairs file', required=True)
         parser.add_argument('--valid-pairs', help='Validation pairs file', required=True)
-        parser.add_argument('-m','--lm', help='Path to pretrained model',
-                            required=False, default=None)
         parser.add_argument('-a','--aligner',
                             help='Aligner type. Choices include (nw, hmm).',
                             required=False, type=str, default='nw')
@@ -125,6 +120,8 @@ class LightningAligner(pl.LightningModule):
                             required=False, type=int, default=512)
         parser.add_argument('--rnn-dim', help='Number of hidden RNN units (default 512).',
                             required=False, type=int, default=512)
+        parser.add_argument('--layers', help='Number of RNN layers (default 2).',
+                            required=False, type=int, default=2)
         parser.add_argument('--learning-rate', help='Learning rate',
                             required=False, type=float, default=5e-5)
         parser.add_argument('--batch-size', help='Training batch size',
