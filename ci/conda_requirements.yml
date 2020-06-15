@@ -1,4 +1,3 @@
-name: gert
 channels:
   - pytorch
   - conda-forge
@@ -152,5 +151,4 @@ dependencies:
     - webencodings==0.5.1
     - werkzeug==1.0.1
     - widgetsnbextension==3.5.1
-prefix: /home/juermieboop/miniconda3/envs/gert
 
