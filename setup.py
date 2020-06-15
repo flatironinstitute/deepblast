@@ -1,7 +1,6 @@
 from setuptools import find_packages, setup
 
 
-
 classes = """
     Development Status :: 4 - Beta
     License :: OSI Approved :: BSD License
@@ -38,5 +37,4 @@ setup(name='deepblast',
           'biopython'
       ],
       classifiers=classifiers,
-      package_data={},
-)
+      package_data={})
