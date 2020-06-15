@@ -10,6 +10,8 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.dataset.alphabet import UniprotTokenizer, Uniprot21
+from deepblast.dataset import AlignmentDataset, collate
+from deepblast.losses import SoftAlignmentLoss
 
 
 class LightningAligner(pl.LightningModule):
@@ -48,21 +50,48 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        pass
+        pairs = pd.read_table(self.args.training_pairs, header=None)
+        train_dataset = AlignmentDataset(pairs)
+        train_dataloader = DataLoader(train_dataset, self.hparams.batch_size,
+                                      shuffle=True, collate_fn=collate,
+                                      num_workers=self.args.num_workers)
+        return train_dataloader
 
     def valid_dataloader(self):
-        pass
+        pairs = pd.read_table(self.args.validation_pairs, header=None)
+        valid_dataset = AlignmentDataset(pairs)
+        valid_dataloader = DataLoader(valid_dataset, self.hparams.batch_size,
+                                      shuffle=False, collate_fn=collate,
+                                      num_workers=self.args.num_workers)
+        return valid_dataloader
 
     def test_dataloader(self):
-        pass
+        pairs = pd.read_table(self.args.testing_pairs, header=None)
+        test_dataset = AlignmentDataset(pairs)
+        test_dataloader = DataLoader(test_dataset, self.hparams.batch_size,
+                                     shuffle=False, collate_fn=collate,
+                                     num_workers=self.args.num_workers)
+        return test_dataloader
 
-    def training_step(self):
-        pass
+    def training_step(self, batch, batch_idx):
+        x, y, s, A = batch
+        self.aligner.train()
+        predA = self.aligner(x, y)
+        loss = SoftAlignmentLoss(A, predA)
+        assert torch.isnan(loss).item) == False
+        return {'training_loss': loss}
 
-    def valid_step(self):
-        pass
+    def valid_step(self, batch, batch_idx):
+        x, y, s, A = batch
+        self.aligner.train()
+        predA = self.aligner(x, y)
+        loss = SoftAlignmentLoss(A, predA)
+        assert torch.isnan(loss).item) == False
+        # Measure the alignment accuracy
+        return {'validation_loss': loss}
 
     def testing_step(self):
+        # Measure the alignment accuracy
         pass
 
     def configure_optimizers(self):
