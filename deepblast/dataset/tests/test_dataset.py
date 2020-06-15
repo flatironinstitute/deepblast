@@ -1,5 +1,3 @@
-import numpy as np
-import torch
 import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import AlignmentDataset
@@ -21,8 +19,6 @@ class TestDataset(unittest.TestCase):
         res = x[0]
         self.assertEqual(len(res), 4)
         gene, pos, states, alignment_matrix = res
-        self.assertFalse('-' in gene)
-        self.assertFalse('-' in pos)
         # test the lengths
         self.assertEqual(len(gene) - 2, 81)
         self.assertEqual(len(pos) - 2, 81)

@@ -2,16 +2,12 @@ import datetime
 import argparse
 import pandas as pd
 import torch
-from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import StepLR
 import pytorch_lightning as pl
-from pytorch_lightning import Trainer
-from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from deepblast.alignment import NeedlemanWunschAligner
-from deepblast.language_model import BiLM, pretrained_language_models
-from deepblast.dataset.alphabet import UniprotTokenizer, Uniprot21
+from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import AlignmentDataset
 from deepblast.losses import SoftAlignmentLoss
 
@@ -35,7 +31,7 @@ class LightningAligner(pl.LightningModule):
             self.aligner = NeedlemanWunschAligner(
                 n_alpha, n_input, n_units, n_embed, n_layers)
         else:
-            raise NotImplemented(
+            raise NotImplementedError(
                 f'Aligner {self.hparams.aligner_type} not implemented.')
 
     def forward(self, x, y):
@@ -69,9 +65,9 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         pairs = pd.read_table(self.hparams.testing_pairs, header=None)
         test_dataset = AlignmentDataset(pairs)
-        test_dataloader = DataLoader(test_dataset, self.hparams.batch_size,
-                                     shuffle=False, collate_fn=collate,
-                                     num_workers=self.hparams.num_workers)
+        test_dataloader = DataLoader(
+            test_dataset, self.hparams.batch_size,
+            shuffle=False, num_workers=self.hparams.num_workers)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
@@ -79,7 +75,7 @@ class LightningAligner(pl.LightningModule):
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA)
-        assert torch.isnan(loss).item() == False
+        assert torch.isnan(loss).item() is False
         return {'loss': loss}
 
     def valid_step(self, batch, batch_idx):
@@ -87,7 +83,7 @@ class LightningAligner(pl.LightningModule):
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = SoftAlignmentLoss(A, predA)
-        assert torch.isnan(loss).item() == False
+        assert torch.isnan(loss).item() is False
         # TODO: Measure the alignment accuracy
         return {'validation_loss': loss}
 
@@ -108,28 +104,41 @@ class LightningAligner(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = argparse.ArgumentParser(parents=[parent_parser])
-        parser.add_argument('--train-pairs', help='Training pairs file', required=True)
-        parser.add_argument('--test-pairs', help='Testing pairs file', required=True)
-        parser.add_argument('--valid-pairs', help='Validation pairs file', required=True)
-        parser.add_argument('-a','--aligner',
-                            help='Aligner type. Choices include (nw, hmm).',
-                            required=False, type=str, default='nw')
-        parser.add_argument('--embedding-dim', help='Embedding dimension (default 512).',
-                            required=False, type=int, default=512)
-        parser.add_argument('--rnn-input-dim', help='RNN input dimension (default 512).',
-                            required=False, type=int, default=512)
-        parser.add_argument('--rnn-dim', help='Number of hidden RNN units (default 512).',
-                            required=False, type=int, default=512)
-        parser.add_argument('--layers', help='Number of RNN layers (default 2).',
-                            required=False, type=int, default=2)
-        parser.add_argument('--learning-rate', help='Learning rate',
-                            required=False, type=float, default=5e-5)
-        parser.add_argument('--batch-size', help='Training batch size',
-                            required=False, type=int, default=32)
-        parser.add_argument('--finetune', help='Perform finetuning (does not work with mean)',
-                            default=False, required=False, type=bool)
-        parser.add_argument('--epochs', help='Training batch size',
-                            required=False, type=int, default=10)
-        parser.add_argument('-o','--output-directory', help='Output directory of model results',
-                            required=True)
+        parser.add_argument(
+            '--train-pairs', help='Training pairs file', required=True)
+        parser.add_argument(
+            '--test-pairs', help='Testing pairs file', required=True)
+        parser.add_argument(
+            '--valid-pairs', help='Validation pairs file', required=True)
+        parser.add_argument(
+            '-a', '--aligner',
+            help='Aligner type. Choices include (nw, hmm).',
+            required=False, type=str, default='nw')
+        parser.add_argument(
+            '--embedding-dim', help='Embedding dimension (default 512).',
+            required=False, type=int, default=512)
+        parser.add_argument(
+            '--rnn-input-dim', help='RNN input dimension (default 512).',
+            required=False, type=int, default=512)
+        parser.add_argument(
+            '--rnn-dim', help='Number of hidden RNN units (default 512).',
+            required=False, type=int, default=512)
+        parser.add_argument(
+            '--layers', help='Number of RNN layers (default 2).',
+            required=False, type=int, default=2)
+        parser.add_argument(
+            '--learning-rate', help='Learning rate',
+            required=False, type=float, default=5e-5)
+        parser.add_argument(
+            '--batch-size', help='Training batch size',
+            required=False, type=int, default=32)
+        parser.add_argument(
+            '--finetune', help='Perform finetuning (does not work with mean)',
+            default=False, required=False, type=bool)
+        parser.add_argument(
+            '--epochs', help='Training batch size',
+            required=False, type=int, default=10)
+        parser.add_argument(
+            '-o', '--output-directory',
+            help='Output directory of model results', required=True)
         return parser

@@ -1,21 +1,18 @@
-from __future__ import print_function,division
-
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.nn.utils.rnn import PackedSequence
 
 
 class LMEmbed(nn.Module):
-    def __init__(self, nin, nout, lm, padding_idx=-1, transform=nn.ReLU()
-                , sparse=False):
+    def __init__(self, nin, nout, lm, padding_idx=-1, transform=nn.ReLU(),
+                 sparse=False):
         super(LMEmbed, self).__init__()
 
         if padding_idx == -1:
             padding_idx = nin-1
 
         self.lm = lm
-        self.embed = nn.Embedding(nin, nout, padding_idx=padding_idx, sparse=sparse)
+        self.embed = nn.Embedding(
+            nin, nout, padding_idx=padding_idx, sparse=sparse)
         self.proj = nn.Linear(lm.hidden_size(), nout)
         self.transform = transform
         self.nout = nout
@@ -51,16 +48,17 @@ class EmbedLinear(nn.Module):
             padding_idx = nin-1
 
         if lm is not None:
-            self.embed = LMEmbed(nin, nhidden, lm, padding_idx=padding_idx, sparse=sparse)
+            self.embed = LMEmbed(
+                nin, nhidden, lm, padding_idx=padding_idx, sparse=sparse)
             self.proj = nn.Linear(self.embed.nout, nout)
             self.lm = True
         else:
-            self.embed = nn.Embedding(nin, nout, padding_idx=padding_idx, sparse=sparse)
+            self.embed = nn.Embedding(
+                nin, nout, padding_idx=padding_idx, sparse=sparse)
             self.proj = nn.Linear(nout, nout)
             self.lm = False
 
         self.nout = nout
-
 
     def forward(self, x):
 
@@ -85,19 +83,22 @@ class EmbedLinear(nn.Module):
 
 
 class StackedRNN(nn.Module):
-    def __init__(self, nin, nembed, nunits, nout, nlayers=2, padding_idx=-1, dropout=0,
-                 rnn_type='lstm', sparse=False, lm=None):
+    def __init__(self, nin, nembed, nunits, nout, nlayers=2,
+                 padding_idx=-1, dropout=0, rnn_type='lstm',
+                 sparse=False, lm=None):
         super(StackedRNN, self).__init__()
 
         if padding_idx == -1:
             padding_idx = nin-1
 
         if lm is not None:
-            self.embed = LMEmbed(nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
+            self.embed = LMEmbed(
+                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
             nembed = self.embed.nout
             self.lm = True
         else:
-            self.embed = nn.Embedding(nin, nembed, padding_idx=padding_idx, sparse=sparse)
+            self.embed = nn.Embedding(
+                nin, nembed, padding_idx=padding_idx, sparse=sparse)
             self.lm = False
 
         if rnn_type == 'lstm':
@@ -110,12 +111,10 @@ class StackedRNN(nn.Module):
         if nlayers == 1:
             dropout = 0
 
-        self.rnn = RNN(nembed, nunits, nlayers, batch_first=True
-                      , bidirectional=True, dropout=dropout)
+        self.rnn = RNN(nembed, nunits, nlayers, batch_first=True,
+                       bidirectional=True, dropout=dropout)
         self.proj = nn.Linear(2*nunits, nout)
         self.nout = nout
-
-
 
     def forward(self, x):
 
@@ -128,7 +127,7 @@ class StackedRNN(nn.Module):
             else:
                 h = self.embed(x)
 
-        h,_ = self.rnn(h)
+        h, _ = self.rnn(h)
 
         if type(h) is PackedSequence:
             h = h.data
@@ -142,5 +141,3 @@ class StackedRNN(nn.Module):
             z = z.view(x.size(0), x.size(1), -1)
 
         return z
-
-

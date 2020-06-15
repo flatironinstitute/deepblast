@@ -56,18 +56,10 @@ def make_data(T=20):
     log_transition_matrix = np.log(transition_matrix)
 
     # CRF potential from HMM model
-    theta = emission_log_likelihood[:, :, np.newaxis] \
-            + log_transition_matrix[np.newaxis, :, :]
+    theta = emission_log_likelihood[:, :, np.newaxis]
+    theta += log_transition_matrix[np.newaxis, :, :]
 
     return states, emissions, theta
-
-
-def make_alignment_data():
-    rng = np.random.RandomState(0)
-    m, n = 2, 2
-    X = rng.randn(m, 3)
-    Y = rng.randn(n, 3)
-    return pairwise_distances(X, Y) / 10
 
 
 def get_data_path(fn, subfolder='data'):

@@ -56,9 +56,10 @@ DNA = Alphabet(b'ACGT')
 class Uniprot21(Alphabet):
     def __init__(self, mask=False):
         chars = b'ARNDCQEGHILKMFPSTWYVXOUBZ'
-        encoding = alphabet = np.arange(len(chars))
-        encoding[21:] = [11,4,20,20] # encode 'OUBZ' as synonyms
-        super(Uniprot21, self).__init__(chars, encoding=encoding, mask=mask, missing=20)
+        encoding = np.arange(len(chars))
+        encoding[21:] = [11, 4, 20, 20]  # encode 'OUBZ' as synonyms
+        super(Uniprot21, self).__init__(
+            chars, encoding=encoding, mask=mask, missing=20)
 
 
 class UniprotTokenizer:
@@ -74,4 +75,3 @@ class UniprotTokenizer:
         z = np.zeros(len(x) + 2, dtype=x.dtype)
         z[1:-1] = x + 1
         return z
-

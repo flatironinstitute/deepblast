@@ -34,7 +34,7 @@ class TestTrainer(unittest.TestCase):
             max_nb_epochs=1,
             # profiler=profiler,
             # fast_dev_run=True
-            #auto_scale_batch_size='power'
+            # auto_scale_batch_size='power'
         )
 
     def tearDown(self):
