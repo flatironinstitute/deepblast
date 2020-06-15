@@ -1,7 +1,3 @@
-channels:
-  - pytorch
-  - conda-forge
-  - defaults
 dependencies:
   - bzip2=1.0.8=h516909a_0
   - cffi=1.12.3=py37h8022711_0
