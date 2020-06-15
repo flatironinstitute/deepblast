@@ -1,3 +1,8 @@
+name: gert
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
 dependencies:
   - bzip2=1.0.8=h516909a_0
   - cffi=1.12.3=py37h8022711_0
@@ -82,7 +87,6 @@ dependencies:
     - cherrypy==3.2.4
     - configparser==4.0.2
     - cython==0.29.14
-    - deepblast==0.0.1
     - defusedxml==0.6.0
     - entrypoints==0.3
     - fairseq==0.8.0
