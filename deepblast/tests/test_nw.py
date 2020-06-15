@@ -4,17 +4,11 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
-from deepblast.nw import (
-    _forward_pass, _backward_pass,
-    _adjoint_forward_pass, _adjoint_backward_pass,
-    NeedlemanWunschFunction, NeedlemanWunschFunctionBackward,
-    NeedlemanWunschDecoder
-)
+from deepblast.nw import NeedlemanWunschDecoder
 from deepblast.utils import make_data, make_alignment_data
 from sklearn.metrics.pairwise import pairwise_distances
-
-import unittest
 import numpy.testing as npt
+import unittest
 
 
 def make_data():
@@ -45,13 +39,13 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         self.operator = 'softmax'
 
     def test_decoding(self):
-        theta = torch.from_numpy(make_data())
+        theta = torch.from_numpy(make_data()).unsqueeze(0)
         theta.requires_grad_()
-        A = torch.Tensor([0.1])
+        A = torch.Tensor([0.1]).unsqueeze(0)
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
-        decoded = needle.traceback(theta.grad)
+        decoded = needle.traceback(theta.grad.squeeze())
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 

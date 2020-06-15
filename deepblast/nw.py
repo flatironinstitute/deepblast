@@ -34,10 +34,13 @@ def _forward_pass(theta, A, operator='softmax'):
     V[:, 0, :] = -1e10
     V[:, 0, 0] = 0.
     Q[:, N+1, M+1] = 1
+    # placeholder to make sure dimensions match
+    # for a batch size of 1.
+    z = new(A.shape).zero_()
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             v1 = A + V[:, i-1, j]
-            v2 = V[:, i-1, j-1]
+            v2 = z + V[:, i-1, j-1]
             v3 = A + V[:, i, j-1]
             v = torch.stack((v1, v2, v3), dim=1)
             v, Q[:, i, j] = operator.max(v)
@@ -256,9 +259,7 @@ class NeedlemanWunschDecoder(nn.Module):
 
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
-        # data, batch_sizes = theta
         with torch.enable_grad():
-            # data.requires_grad_()
             nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, _ = torch.autograd.grad(
