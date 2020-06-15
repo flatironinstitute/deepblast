@@ -122,8 +122,8 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument('-m','--lm', help='Path to pretrained model',
                             required=False, default=None)
         parser.add_argument('-a','--aligner',
-                            help='Aligner type. Choices include (mean, cca, ssa).',
-                            required=False, type=str, default='mean')
+                            help='Aligner type. Choices include (nw, hmm).',
+                            required=False, type=str, default='nw')
         parser.add_argument('--embedding-dim', help='Embedding dimension (default 512).',
                             required=False, type=int, default=512)
         parser.add_argument('--rnn-input-dim', help='RNN input dimension (default 512).',

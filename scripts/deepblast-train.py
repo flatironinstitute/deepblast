@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -16,7 +18,7 @@ import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
-from deepblast.train import LightningAlignment
+from deepblast.trainer import LightningAligner
 
 
 def main(args):
