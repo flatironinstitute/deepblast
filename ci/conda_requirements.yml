@@ -104,7 +104,6 @@ dependencies:
     - jupyter-client==5.3.4
     - jupyter-console==6.0.0
     - jupyter-core==4.6.1
-    - kymatio==0.2a0
     - llvmlite==0.31.0
     - lockfile==0.12.2
     - markdown==3.2.2
