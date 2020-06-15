@@ -3,24 +3,24 @@ import torch.nn as nn
 import torch.nn.functional as F
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw import NeedlemanWunschDecoder
-from deepblast.embedding import StackedRNN
+from deepblast.embedding import StackedRNN, EmbedLinear
 
 
 class NeedlemanWunschAligner(nn.Module):
 
-    def __init__(self, nin, nembed, nunits, nout, nlayers=2, lm=None):
+    def __init__(self, n_alpha, n_input, n_units, n_embed, n_layers=2, lm=None):
         """
         Parameters
         ----------
-        nin : int
-           Input dimensions (default 22)
-        nembed : int
-           Number of embedding dimensions
-        nunits : int
+        n_alpha : int
+           Size of the alphabet (default 22)
+        n_input : int
+           Input dimensions.
+        n_units : int
            Number of hidden units in RNN.
-        nout : int
-           Output dimensions (default 22)
-        nlayers : int
+        n_embed : int
+           Embedding dimension
+        n_layers : int
            Number of RNN layers.
         lm : BiLM
            Pretrained language model (optional)
@@ -36,8 +36,12 @@ class NeedlemanWunschAligner(nn.Module):
             self.lm = BiLM()
             self.lm.load_state_dict(torch.load(path))
             self.lm.eval()
-        self.embedding = StackedRNN(nin, nembed, nunits, nout, nlayers, lm)
-        self.gap_score = nn.Linear(nembed * 2, 1)
+        if n_layers > 1:
+            self.embedding = StackedRNN(n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+        else:
+            self.embedding = EmbedLinear(n_alpha, n_input, n_embed, lm=lm)
+
+        self.gap_score = nn.Linear(n_embed * 2, 1)
         self.nw = NeedlemanWunschDecoder(operator='softmax')
 
     def forward(self, x, y):
@@ -67,7 +71,7 @@ class NeedlemanWunschAligner(nn.Module):
         B, N, M = theta.shape
         aln = torch.zeros((B, N, M))
         for b in range(B):
-            aln[b] = self.nw(theta[b], A[b])
+            aln[b] = self.nw.decode(theta[b], A[b])
         return aln
 
     def traceback(self, x, y):

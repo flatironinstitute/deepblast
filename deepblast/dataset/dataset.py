@@ -38,22 +38,6 @@ def states2matrix(states, N, M):
     return mat
 
 
-def collate(xs):
-    B = len(xs)
-    N = max(len(x) for x in xs)
-    lengths = np.array([len(x) for x in xs], dtype=int)
-
-    order = np.argsort(lengths)[::-1]
-    lengths = lengths[order]
-
-    X = torch.LongTensor(B, N).zero_() + mask_idx
-    for i in range(B):
-        x = xs[order[i]]
-        n = len(x)
-        X[i,:n] = torch.from_numpy(x)
-    return X, lengths
-
-
 class AlignmentDataset(Dataset):
     """ Dataset for training and testing. """
     def __init__(self, pairs, tokenizer=UniprotTokenizer()):
@@ -97,6 +81,8 @@ class AlignmentDataset(Dataset):
         states = torch.Tensor(list(map(state_f, alnstr)))
         gene = self.tokenizer(str.encode(gene.replace('-', '')))
         pos = self.tokenizer(str.encode(pos.replace('-', '')))
+        gene = torch.Tensor(gene).long()
+        pos = torch.Tensor(pos).long()
         N, M = len(gene), len(pos)
         alignment_matrix = torch.from_numpy(states2matrix(states, N, M))
         return gene, pos, states, alignment_matrix

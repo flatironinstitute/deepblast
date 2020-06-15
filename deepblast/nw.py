@@ -148,7 +148,6 @@ def _adjoint_backward_pass(E, Q, Qd):
                        Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
                        Qd[i, j + 1, y] * E[i, j + 1] + \
                        Q[i, j + 1, y] * Ed[i, j + 1]
-
     return Ed
 
 
@@ -262,7 +261,7 @@ class NeedlemanWunschDecoder(nn.Module):
             # data.requires_grad_()
             nll = self.forward(theta, A)
             v = torch.sum(nll)
-            v_grad, = torch.autograd.grad(
-                v, (theta.data, A.data,),
+            v_grad, _ = torch.autograd.grad(
+                v, (theta, A),
                 create_graph=True)
         return v_grad
