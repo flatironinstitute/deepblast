@@ -1,22 +1,25 @@
 import datetime
+import argparse
+import pandas as pd
 import torch
 from torch import optim
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 import pytorch_lightning as pl
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.dataset.alphabet import UniprotTokenizer, Uniprot21
-from deepblast.dataset import AlignmentDataset, collate
+from deepblast.dataset import AlignmentDataset
 from deepblast.losses import SoftAlignmentLoss
 
 
 class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
+        super(LightningAligner, self).__init__()
         path = pretrained_language_models['bilstm']
         self.embedding = BiLM()
         self.embedding.load_state_dict(torch.load(path))
@@ -24,18 +27,19 @@ class LightningAligner(pl.LightningModule):
         self.tokenizer = UniprotTokenizer()
         self.hparams = args
         self.initialize_aligner()
+        self.loss_func = SoftAlignmentLoss()
 
     def initialize_aligner(self):
         n_alpha = len(self.tokenizer.alphabet)
-        n_embed = self.args.embedding_dim
-        n_input = self.args.rnn_input_dim
-        n_units = self.args.rnn_dim
-        if self.args.aligner_type == 'nw':
+        n_embed = self.hparams.embedding_dim
+        n_input = self.hparams.rnn_input_dim
+        n_units = self.hparams.rnn_dim
+        if self.hparams.aligner == 'nw':
             self.aligner = NeedlemanWunschAligner(
                 n_alpha, n_input, n_units, n_embed)
         else:
             raise NotImplemented(
-                f'Aligner {self.args.aligner_type} not implemented.')
+                f'Aligner {self.hparams.aligner_type} not implemented.')
 
     def forward(self, x, y):
         return self.aligner.forward(x, y)
@@ -50,67 +54,58 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        pairs = pd.read_table(self.args.training_pairs, header=None)
+        pairs = pd.read_table(self.hparams.train_pairs, header=None)
         train_dataset = AlignmentDataset(pairs)
-        train_dataloader = DataLoader(train_dataset, self.hparams.batch_size,
-                                      shuffle=True, collate_fn=collate,
-                                      num_workers=self.args.num_workers)
+        train_dataloader = DataLoader(
+            train_dataset, self.hparams.batch_size,
+            shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
     def valid_dataloader(self):
-        pairs = pd.read_table(self.args.validation_pairs, header=None)
+        pairs = pd.read_table(self.hparams.valid_pairs, header=None)
         valid_dataset = AlignmentDataset(pairs)
-        valid_dataloader = DataLoader(valid_dataset, self.hparams.batch_size,
-                                      shuffle=False, collate_fn=collate,
-                                      num_workers=self.args.num_workers)
+        valid_dataloader = DataLoader(
+            valid_dataset, self.hparams.batch_size,
+            shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        pairs = pd.read_table(self.args.testing_pairs, header=None)
+        pairs = pd.read_table(self.hparams.testing_pairs, header=None)
         test_dataset = AlignmentDataset(pairs)
         test_dataloader = DataLoader(test_dataset, self.hparams.batch_size,
                                      shuffle=False, collate_fn=collate,
-                                     num_workers=self.args.num_workers)
+                                     num_workers=self.hparams.num_workers)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
-        loss = SoftAlignmentLoss(A, predA)
-        assert torch.isnan(loss).item) == False
-        return {'training_loss': loss}
+        loss = self.loss_func(A, predA)
+        assert torch.isnan(loss).item() == False
+        return {'loss': loss}
 
     def valid_step(self, batch, batch_idx):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = SoftAlignmentLoss(A, predA)
-        assert torch.isnan(loss).item) == False
-        # Measure the alignment accuracy
+        assert torch.isnan(loss).item() == False
+        # TODO: Measure the alignment accuracy
         return {'validation_loss': loss}
 
-    def testing_step(self):
-        # Measure the alignment accuracy
+    def test_step(self):
+        # TODO: Measure the alignment accuracy
         pass
 
     def configure_optimizers(self):
-        if not self.args.finetune:
-            for p in self.model.lm.parameters():
-                p.requires_grad = False
-            grad_params = list(filter(lambda p: p.requires_grad, self.model.parameters()))
-            optimizer = torch.optim.RMSprop(
-                grad_params, lr=self.args.learning_rate, weight_decay=self.args.reg_par)
-        else:
-            optimizer = torch.optim.RMSprop(
-                [
-                    {'params': self.model.lm.parameters(), 'lr': 5e-6},
-                    {'params': self.model.aligner_fun.parameters(),
-                     'lr': self.args.learning_rate,
-                     'weight_decay': self.args.reg_par}
-                ]
-            )
-        scheduler = ReduceLROnPlateau(optimizer)
+        for p in self.aligner.lm.parameters():
+            p.requires_grad = False
+        grad_params = list(filter(
+            lambda p: p.requires_grad, self.aligner.parameters()))
+        optimizer = torch.optim.Adam(
+            grad_params, lr=self.hparams.learning_rate)
+        scheduler = StepLR(optimizer, step_size=10)
         return [optimizer], [scheduler]
 
     @staticmethod

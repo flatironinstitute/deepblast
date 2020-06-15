@@ -1,1 +1,1 @@
-from deepblast.dataset.dataset import AlignmentDataset, collate
+from deepblast.dataset.dataset import AlignmentDataset
