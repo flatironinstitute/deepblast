@@ -1,0 +1,25 @@
+# Travis yml file inspired by scikit-bio
+# Check on http://lint.travis-ci.org/ after modifying it!
+sudo: false
+language: python
+env:
+  - PYVERSION=3.5
+before_install:
+  - export MPLBACKEND='Agg'
+  - wget -q https://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+  - export MINICONDA_PREFIX="$HOME/miniconda"
+  - bash miniconda.sh -b -p $MINICONDA_PREFIX
+  - export PATH="$MINICONDA_PREFIX/bin:$PATH"
+  - conda config --set always_yes yes
+  - conda install -c anaconda setuptools
+  - conda update -q conda
+  - conda info -a
+  - conda env create -q -n test_env --file ci/conda_requirements.yml
+  - source activate test_env
+  - pip install -e .
+script:
+  - make all
+notifications:
+  webhooks:
+    on_success: change
+    on_failure: always
