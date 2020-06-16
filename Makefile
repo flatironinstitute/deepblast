@@ -8,7 +8,7 @@ help:
 	@echo 'Use "make all" to run all the targets listed above.'
 test:
 	$(TEST_COMMAND) scripts
-	$(TEST_COMMAND)
+	$(TEST_COMMAND) deepblast
 pep8:
 	pycodestyle deepblast setup.py
 	flake8 deepblast setup.py scripts scripts/deepblast-train.py
