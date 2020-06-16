@@ -11,6 +11,6 @@ test:
 	$(TEST_COMMAND)
 pep8:
 	pycodestyle deepblast setup.py
-	flake8 songbird setup.py scripts scripts/deepblast-train.py
+	flake8 deepblast setup.py scripts scripts/deepblast-train.py
 
 all: pep8 test
