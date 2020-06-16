@@ -7,7 +7,6 @@ help:
 	@echo 'Use "make html" to create html documentation with sphinx'
 	@echo 'Use "make all" to run all the targets listed above.'
 test:
-	$(TEST_COMMAND) scripts
 	$(TEST_COMMAND) deepblast
 pep8:
 	pycodestyle deepblast setup.py
