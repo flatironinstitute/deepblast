@@ -15,7 +15,6 @@ def make_data():
     Y = rng.randn(n, 3)
     X = np.concatenate((X, M), axis=0)
     Y = np.concatenate((M, Y), axis=0)
-    print(X.shape, Y.shape)
     eps = 0.1
     return 1 / (pairwise_distances(X, Y) + eps)
 

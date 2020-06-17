@@ -1,21 +1,25 @@
 #include <torch/torch.h>
+#include <iostream>
 
 using namespace torch::autograd;
 
 
-class SoftMaxOp:
+class SoftMaxOp {
   public:
-    static torch::Tensor max(torch::Tensor X){
+    tensor_list max(torch::Tensor X){
       auto M = torch::max(X);
-      auto X = X - M;
-      auto A = torch::exp(X);
+      auto Y = X - M;
+      auto A = torch::exp(Y);
       auto S = torch::sum(A);
       M = M + torch::log(S);
       A = A / S;
-      return {M.squeeze(), A.squeeze()};
+      M = M.squeeze();
+      A = A.squeeze();
+      return {M, A};
     }
-    static torch::Tensor hessian_product(torch::Tensor X,
-        				 torch::Tensor P){
+
+    torch::Tensor hessian_product(torch::Tensor Z,
+				  torch::Tensor P){
       auto prod = P * Z;
       auto res = prod - P * torch::sum(prod);
       return res;
@@ -70,3 +74,23 @@ class NeedlemanWunschFunctionBackward : public Function<NeedlemanWunschFunctionB
 }
 
 */
+
+void softmax_operator_example(){
+  auto op = SoftMaxOp();
+  auto x = torch::tensor({0.1, 1.0, 0.0001}, torch::kFloat);
+  auto P = torch::tensor({
+	  {0.1, 0.2, 0.3},
+  	  {0.4, 0.5, 0.6},
+	  {0.7, 0.8, 0.9}
+    }, torch::kFloat);
+  auto m = op.max(x);
+  std::cout << m << std::endl;
+  auto h = op.hessian_product(P, x);
+  std::cout << h << std::endl;
+}
+
+
+int main() {
+  // Example on running the softmax op function
+  softmax_operator_example();
+}
