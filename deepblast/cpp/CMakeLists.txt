@@ -20,6 +20,8 @@ set(CMAKE_CXX_STANDARD 14)
 # include_directories(${GTEST_INCLUDE_DIRS})
 
 
+find_package(PythonLibs REQUIRED)
+include_directories(${PYTHON_INCLUDE_DIRS})
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
 
@@ -27,8 +29,10 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fpic")
 # Build 1 only use executable
 add_executable(nw nw.cpp)
 # add_executable(test_nw nw.cpp test_nw.cpp)
-target_link_libraries(nw ${TORCH_LIBRARIES})
+target_link_libraries(nw ${TORCH_LIBRARIES} ${PYTHON_LIBRARIES})
 set_property(TARGET nw PROPERTY CXX_STANDARD 14)
+
+# target_link_libraries(nw -Wl,--no-as-needed nwcpp)
 
 # Build 2 attempt to use Gtest
 # add_library(nw nw.cpp)

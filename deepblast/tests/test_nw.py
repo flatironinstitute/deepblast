@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from deepblast.nw import NeedlemanWunschDecoder
+from deepblast.nw import NeedlemanWunschDecoder, NeedlemanWunschFunction
 from deepblast.ops import operators
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
@@ -41,6 +41,14 @@ class TestSoftmax(unittest.TestCase):
         assert torch.allclose(arg, exp_arg, atol=1e-3, rtol=1e-3)
         assert torch.allclose(h, exp_h, atol=1e-3, rtol=1e-3)
 
+class TestNeedlemanWunschTimer(unittest.TestCase):
+    def test_autograd(self):
+        N = 700
+        M = 700
+        theta = torch.randn(N, M, requires_grad=True)
+        A = torch.Tensor([1.])
+        y = NeedlemanWunschFunction.apply(theta, A, 'softmax')
+        y.sum().backward()
 
 class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):

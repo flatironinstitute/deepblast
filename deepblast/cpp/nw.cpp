@@ -1,5 +1,5 @@
 #include <torch/torch.h>
-// #include <torch/extension.h> // add this when building bindings
+#include <torch/extension.h> // add this when building bindings
 #include <iostream>
 
 using namespace torch::autograd;
@@ -187,6 +187,14 @@ class NeedlemanWunschFunction : public Function<NeedlemanWunschFunction>{
     }
 };
 
+/*
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("forward", &_forward_pass, "Nw forward");
+  m.def("backward", &_backward_pass, "NW backward");
+  m.def("adjoint_forward", &_adjoint_forward_pass, "NW adjoint forward");
+  m.def("adjoint_backward", &_adjoint_backward_pass, "NW adjoint backward");
+}
+*/
 
 /* Below are testing functions. */
 void test_softmax_operator(){
@@ -251,7 +259,17 @@ void test_adjoint_backward_loop(){
   _adjoint_backward_pass(E, Q, Qd);
 }
 
+void test_autograd(){
+  auto N = 700;
+  auto M = 700;
+  auto theta = torch::randn({N, M}, torch::requires_grad());
+  auto A = torch::tensor({1.}, torch::requires_grad());
+  auto y = NeedlemanWunschFunction::apply(theta, A);
+  y.sum().backward();
+}
+
 int main() {
+  /*
   // Example on running the softmax op function
   std::cout << "Test Softmax" << std::endl;
   test_softmax_operator();
@@ -275,4 +293,9 @@ int main() {
   std::cout << "Test Adjoint Backward loop" << std::endl;
   test_adjoint_backward_loop();
   std::cout << "Adjoint Backward loop test passed" << std::endl;
+  */
+  // Smoke test on autograd
+  std::cout << "Test Autograd" << std::endl;
+  test_autograd();
+  std::cout << "Autograd test passed" << std::endl;
 }
