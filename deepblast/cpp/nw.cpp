@@ -20,8 +20,7 @@ class SoftMaxOp {
       return {M, A};
     }
 
-    static torch::Tensor hessian_product(torch::Tensor Z,
-					 torch::Tensor P){
+    static torch::Tensor hessian_product(torch::Tensor Z, torch::Tensor P){
       auto prod = P * Z;
       auto res = prod - P * torch::sum(prod);
       return res;
@@ -101,6 +100,7 @@ tensor_list _adjoint_forward_pass(torch::Tensor Q,
   }
   return {Vd.index({N, M}), Qd};
 };
+
 
 torch::Tensor _adjoint_backward_pass(torch::Tensor E,
 				     torch::Tensor Q,
@@ -187,16 +187,17 @@ class NeedlemanWunschFunction : public Function<NeedlemanWunschFunction>{
     }
 };
 
-/*
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("forward", &_forward_pass, "Nw forward");
-  m.def("backward", &_backward_pass, "NW backward");
-  m.def("adjoint_forward", &_adjoint_forward_pass, "NW adjoint forward");
-  m.def("adjoint_backward", &_adjoint_backward_pass, "NW adjoint backward");
-}
-*/
 
-/* Below are testing functions. */
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("adjoint_backward", &_adjoint_backward_pass, "NeedlemanWunsch adjoint backward");
+  m.def("adjoint_forward", &_adjoint_forward_pass, "NeedlemanWunsch adjoint forward");
+  m.def("backward", &_backward_pass, "NeedlemanWunsch backward");
+  m.def("forward", &_forward_pass, "NeedlemanWunsch forward");
+}
+
+
+/* Below are testing functions. Uncomment and recompile to run these tests.*/
+/*
 void test_softmax_operator(){
   auto x = torch::tensor({0.1, 1.0, 0.0001}, torch::kFloat);
   auto P = torch::tensor({
@@ -269,7 +270,7 @@ void test_autograd(){
 }
 
 int main() {
-  /*
+
   // Example on running the softmax op function
   std::cout << "Test Softmax" << std::endl;
   test_softmax_operator();
@@ -293,9 +294,10 @@ int main() {
   std::cout << "Test Adjoint Backward loop" << std::endl;
   test_adjoint_backward_loop();
   std::cout << "Adjoint Backward loop test passed" << std::endl;
-  */
+
   // Smoke test on autograd
   std::cout << "Test Autograd" << std::endl;
   test_autograd();
   std::cout << "Autograd test passed" << std::endl;
 }
+*/

@@ -43,8 +43,8 @@ class TestSoftmax(unittest.TestCase):
 
 class TestNeedlemanWunschTimer(unittest.TestCase):
     def test_autograd(self):
-        N = 700
-        M = 700
+        N = 100
+        M = 100
         theta = torch.randn(N, M, requires_grad=True)
         A = torch.Tensor([1.])
         y = NeedlemanWunschFunction.apply(theta, A, 'softmax')
