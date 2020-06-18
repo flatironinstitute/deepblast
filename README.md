@@ -1,3 +1,5 @@
-# deepblast
+# Installation
 
-Basic Local Alignment Search Tool using deep learning
+```
+pip install -e .
+```
