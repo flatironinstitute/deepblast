@@ -15,6 +15,18 @@ def state_f(z):
     else:
         return m
 
+def tmstate_f(z):
+    """ Parsing TM-specific state string. """
+    x, m, y = 0, 1, 2  # state numberings
+
+    if z == '1':
+        return x
+    if z == '2':
+        return y
+    else:
+        return m
+
+
 
 def states2matrix(states, N, M):
     """ Converts state string to alignment matrix. """
@@ -40,8 +52,64 @@ def states2matrix(states, N, M):
     return mat
 
 
-class AlignmentDataset(Dataset):
-    """ Dataset for training and testing. """
+class TMAlignDataset(Dataset):
+    """ Dataset for training and testing.
+
+    This is appropriate for the Malisam / Malidup datasets.
+    """
+    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
+        """ Read in pairs of proteins.
+
+        This assumes that columns are labeled as
+        | chain1_name | chain2_name | tmscore1 | tmscore2 | rmsd |
+        | chain1 | chain2 | alignment |
+
+        Parameters
+        ----------
+        pairs: np.array of str
+            Pairs of proteins that are aligned.  This includes gaps
+            and require that the proteins have the same length
+        """
+        self.pairs = pairs
+        self.tokenizer = tokenizer
+
+    def __getitem__(self, i):
+        """ Gets alignment pair.
+
+        Parameters
+        ----------
+        i : int
+           Index of item
+
+        Returns
+        -------
+        gene : torch.Tensor
+           Encoded representation of protein of interest
+        pos : torch.Tensor
+           Encoded representation of protein that aligns with `gene`.
+        states : torch.Tensor
+           Alignment string
+        alignment_matrix : torch.Tensor
+           Ground truth alignment matrix
+        """
+        gene = self.pairs.loc[i, 'chain1_name']
+        pos = self.pairs.loc[i, 'chain2_name']
+        states = self.pairs.loc[i, 'alignment'].values
+        states = torch.Tensor(list(map(tmstate_f, stats)))
+        gene = self.tokenizer(str.encode(gene))
+        pos = self.tokenizer(str.encode(pos))
+        gene = torch.Tensor(gene).long()
+        pos = torch.Tensor(pos).long()
+        N, M = len(gene), len(pos)
+        alignment_matrix = torch.from_numpy(states2matrix(states, N, M))
+        return gene, pos, states, alignment_matrix
+
+
+class MaliAlignmentDataset(Dataset):
+    """ Dataset for training and testing Mali datasets
+
+    This is appropriate for the Malisam / Malidup datasets.
+    """
     def __init__(self, pairs, tokenizer=UniprotTokenizer()):
         """ Read in pairs of proteins
 
