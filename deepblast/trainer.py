@@ -47,21 +47,22 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        train_dataset = TMAlignDataset(self.hparams.train_pairs, clip_ends=True)
+        train_dataset = TMAlignDataset(
+            self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size,
             shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
     def valid_dataloader(self):
-        valid_dataset = TMAlignDataset(self.hparams.train_pairs)
+        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        test_dataset = TMAlignDataset(self.hparams.train_pairs)
+        test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
@@ -131,6 +132,11 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=32)
         parser.add_argument(
             '--finetune', help='Perform finetuning (does not work with mean)',
+            default=False, required=False, type=bool)
+        parser.add_argument(
+            '--clip-ends',
+            help=('Specifies if training start/end gaps should be removed. '
+                  'This will speed up runtime.'),
             default=False, required=False, type=bool)
         parser.add_argument(
             '--epochs', help='Training batch size',

@@ -20,7 +20,8 @@ class TestTrainer(unittest.TestCase):
             '--output-directory', self.output_dir,
             '--epochs', '1',
             '--batch-size', '1',
-            '--num-workers', '1'
+            '--num-workers', '1',
+            '--clip-ends', 'True'
         ]
         parser = argparse.ArgumentParser(add_help=False)
         parser = LightningAligner.add_model_specific_args(parser)
