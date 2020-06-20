@@ -64,7 +64,8 @@ class TestTMAlignDataset(unittest.TestCase):
         self.assertEqual(len(x), 3)
 
     def test_getitem(self):
-        x = TMAlignDataset(self.pairs, tm_threshold=0, pad_ends=True)
+        x = TMAlignDataset(self.pairs, tm_threshold=0,
+                           pad_ends=True, clip_ends=False)
         res = x[0]
         self.assertEqual(len(res), 4)
         gene, pos, states, alignment_matrix = res
@@ -73,6 +74,18 @@ class TestTMAlignDataset(unittest.TestCase):
         self.assertEqual(len(pos), 23)
         self.assertEqual(len(states), 105)
         self.assertEqual(alignment_matrix.shape, (105, 23))
+
+    def test_clip_getitem(self):
+        x = TMAlignDataset(self.pairs, tm_threshold=0,
+                           pad_ends=True, clip_ends=True)
+        res = x[0]
+        self.assertEqual(len(res), 4)
+        gene, pos, states, alignment_matrix = res
+        # test the lengths
+        self.assertEqual(len(gene), 23)
+        self.assertEqual(len(pos), 23)
+        self.assertEqual(len(states), 23)
+        self.assertEqual(alignment_matrix.shape, (23, 23))
 
 
 class TestMaliDataset(unittest.TestCase):

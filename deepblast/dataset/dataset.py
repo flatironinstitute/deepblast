@@ -27,20 +27,12 @@ def tmstate_f(z):
 def clip_boundaries(X, Y, A):
     """ Remove xs and ys from ends. """
     first = A.index(m)
-    last = A[::-1].index(m)
-
-    # Reconstruct gaps in X and Y
-    prev_a, next_a = A[:-1], A[1:]
-    state_diffs = np.array(list(map(state_diff_f, transitions)))
-    coords = np.cumsum(state_diffs, axis=0).tolist()
-    coords = [(0, 0)] + list(map(tuple, coords))
-    # convert to bipartite matching
-    x_coords, y_coords = zip(*coords)
-
-
+    last = len(A) - A[::-1].index(m)
+    X, Y = states2alignment(A, X, Y)
+    X_ = X[first:last].replace('-', '')
+    Y_ = Y[first:last].replace('-', '')
     A_ = A[first:last]
     return X_, Y_, A_
-
 
 def state_diff_f(X):
     a, b = X
@@ -79,32 +71,6 @@ def states2edges(states):
     coords = [(0, 0)] + list(map(tuple, coords))
     return coords
 
-def states2alignment(states, X, Y):
-    """ Converts state string to gapped alignments """
-    coords = np.array(states2edges(states))
-    # convert redudant indexes to -1
-
-    i, j = 0, 0
-    res = []
-    for k in range(len(states)):
-        if states[k] == x:
-            cx = X[i]
-            cy = '-'
-            i += 1
-        if states[k] == y:
-            cx = '-'
-            cy = Y[j]
-            j += 1
-        if states[k] == m:
-            cx = X[i]
-            cy = Y[j]
-            i += 1
-            j += 1
-        res.append((cx, cy))
-
-    aligned_x, aligned_y = zip(*res)
-    return ''.join(aligned_x), ''.join(aligned_y)
-
 
 def states2matrix(states, N, M, sparse=False):
     """ Converts state string to alignment matrix.
@@ -127,6 +93,30 @@ def states2matrix(states, N, M, sparse=False):
         return mat
     else:
         return mat.toarray()
+
+
+def states2alignment(states, X, Y):
+    """ Converts state string to gapped alignments """
+    i, j = 0, 0
+    res = []
+    for k in range(len(states)):
+        if states[k] == x:
+            cx = X[i]
+            cy = '-'
+            i += 1
+        if states[k] == y:
+            cx = '-'
+            cy = Y[j]
+            j += 1
+        if states[k] == m:
+            cx = X[i]
+            cy = Y[j]
+            i += 1
+            j += 1
+        res.append((cx, cy))
+
+    aligned_x, aligned_y = zip(*res)
+    return ''.join(aligned_x), ''.join(aligned_y)
 
 
 class AlignmentDataset(Dataset):
@@ -179,7 +169,7 @@ class TMAlignDataset(AlignmentDataset):
         clip_ends: bools
             Removes gaps at the ends of the alignments.
             This will trim the sequences to force the first and
-            last positions in the alignment to correspond to matches.
+
         pad_ends : bool
             Specifies if start/stop tokens should be incorporated into the
             alignment.
@@ -189,7 +179,7 @@ class TMAlignDataset(AlignmentDataset):
         pairs['tm'] = np.maximum(pairs['tmscore1'], pairs['tmscore2'])
         idx = pairs['tm'] > self.tm_threshold
         self.pairs = pairs.loc[idx]
-        self.clip_end = clip_ends
+        self.clip_ends = clip_ends
         self.pad_ends = pad_ends
 
     def __len__(self):
@@ -218,6 +208,8 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
+        if self.clip_ends:
+            gene, pos, states = clip_boundaries(gene, pos, states)
         if self.pad_ends:
             states = [m] + states + [m]
         states = torch.Tensor(states)
