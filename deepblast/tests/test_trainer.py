@@ -32,7 +32,7 @@ class TestTrainer(unittest.TestCase):
         # profiler = AdvancedProfiler()
 
         self.trainer = Trainer(
-            max_nb_epochs=1,
+            max_epochs=1,
             # profiler=profiler,
             # fast_dev_run=True
             # auto_scale_batch_size='power'
