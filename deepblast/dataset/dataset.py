@@ -17,13 +17,30 @@ def state_f(z):
 
 def tmstate_f(z):
     """ Parsing TM-specific state string. """
-
     if z == '1':
         return x
     if z == '2':
         return y
     else:
         return m
+
+def clip_boundaries(X, Y, A):
+    """ Remove xs and ys from ends. """
+    first = A.index(m)
+    last = A[::-1].index(m)
+
+    # Reconstruct gaps in X and Y
+    prev_a, next_a = A[:-1], A[1:]
+    state_diffs = np.array(list(map(state_diff_f, transitions)))
+    coords = np.cumsum(state_diffs, axis=0).tolist()
+    coords = [(0, 0)] + list(map(tuple, coords))
+    # convert to bipartite matching
+    x_coords, y_coords = zip(*coords)
+
+
+    A_ = A[first:last]
+    return X_, Y_, A_
+
 
 def state_diff_f(X):
     a, b = X
@@ -52,6 +69,43 @@ def state_diff_f(X):
     else:
         raise ValueError(f'`Transition` ({a}, {b}) is not allowed.')
 
+
+def states2edges(states):
+    """ Converts state string to bipartite matching. """
+    prev_s, next_s = states[:-1], states[1:]
+    transitions = list(zip(prev_s, next_s))
+    state_diffs = np.array(list(map(state_diff_f, transitions)))
+    coords = np.cumsum(state_diffs, axis=0).tolist()
+    coords = [(0, 0)] + list(map(tuple, coords))
+    return coords
+
+def states2alignment(states, X, Y):
+    """ Converts state string to gapped alignments """
+    coords = np.array(states2edges(states))
+    # convert redudant indexes to -1
+
+    i, j = 0, 0
+    res = []
+    for k in range(len(states)):
+        if states[k] == x:
+            cx = X[i]
+            cy = '-'
+            i += 1
+        if states[k] == y:
+            cx = '-'
+            cy = Y[j]
+            j += 1
+        if states[k] == m:
+            cx = X[i]
+            cy = Y[j]
+            i += 1
+            j += 1
+        res.append((cx, cy))
+
+    aligned_x, aligned_y = zip(*res)
+    return ''.join(aligned_x), ''.join(aligned_y)
+
+
 def states2matrix(states, N, M, sparse=False):
     """ Converts state string to alignment matrix.
 
@@ -64,11 +118,7 @@ def states2matrix(states, N, M, sparse=False):
     M : int
        Length of sequence y.
     """
-    prev_s, next_s = states[:-1], states[1:]
-    transitions = list(zip(prev_s, next_s))
-    state_diffs = np.array(list(map(state_diff_f, transitions)))
-    coords = np.cumsum(state_diffs, axis=0).tolist()
-    coords = [(0, 0)] + list(map(tuple, coords))
+    coords = states2edges(states)
     data = np.ones(len(coords))
     row, col = list(zip(*coords))
     row, col = np.array(row), np.array(col)
@@ -168,7 +218,6 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
-        m = 1  # specifies match state
         if self.pad_ends:
             states = [m] + states + [m]
         states = torch.Tensor(states)

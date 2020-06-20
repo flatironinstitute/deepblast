@@ -1,7 +1,7 @@
 import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
-from deepblast.dataset.dataset import tmstate_f, states2matrix
+from deepblast.dataset.dataset import tmstate_f, states2matrix, states2alignment
 import pandas as pd
 import numpy as np
 
@@ -26,6 +26,28 @@ class TestDataUtils(unittest.TestCase):
         exp_coords = [(0, 0), (1, 0), (2, 0), (3, 0),
                       (4, 1), (5, 2), (5, 3), (5, 4), (5, 5)]
         self.assertListEqual(res_coords, exp_coords)
+
+    def test_states2alignment_1(self):
+        s = "111:::222"
+        s = list(map(tmstate_f, s))
+        X = "123456"
+        Y = "abcdef"
+        exp_x = "123456---"
+        exp_y = "---abcdef"
+        res_x, res_y = states2alignment(s, X, Y)
+        self.assertEqual(res_x, exp_x)
+        self.assertEqual(res_y, exp_y)
+
+    def test_states2alignment_2(self):
+        s = "111:::111"
+        s = list(map(tmstate_f, s))
+        X = "123456789"
+        Y = "abc"
+        exp_x = "123456789"
+        exp_y = "---abc---"
+        res_x, res_y = states2alignment(s, X, Y)
+        self.assertEqual(res_x, exp_x)
+        self.assertEqual(res_y, exp_y)
 
 
 class TestTMAlignDataset(unittest.TestCase):
