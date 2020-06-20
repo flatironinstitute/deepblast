@@ -33,8 +33,8 @@ setup(name='deepblast',
           'numpy',
           'scipy',
           'torch',
-          'pytorch-lightning',
-          'biopython'
+          'scikit-learn',
+          'pytorch-lightning'
       ],
       classifiers=classifiers,
       package_data={})
