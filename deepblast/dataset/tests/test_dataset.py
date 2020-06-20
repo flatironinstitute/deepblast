@@ -53,18 +53,13 @@ class TestDataUtils(unittest.TestCase):
 class TestTMAlignDataset(unittest.TestCase):
     def setUp(self):
         self.data_path = get_data_path('test_tm_align.tab')
-        self.pairs = pd.read_table(self.data_path, header=None)
-        self.pairs.columns = [
-            'chain1_name', 'chain2_name', 'tmscore1', 'tmscore2', 'rmsd',
-            'chain1', 'chain2', 'alignment'
-        ]
 
     def test_constructor(self):
-        x = TMAlignDataset(self.pairs)
+        x = TMAlignDataset(self.data_path)
         self.assertEqual(len(x), 3)
 
     def test_getitem(self):
-        x = TMAlignDataset(self.pairs, tm_threshold=0,
+        x = TMAlignDataset(self.data_path, tm_threshold=0,
                            pad_ends=True, clip_ends=False)
         res = x[0]
         self.assertEqual(len(res), 4)
@@ -76,7 +71,7 @@ class TestTMAlignDataset(unittest.TestCase):
         self.assertEqual(alignment_matrix.shape, (105, 23))
 
     def test_clip_getitem(self):
-        x = TMAlignDataset(self.pairs, tm_threshold=0,
+        x = TMAlignDataset(self.data_path, tm_threshold=0,
                            pad_ends=True, clip_ends=True)
         res = x[0]
         self.assertEqual(len(res), 4)

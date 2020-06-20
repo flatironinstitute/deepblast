@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset
@@ -149,9 +150,10 @@ class TMAlignDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, pairs, tokenizer=UniprotTokenizer(),
+    def __init__(self, path, tokenizer=UniprotTokenizer(),
                  tm_threshold=0.4, clip_ends=False, pad_ends=False):
         """ Read in pairs of proteins.
+
 
         This assumes that columns are labeled as
         | chain1_name | chain2_name | tmscore1 | tmscore2 | rmsd |
@@ -159,8 +161,8 @@ class TMAlignDataset(AlignmentDataset):
 
         Parameters
         ----------
-        pairs: np.array of str
-            Pairs of proteins that are aligned.  This includes gaps
+        patys: np.array of str
+            Data path to aligned protein pairs.  This includes gaps
             and require that the proteins have the same length
         tokenizer: UniprotTokenizer
             Converts residues to one-hot encodings
@@ -176,9 +178,15 @@ class TMAlignDataset(AlignmentDataset):
         """
         self.tokenizer = tokenizer
         self.tm_threshold = tm_threshold
-        pairs['tm'] = np.maximum(pairs['tmscore1'], pairs['tmscore2'])
-        idx = pairs['tm'] > self.tm_threshold
-        self.pairs = pairs.loc[idx]
+        self.pairs = pd.read_table(path, header=None)
+        self.pairs.columns = [
+            'chain1_name', 'chain2_name', 'tmscore1', 'tmscore2', 'rmsd',
+            'chain1', 'chain2', 'alignment'
+        ]
+        self.pairs['tm'] = np.maximum(
+            self.pairs['tmscore1'], self.pairs['tmscore2'])
+        idx = self.pairs['tm'] > self.tm_threshold
+        self.pairs = self.pairs.loc[idx]
         self.clip_ends = clip_ends
         self.pad_ends = pad_ends
 
