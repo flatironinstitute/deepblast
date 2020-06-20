@@ -1,6 +1,5 @@
 import datetime
 import argparse
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter

@@ -41,6 +41,7 @@ class TestSoftmax(unittest.TestCase):
         assert torch.allclose(arg, exp_arg, atol=1e-3, rtol=1e-3)
         assert torch.allclose(h, exp_h, atol=1e-3, rtol=1e-3)
 
+
 class TestNeedlemanWunschTimer(unittest.TestCase):
     def test_autograd(self):
         N = 100
@@ -49,6 +50,7 @@ class TestNeedlemanWunschTimer(unittest.TestCase):
         A = torch.Tensor([1.])
         y = NeedlemanWunschFunction.apply(theta, A, 'softmax')
         y.sum().backward()
+
 
 class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
