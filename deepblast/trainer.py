@@ -47,7 +47,7 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        train_dataset = TMAlignDataset(self.hparams.train_pairs)
+        train_dataset = TMAlignDataset(self.hparams.train_pairs, clip_ends=True)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size,
             shuffle=True, num_workers=self.hparams.num_workers)

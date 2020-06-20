@@ -36,14 +36,30 @@ def clip_boundaries(X, Y, A):
     return X_, Y_, A_
 
 def state_diff_f(X):
+    """ Constructs a state transition element.
+
+    Notes
+    -----
+    There is a bit of a paradox regarding beginning / ending gaps.
+    To see this, try to derive an alignment matrix for the
+    following alignments
+
+    XXXMMMXXX
+    MMYYXXMM
+
+    It turns out it isn't possible to derive traversal rules
+    that are consistent between these two alignments
+    without explicitly handling start / end states as separate
+    end states. The current workaround is to force the start / end
+    states to be match states (similar to the needleman-wunsch algorithm).
+    """
     a, b = X
-    """ Constructs a state transition element. """
     if a == x and b == x:
         # Transition XX, increase tape on X
         return (1, 0)
     if a == x and b == m:
-        # Transition XM, increase tape on X
-        return (1, 0)
+        # Transition XM, increase tape on both X and Y
+        return (1, 1)
     if a == m and b == m:
         # Transition MM, increase tape on both X and Y
         return (1, 1)
@@ -57,8 +73,14 @@ def state_diff_f(X):
         # Transition YY, increase tape on y
         return (0, 1)
     if a == y and b == m:
-        # Transition YM, increase tape on y
+        # Transition YM, increase tape on both X and Y
+        return (1, 1)
+    if a == x and b == y:
+        # Transition XY increase tape on y
         return (0, 1)
+    if a == y and b == x:
+        # Transition YX increase tape on x
+        return (1, 0)
     else:
         raise ValueError(f'`Transition` ({a}, {b}) is not allowed.')
 
@@ -151,7 +173,7 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
-                 tm_threshold=0.4, clip_ends=False, pad_ends=False):
+                 tm_threshold=0.4, clip_ends=False, pad_ends=True):
         """ Read in pairs of proteins.
 
 
@@ -170,11 +192,13 @@ class TMAlignDataset(AlignmentDataset):
             Minimum threshold to investigate alignments
         clip_ends: bools
             Removes gaps at the ends of the alignments.
-            This will trim the sequences to force the first and
+            This will trim the sequences to force the tailing gaps to be removed.
+            Default : False.
 
-        pad_ends : bool
-            Specifies if start/stop tokens should be incorporated into the
-            alignment.
+        Notes
+        -----
+        There are start/stop tokens that are incorporated into the
+        alignment. The needleman-wunsch algorithm assumes this to be true.
         """
         self.tokenizer = tokenizer
         self.tm_threshold = tm_threshold
@@ -188,7 +212,7 @@ class TMAlignDataset(AlignmentDataset):
         idx = self.pairs['tm'] > self.tm_threshold
         self.pairs = self.pairs.loc[idx]
         self.clip_ends = clip_ends
-        self.pad_ends = pad_ends
+        self.pad_ends = True
 
     def __len__(self):
         return self.pairs.shape[0]

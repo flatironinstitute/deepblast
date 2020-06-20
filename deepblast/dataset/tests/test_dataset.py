@@ -8,23 +8,46 @@ import numpy as np
 
 class TestDataUtils(unittest.TestCase):
     def test_states2matrix_only_matches(self):
-        s = "111:::111"
+        s = ":11::11:"
         s = list(map(tmstate_f, s))
-        self.assertEqual(s, [0, 0, 0, 1, 1, 1, 0, 0, 0])
-        M = states2matrix(s, 9, 3, sparse=True)
+        self.assertEqual(s, [1, 0, 0, 1, 1, 0, 0, 1])
+        M = states2matrix(s, 8, 4, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
-        exp_coords = [(0, 0), (1, 0), (2, 0), (3, 0), (4, 1),
-                      (5, 2), (6, 2), (7, 2), (8, 2)]
+        exp_coords = [(0, 0), (1, 0), (2, 0),
+                      (3, 1), (4, 2),
+                      (5, 2), (6, 2), (7, 3)]
         self.assertListEqual(res_coords, exp_coords)
 
     def test_states2matrix_shifted(self):
-        s = "111:::222"
+        s = ":11::22:"
         s = list(map(tmstate_f, s))
-        self.assertEqual(s, [0, 0, 0, 1, 1, 1, 2, 2, 2])
-        M = states2matrix(s, 6, 6, sparse=True, )
+        self.assertEqual(s, [1, 0, 0, 1, 1, 2, 2, 1])
+        M = states2matrix(s, 6, 6, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
-        exp_coords = [(0, 0), (1, 0), (2, 0), (3, 0),
-                      (4, 1), (5, 2), (5, 3), (5, 4), (5, 5)]
+        exp_coords = [(0, 0), (1, 0), (2, 0),
+                      (3, 1), (4, 2),
+                      (4, 3), (4, 4), (5, 5)]
+        self.assertListEqual(res_coords, exp_coords)
+
+    def test_states2matrix_swap_x(self):
+        s = "::2211::"
+        s = list(map(tmstate_f, s))
+        self.assertEqual(s, [1, 1, 2, 2, 0, 0, 1, 1])
+        M = states2matrix(s, 6, 6, sparse=True)
+        res_coords = list(zip(list(M.row), list(M.col)))
+        exp_coords = [(0, 0), (1, 1),
+                      (1, 2), (1, 3), (2, 3),
+                      (3, 3), (4, 4), (5, 5)]
+        self.assertListEqual(res_coords, exp_coords)
+
+    def test_states2matrix_swap_y(self):
+        s = "::1122::"
+        s = list(map(tmstate_f, s))
+        self.assertEqual(s, [1, 1, 0, 0, 2, 2, 1, 1])
+        M = states2matrix(s, 6, 6, sparse=True)
+        res_coords = list(zip(list(M.row), list(M.col)))
+        exp_coords = [(0, 0), (1, 1), (2, 1), (3, 1),
+                      (3, 2), (3, 3), (4, 4), (5, 5)]
         self.assertListEqual(res_coords, exp_coords)
 
     def test_states2alignment_1(self):
