@@ -1,4 +1,3 @@
-import re
 import sys
 import subprocess
 
@@ -7,8 +6,7 @@ output = sys.argv[2]        # tm-align aggregated output
 path = sys.argv[3]          # path to pdb
 # by default it should be at
 # /mnt/home/protfold/ceph/PDB_mirror/PDB/data/structures/divided/pdb
-num_jobs = int(sys.argv[4]) # number of jobs to run concurrently
-
+num_jobs = int(sys.argv[4])  # number of jobs to run concurrently
 
 procs = []
 for line in open(fname):

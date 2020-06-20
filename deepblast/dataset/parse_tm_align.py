@@ -1,36 +1,35 @@
 import re
-import os
 import sys
-import subprocess
 
 
 """ Example of TM-align output
 0 |
-1 |   **************************************************************************
-2 |   *                        TM-align (Version 20170708)                     *
-3 |   * An algorithm for protein structure alignment and comparison            *
-4 |   * Based on statistics:                                                   *
-5 |   *       0.0 < TM-score < 0.30, random structural similarity              *
-6 |   *       0.5 < TM-score < 1.00, in about the same fold                    *
-7 |   * Reference: Y Zhang and J Skolnick, Nucl Acids Res 33, 2302-9 (2005)    *
-8 |   * Please email your comments and suggestions to: zhng@umich.edu          *
-9 |   **************************************************************************
+1 |  **************************************************************************
+2 |  *                        TM-align (Version 20170708)                     *
+3 |  * An algorithm for protein structure alignment and comparison            *
+4 |  * Based on statistics:                                                   *
+5 |  *       0.0 < TM-score < 0.30, random structural similarity              *
+6 |  *       0.5 < TM-score < 1.00, in about the same fold                    *
+7 |  * Reference: Y Zhang and J Skolnick, Nucl Acids Res 33, 2302-9 (2005)    *
+8 |  * Please email your comments and suggestions to: zhng@umich.edu          *
+9 |  **************************************************************************
 10|
-11|  Name of Chain_1: /scratch/pdb3itf.ent
-12|  Name of Chain_2: /scratch/pdb2mce.ent
-13|  Length of Chain_1:  103 residues
-14|  Length of Chain_2:   21 residues
+11| Name of Chain_1: /scratch/pdb3itf.ent
+12| Name of Chain_2: /scratch/pdb2mce.ent
+13| Length of Chain_1:  103 residues
+14| Length of Chain_2:   21 residues
 15|
-16|  Aligned length=   21, RMSD=   1.23, Seq_ID=n_identical/n_aligned= 0.048
-17|  TM-score= 0.18482 (if normalized by length of Chain_1)
-18|  TM-score= 0.28926 (if normalized by length of Chain_2)
-19|  (You should use TM-score normalized by length of the reference protein)
+16| Aligned length=   21, RMSD=   1.23, Seq_ID=n_identical/n_aligned= 0.048
+17| TM-score= 0.18482 (if normalized by length of Chain_1)
+18| TM-score= 0.28926 (if normalized by length of Chain_2)
+19| (You should use TM-score normalized by length of the reference protein)
 20|
-21|  (":" denotes aligned residue pairs of d < 5.0 A, "." denotes other aligned residues)
-22|  STQSHFDGISLTEHQRQQRDLQQARHEQPPVNVSELETHRLVTAENFDENAVRAQAEKANEQIARQVEAKVRNQYRLLTPEQQAVLNEKHQQREQLRDVTQWQ
-23|                                                 :::::::::::::::::::::
-24|  -----------------------------------------------DAGHGQISHKRHKTDSFVGLM-----------------------------------
+21| (":" denotes aligned residue pairs of d < 5.0 A, "." denotes other aligned
+22| STQSHFDGISLTEHQRQQRDLQQARHEQPPVNVSELETHRLVTAENFDENAVRAQAEKANEQIARQVEAKVRNQY
+23|                                                :::::::::::::::::::::
+24| -----------------------------------------------DAGHGQISHKRHKTDSFVGLM-------
 """
+
 
 def aln_f(X):
     x, a, y = X
@@ -40,6 +39,7 @@ def aln_f(X):
         return '2'
     else:
         return a
+
 
 def parse_block(lines):
     """
@@ -78,7 +78,7 @@ def parse_block(lines):
     chain1 = lines[22].rstrip().lstrip()
     aln = lines[23]
     chain2 = lines[24].rstrip().lstrip()
-    rmsd = float(re.split('\s+', lines[16].lstrip().split(', ')[1])[1])
+    rmsd = float(re.split(r'\s+', lines[16].lstrip().split(', ')[1])[1])
     zlist = list(zip(chain1, aln, chain2))
     alignment = ''.join(list(map(aln_f, zlist)))
     chain1 = chain1.replace('-', '')

@@ -16,6 +16,7 @@ def state_f(z):
     else:
         return m
 
+
 def tmstate_f(z):
     """ Parsing TM-specific state string. """
     if z == '1':
@@ -24,6 +25,7 @@ def tmstate_f(z):
         return y
     else:
         return m
+
 
 def clip_boundaries(X, Y, A):
     """ Remove xs and ys from ends. """
@@ -34,6 +36,7 @@ def clip_boundaries(X, Y, A):
     Y_ = Y[first:last].replace('-', '')
     A_ = A[first:last]
     return X_, Y_, A_
+
 
 def state_diff_f(X):
     """ Constructs a state transition element.
@@ -63,7 +66,7 @@ def state_diff_f(X):
     if a == m and b == m:
         # Transition MM, increase tape on both X and Y
         return (1, 1)
-    if a == m and b == x :
+    if a == m and b == x:
         # Transition MX, increase tape on X
         return (1, 0)
     if a == m and b == y:
@@ -167,6 +170,7 @@ class AlignmentDataset(Dataset):
             for i in range(iter_start, iter_end):
                 yield self.__getitem__(i)
 
+
 class TMAlignDataset(AlignmentDataset):
     """ Dataset for training and testing.
 
@@ -192,8 +196,8 @@ class TMAlignDataset(AlignmentDataset):
             Minimum threshold to investigate alignments
         clip_ends: bools
             Removes gaps at the ends of the alignments.
-            This will trim the sequences to force the tailing gaps to be removed.
-            Default : False.
+            This will trim the sequences to force the tailing gaps
+            to be removed. Default : False.
 
         Notes
         -----
@@ -306,4 +310,3 @@ class MaliAlignmentDataset(AlignmentDataset):
         N, M = len(gene), len(pos)
         alignment_matrix = torch.from_numpy(states2matrix(states, N, M))
         return gene, pos, states, alignment_matrix
-

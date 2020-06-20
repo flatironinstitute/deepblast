@@ -1,9 +1,9 @@
 import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
-from deepblast.dataset.dataset import tmstate_f, states2matrix, states2alignment
+from deepblast.dataset.dataset import (
+    tmstate_f, states2matrix, states2alignment)
 import pandas as pd
-import numpy as np
 
 
 class TestDataUtils(unittest.TestCase):
