@@ -28,8 +28,8 @@ def _forward_pass(theta, A, operator='softmax'):
     N, M = theta.size()
     V = new(N + 1, M + 1).zero_()     # N x M
     Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-    V[:, 0] = -1e10
-    V[0, :] = -1e10
+    V[:, 0] = -1e10                   # TODO: Probably can set these
+    V[0, :] = -1e10                   # two zero to enable local alignments.
     V[0, 0] = 0.
     Q[N+1, M+1] = 1
     for i in range(1, N + 1):

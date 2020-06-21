@@ -1,6 +1,5 @@
 import datetime
 import argparse
-import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -8,7 +7,7 @@ from torch.optim.lr_scheduler import StepLR
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset import AlignmentDataset
+from deepblast.dataset import TMAlignDataset
 from deepblast.losses import SoftAlignmentLoss
 
 
@@ -47,24 +46,22 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        pairs = pd.read_table(self.hparams.train_pairs, header=None)
-        train_dataset = AlignmentDataset(pairs)
+        train_dataset = TMAlignDataset(
+            self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size,
             shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
     def valid_dataloader(self):
-        pairs = pd.read_table(self.hparams.valid_pairs, header=None)
-        valid_dataset = AlignmentDataset(pairs)
+        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        pairs = pd.read_table(self.hparams.testing_pairs, header=None)
-        test_dataset = AlignmentDataset(pairs)
+        test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
@@ -134,6 +131,11 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=32)
         parser.add_argument(
             '--finetune', help='Perform finetuning (does not work with mean)',
+            default=False, required=False, type=bool)
+        parser.add_argument(
+            '--clip-ends',
+            help=('Specifies if training start/end gaps should be removed. '
+                  'This will speed up runtime.'),
             default=False, required=False, type=bool)
         parser.add_argument(
             '--epochs', help='Training batch size',

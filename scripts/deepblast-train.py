@@ -6,7 +6,6 @@ import os
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-
 from deepblast.trainer import LightningAligner
 
 

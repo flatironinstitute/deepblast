@@ -32,9 +32,9 @@ setup(name='deepblast',
       install_requires=[
           'numpy',
           'scipy',
-          'torch',
-          'pytorch-lightning',
-          'biopython'
+          'torch>=1.4',
+          'scikit-learn',
+          'pytorch-lightning==0.8.1'
       ],
       classifiers=classifiers,
       package_data={})
