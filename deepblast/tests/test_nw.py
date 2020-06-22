@@ -3,6 +3,8 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw import NeedlemanWunschDecoder, NeedlemanWunschFunction
+from deepblast.nw import (_forward_pass, _backward_pass,
+                          _adjoint_forward_pass, _adjoint_backward_pass)
 from deepblast.ops import operators
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
@@ -52,11 +54,46 @@ class TestNeedlemanWunschTimer(unittest.TestCase):
         y.sum().backward()
 
 
+class TestNeedlemanWunschLoops(unittest.TestCase):
+    def setUp(self):
+        torch.manual_seed(2)
+        S, N, M = 3, 50, 50
+        self.theta = torch.rand(
+            N, M, requires_grad=True, dtype=torch.float32)
+        self.Ztheta = torch.rand(
+            N, M, requires_grad=True, dtype=torch.float32)
+        self.Et = 1.
+        self.A = torch.Tensor([-1])
+        self.ZA = torch.Tensor([-1])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+
+    def test_forward_loop(self):
+        v, q = _forward_pass(self.theta, self.A)
+
+    def test_backward_loop(self):
+        Et = 1
+        v, q = _forward_pass(self.theta, self.A)
+        e = _backward_pass(Et, q)
+
+    def test_adjoint_forward_loop(self):
+        v, q = _forward_pass(self.theta, self.A)
+        vd, qd = _adjoint_forward_pass(q, self.Ztheta, self.ZA)
+
+    def test_adjoint_backward_loop(self):
+        Et = 1
+        v, q = _forward_pass(self.theta, self.A)
+        e = _backward_pass(Et, q)
+        vd, qd = _adjoint_forward_pass(q, self.Ztheta, self.ZA)
+        ed = _adjoint_backward_pass(e, q, qd)
+
+
 class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        S, N, M = 3, 5, 5
+        S, N, M = 3, 3, 3
         self.theta = torch.rand(
             N, M, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
@@ -82,12 +119,14 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         needle = NeedlemanWunschDecoder(self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-2)
+        gradcheck(needle, (theta, A), eps=1e-3)
 
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1)
+        inputs = (self.theta.double(), self.A.double())
+        res = needle(*inputs)
+        res.backward()
+        gradgradcheck(needle, inputs, eps=1e-3)
 
 
 if __name__ == "__main__":

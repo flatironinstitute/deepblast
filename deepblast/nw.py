@@ -28,9 +28,6 @@ def _forward_pass(theta, A, operator='softmax'):
     N, M = theta.size()
     V = new(N + 1, M + 1).zero_()     # N x M
     Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-    V[:, 0] = -1e10                   # TODO: Probably can set these
-    V[0, :] = -1e10                   # two zero to enable local alignments.
-    V[0, 0] = 0.
     Q[N+1, M+1] = 1
     for i in range(1, N + 1):
         for j in range(1, M + 1):
@@ -91,28 +88,27 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Returns
     -------
     Vd : torch.Tensor
-        Derivatives of V of dimension N x M x S
+        Derivatives of V of dimension N x M
     Qd : torch.Tensor
-        Derivatives of Q of dimension N x M x S x S
+        Derivatives of Q of dimension N x M x S
     """
     m, x, y = 1, 0, 2
     operator = operators[operator]
-    new = Ztheta.new
-    N, M = Ztheta.size()
+    new = Q.new
+    N, M, _ = Q.size()
     N, M = N - 2, M - 2
     Vd = new(N + 1, M + 1).zero_()     # N x M
     Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            Vd[i, j] = Ztheta[i, j] + \
+            Vd[i, j] = Ztheta[i - 1, j - 1] + \
                        Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
                        Q[i, j, m] * Vd[i - 1, j - 1] + \
                        Q[i, j, y] * (ZA + Vd[i, j - 1])
-            v = torch.Tensor([(ZA + Vd[i - 1, j]),
-                              Vd[i - 1, j - 1],
-                              (ZA + Vd[i, j - 1])])
-            Qd[i, j] = operator.hessian_product(Q[i, j], v)
-
+            vd = torch.Tensor([(ZA + Vd[i - 1, j]),
+                               Vd[i - 1, j - 1],
+                               (ZA + Vd[i, j - 1])])
+            Qd[i, j] = operator.hessian_product(Q[i, j], vd)
     return Vd[N, M], Qd
 
 
