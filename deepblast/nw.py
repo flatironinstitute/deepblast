@@ -140,8 +140,13 @@ def _backward_pass(Et, Q):
                     Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
                     Q[i, j + 1, y] * E[i, j + 1]
     else:
+        import collections
+        if isinstance(Et, collections.Sequence):
+            Et_float = float(Et[0])
+        else:
+            Et_float = float(Et)
         E = torch.from_numpy(_backward_pass_numba(
-            float(Et[0]), Q.detach().numpy()))
+            Et_float, Q.detach().numpy()))
 
     return E
 
