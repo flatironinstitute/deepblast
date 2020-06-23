@@ -3,8 +3,11 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw import NeedlemanWunschDecoder, NeedlemanWunschFunction
+<<<<<<< HEAD
 from deepblast.nw import (_forward_pass, _backward_pass,
                           _adjoint_forward_pass, _adjoint_backward_pass)
+=======
+>>>>>>> 9e95b391f61110542c0efbb8f445a5fd39fadbd1
 from deepblast.ops import operators
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
@@ -54,6 +57,7 @@ class TestNeedlemanWunschTimer(unittest.TestCase):
         y.sum().backward()
 
 
+<<<<<<< HEAD
 class TestNeedlemanWunschLoops(unittest.TestCase):
     def setUp(self):
         torch.manual_seed(2)
@@ -91,6 +95,8 @@ class TestNeedlemanWunschLoops(unittest.TestCase):
         ed = _adjoint_backward_pass(e, q, qd)
 
 
+=======
+>>>>>>> 9e95b391f61110542c0efbb8f445a5fd39fadbd1
 class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
