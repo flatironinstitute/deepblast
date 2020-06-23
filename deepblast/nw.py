@@ -1,6 +1,39 @@
 import torch
 import torch.nn as nn
 from deepblast.ops import operators
+import numba
+import numpy as np
+
+use_numba = True
+
+@numba.njit
+def _soft_max_numba(X):
+    M = np.max(X)
+    A = np.exp(X - M)
+    S = np.sum(A)
+    M = M + np.log(S)
+    A /= S
+    return M, A
+
+
+@numba.njit
+def _forward_pass_numba(theta, A):
+    N, M = theta.shape
+    V = np.zeros((N + 1, M + 1))     # N x M
+    Q = np.zeros((N + 2, M + 2, 3))  # N x M x S
+    Q[N+1, M+1] = 1
+    maxargs = np.empty(3)
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            maxargs[0] = A + V[i-1, j]
+            maxargs[1] = V[i-1, j-1]
+            maxargs[2] = A + V[i, j-1]
+
+            v, Q[i, j] = _soft_max_numba(maxargs)
+            V[i, j] = theta[i-1, j-1] + v
+
+    Vt = V[N, M]
+    return Vt, Q
 
 
 def _forward_pass(theta, A, operator='softmax'):
@@ -23,23 +56,48 @@ def _forward_pass(theta, A, operator='softmax'):
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S.
     """
-    operator = operators[operator]
-    new = theta.new
-    N, M = theta.size()
-    V = new(N + 1, M + 1).zero_()     # N x M
-    Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-    Q[N+1, M+1] = 1
-    for i in range(1, N + 1):
-        for j in range(1, M + 1):
-            v = torch.Tensor([
-                A + V[i-1, j],
-                V[i-1, j-1],
-                A + V[i, j-1]
-            ])
-            v, Q[i, j] = operator.max(v)
-            V[i, j] = theta[i-1, j-1] + v
-    Vt = V[N, M]
+    if not use_numba or operator != 'softmax':
+        operator = operators[operator]
+        new = theta.new
+        N, M = theta.size()
+        V = new(N + 1, M + 1).zero_()     # N x M
+        Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
+        Q[N+1, M+1] = 1
+        for i in range(1, N + 1):
+            for j in range(1, M + 1):
+                tmp = torch.Tensor([
+                    A + V[i-1, j],
+                    V[i-1, j-1],
+                    A + V[i, j-1]
+                ])
+                v, Q[i, j] = operator.max(tmp)
+                V[i, j] = theta[i-1, j-1] + v
+
+        Vt = V[N, M]
+    else:
+        Vt, Q = _forward_pass_numba(theta.detach().numpy(), float(A[0]))
+        Vt = torch.Tensor([Vt])
+        Q = torch.from_numpy(Q)
+
     return Vt, Q
+
+
+@numba.njit
+def _backward_pass_numba(Et, Q):
+    m, x, y = 1, 0, 2
+    n_1, m_1, _ = Q.shape
+    N, M = n_1 - 2, m_1 - 2
+    E = np.zeros((N + 2, M + 2))
+    E[N+1, M+1] = Et
+    Q[N+1, M+1] = 1
+    for ir in range(1, N + 1):
+        i = N + 1 - ir
+        for jr in range(1, M + 1):
+            j = M + 1 - jr
+            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
+                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                Q[i, j + 1, y] * E[i, j + 1]
+    return E
 
 
 def _backward_pass(Et, Q):
@@ -57,18 +115,22 @@ def _backward_pass(Et, Q):
     E : torch.Tensor
         Traceback matrix of dimension N x M x S
     """
-    m, x, y = 1, 0, 2
-    n_1, m_1, _ = Q.shape
-    new = Q.new
-    N, M = n_1 - 2, m_1 - 2
-    E = new(N + 2, M + 2).zero_()
-    E[N+1, M+1] = 1 * Et
-    Q[N+1, M+1] = 1
-    for i in reversed(range(1, N + 1)):
-        for j in reversed(range(1, M + 1)):
-            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
-                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                Q[i, j + 1, y] * E[i, j + 1]
+    if not use_numba:
+        m, x, y = 1, 0, 2
+        n_1, m_1, _ = Q.shape
+        new = Q.new
+        N, M = n_1 - 2, m_1 - 2
+        E = new(N + 2, M + 2).zero_()
+        E[N+1, M+1] = 1 * Et
+        Q[N+1, M+1] = 1
+        for i in reversed(range(1, N + 1)):
+            for j in reversed(range(1, M + 1)):
+                E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
+                    Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                    Q[i, j + 1, y] * E[i, j + 1]
+    else:
+        E = torch.from_numpy(_backward_pass_numba(float(Et[0]), Q.detach().numpy()))
+
     return E
 
 
