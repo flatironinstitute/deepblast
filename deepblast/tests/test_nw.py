@@ -60,8 +60,10 @@ class TestNeedlemanWunschLoops(unittest.TestCase):
         S, N, M = 3, 50, 50
         self.theta = torch.rand(
             N, M, requires_grad=True, dtype=torch.float32)
+        # add 2 dimensions for start/end positions.
         self.Ztheta = torch.rand(
             N + 2, M + 2, requires_grad=True, dtype=torch.float32)
+
         self.Et = 1.
         self.A = torch.Tensor([-1])
         self.ZA = torch.Tensor([-1])
