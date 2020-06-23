@@ -87,7 +87,7 @@ def _forward_pass(theta, A, operator='softmax'):
         Vt = V[N, M]
     else:
         Vt, Q = _forward_pass_numba(theta.detach().numpy(), float(A[0]))
-        Vt = torch.Tensor([Vt])
+        Vt = torch.tensor(Vt, dtype=theta.dtype)
         Q = torch.from_numpy(Q)
 
     return Vt, Q
@@ -141,7 +141,7 @@ def _backward_pass(Et, Q):
                     Q[i, j + 1, y] * E[i, j + 1]
     else:
         import collections
-        if isinstance(Et, collections.Sequence):
+        if isinstance(Et, collections.abc.Sequence):
             Et_float = float(Et[0])
         else:
             Et_float = float(Et)
