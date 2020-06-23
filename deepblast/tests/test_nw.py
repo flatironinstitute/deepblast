@@ -61,7 +61,7 @@ class TestNeedlemanWunschLoops(unittest.TestCase):
         self.theta = torch.rand(
             N, M, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
-            N, M, requires_grad=True, dtype=torch.float32)
+            N + 2, M + 2, requires_grad=True, dtype=torch.float32)
         self.Et = 1.
         self.A = torch.Tensor([-1])
         self.ZA = torch.Tensor([-1])
@@ -93,7 +93,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        S, N, M = 3, 3, 3
+        S, N, M = 3, 2, 2
         self.theta = torch.rand(
             N, M, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(

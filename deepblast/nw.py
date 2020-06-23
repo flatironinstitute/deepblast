@@ -63,6 +63,7 @@ def _backward_pass(Et, Q):
     N, M = n_1 - 2, m_1 - 2
     E = new(N + 2, M + 2).zero_()
     E[N+1, M+1] = 1 * Et
+    Q[N+1, M+1] = 1
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
@@ -94,14 +95,14 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     """
     m, x, y = 1, 0, 2
     operator = operators[operator]
-    new = Q.new
-    N, M, _ = Q.size()
+    new = Ztheta.new
+    N, M = Ztheta.size()
     N, M = N - 2, M - 2
     Vd = new(N + 1, M + 1).zero_()     # N x M
     Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            Vd[i, j] = Ztheta[i - 1, j - 1] + \
+            Vd[i, j] = Ztheta[i, j] + \
                        Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
                        Q[i, j, m] * Vd[i - 1, j - 1] + \
                        Q[i, j, y] * (ZA + Vd[i, j - 1])
@@ -109,6 +110,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
                                Vd[i - 1, j - 1],
                                (ZA + Vd[i, j - 1])])
             Qd[i, j] = operator.hessian_product(Q[i, j], vd)
+
     return Vd[N, M], Qd
 
 
@@ -128,6 +130,11 @@ def _adjoint_backward_pass(E, Q, Qd):
     -------
     Ed : torch.Tensor
         Derivative of traceback matrix of dimension N x M.
+
+    Notes
+    -----
+    Careful with Ztheta, it actually has dimensions (N + 2)  x (M + 2).
+    The border elements aren't useful, only need Ztheta[1:-1, 1:-1]
     """
     m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
