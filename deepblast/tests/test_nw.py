@@ -95,7 +95,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        S, N, M = 3, 2, 2
+        S, N, M = 3, 7, 7
         self.theta = torch.rand(
             N, M, requires_grad=True, dtype=torch.float32)
         self.Ztheta = torch.rand(
@@ -121,14 +121,14 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         needle = NeedlemanWunschDecoder(self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-3)
+        gradcheck(needle, (theta, A), eps=1e-3, atol=1e-3, rtol=1e-3)
 
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta.double(), self.A.double())
         res = needle(*inputs)
         res.backward()
-        gradgradcheck(needle, inputs, eps=1e-3)
+        gradgradcheck(needle, inputs, eps=1e-3, atol=1e-3, rtol=1e-3)
 
 
 if __name__ == "__main__":
