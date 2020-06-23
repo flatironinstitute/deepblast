@@ -6,13 +6,24 @@ import numpy as np
 
 use_numba = True
 
+
 @numba.njit
 def _soft_max_numba(X):
-    M = np.max(X)
-    A = np.exp(X - M)
-    S = np.sum(A)
-    M = M + np.log(S)
-    A /= S
+    M = X[0]
+    for i in range(1, 3):
+        M = X[i] if X[i] > M else M
+
+    A = np.empty_like(X)
+    S = 0.0
+    for i in range(3):
+        A[i] = np.exp(X[i] - M)
+        S += A[i]
+
+    for i in range(3):
+        A[i] /= S
+
+    M += np.log(S)
+
     return M, A
 
 
