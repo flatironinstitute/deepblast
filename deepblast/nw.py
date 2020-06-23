@@ -140,7 +140,8 @@ def _backward_pass(Et, Q):
                     Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
                     Q[i, j + 1, y] * E[i, j + 1]
     else:
-        E = torch.from_numpy(_backward_pass_numba(float(Et[0]), Q.detach().numpy()))
+        E = torch.from_numpy(_backward_pass_numba(
+            float(Et[0]), Q.detach().numpy()))
 
     return E
 
@@ -176,9 +177,9 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             Vd[i, j] = Ztheta[i, j] + \
-                       Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
-                       Q[i, j, m] * Vd[i - 1, j - 1] + \
-                       Q[i, j, y] * (ZA + Vd[i, j - 1])
+                Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
+                Q[i, j, m] * Vd[i - 1, j - 1] + \
+                Q[i, j, y] * (ZA + Vd[i, j - 1])
             vd = torch.Tensor([(ZA + Vd[i - 1, j]),
                                Vd[i - 1, j - 1],
                                (ZA + Vd[i, j - 1])])
@@ -217,11 +218,11 @@ def _adjoint_backward_pass(E, Q, Qd):
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
-                       Q[i + 1, j, x] * Ed[i + 1, j] + \
-                       Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                       Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
-                       Qd[i, j + 1, y] * E[i, j + 1] + \
-                       Q[i, j + 1, y] * Ed[i, j + 1]
+                Q[i + 1, j, x] * Ed[i + 1, j] + \
+                Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
+                Qd[i, j + 1, y] * E[i, j + 1] + \
+                Q[i, j + 1, y] * Ed[i, j + 1]
     return Ed
 
 
@@ -317,11 +318,11 @@ class NeedlemanWunschDecoder(nn.Module):
                 [i, j - 1]
             ]).long()
             ij = torch.argmax(
-                   torch.Tensor([
-                       grad[i - 1, j],
-                       grad[i - 1, j - 1],
-                       grad[i, j - 1]
-                   ])
+                torch.Tensor([
+                    grad[i - 1, j],
+                    grad[i - 1, j - 1],
+                    grad[i, j - 1]
+                ])
             )
             i, j = int(idx[ij][0]), int(idx[ij][1])
             states.append((i, j))
