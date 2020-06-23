@@ -77,7 +77,7 @@ class TestNeedlemanWunschLoops(unittest.TestCase):
 
     def test_backward_loop(self):
         Et = 1
-        v, q = _forward_pass(self.theta, self.A)
+        _, q = _forward_pass(self.theta, self.A)
         e = _backward_pass(Et, q)
         self.assertEqual(e.shape, (52, 52))
 
@@ -90,7 +90,7 @@ class TestNeedlemanWunschLoops(unittest.TestCase):
         Et = 1
         v, q = _forward_pass(self.theta, self.A)
         e = _backward_pass(Et, q)
-        vd, qd = _adjoint_forward_pass(q, self.Ztheta, self.ZA)
+        _, qd = _adjoint_forward_pass(q, self.Ztheta, self.ZA)
         ed = _adjoint_backward_pass(e, q, qd)
         self.assertEqual(ed.shape, (52, 52))
 
