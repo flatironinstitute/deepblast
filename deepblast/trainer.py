@@ -101,7 +101,7 @@ class LightningAligner(pl.LightningModule):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
         val_loss = sum(losses) / len(losses)
-        results = {'validation_loss' : val_loss}
+        results = {'validation_loss': val_loss}
         return results
 
     def configure_optimizers(self):
@@ -110,7 +110,7 @@ class LightningAligner(pl.LightningModule):
         grad_params = list(filter(
             lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.Adam(
-            self.aligner.parameters(), lr=self.hparams.learning_rate)
+            grad_params, lr=self.hparams.learning_rate)
         scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
         return [optimizer], [scheduler]
 
