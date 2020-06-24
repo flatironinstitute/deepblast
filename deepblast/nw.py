@@ -38,7 +38,7 @@ def _soft_max_hessian_product_numba(P, Z):
     res = np.empty_like(P)
     total = np.sum(prod)
     for i in range(3):
-       res[i] = prod[i] - P[i] * total
+        res[i] = prod[i] - P[i] * total
 
     return res
 
