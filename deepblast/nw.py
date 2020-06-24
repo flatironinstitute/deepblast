@@ -28,7 +28,7 @@ def _soft_max_numba(X):
 
 
 @numba.njit
-def _soft_max_hessian_numba(P, Z):
+def _soft_max_hessian_product_numba(P, Z):
     prod = P * Z
 
     prod = np.empty_like(P)
@@ -49,12 +49,13 @@ def _forward_pass_numba(theta, A):
     V = np.zeros((N + 1, M + 1))     # N x M
     Q = np.zeros((N + 2, M + 2, 3))  # N x M x S
     Q[N+1, M+1] = 1
+    m, x, y = 1, 0, 2
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[0] = A + V[i-1, j]  # x
-            maxargs[1] = V[i-1, j-1]    # m
-            maxargs[2] = A + V[i, j-1]  # y
+            maxargs[x] = A + V[i-1, j]  # x
+            maxargs[m] = V[i-1, j-1]    # m
+            maxargs[y] = A + V[i, j-1]  # y
             v, Q[i, j] = _soft_max_numba(maxargs)
             V[i, j] = theta[i-1, j-1] + v
     Vt = V[N, M]
@@ -120,9 +121,9 @@ def _backward_pass_numba(Et, Q):
         i = N + 1 - ir
         for jr in range(1, M + 1):
             j = M + 1 - jr
-            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \    # x
-                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \  # m
-                Q[i, j + 1, y] * E[i, j + 1]              # y
+            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
+                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                Q[i, j + 1, y] * E[i, j + 1]
     return E
 
 
@@ -170,19 +171,21 @@ def _backward_pass(Et, Q):
 def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
     N, M = Ztheta.shape
     N, M = N - 2, M - 2
-    Vd = np.zeros(N + 1, M + 1)      # N x M
-    Qd = np.zeros(N + 2, M + 2, 3)   # N x M x S
+    Vd = np.zeros((N + 1, M + 1))      # N x M
+    Qd = np.zeros((N + 2, M + 2, 3))   # N x M x S
+    m, x, y = 1, 0, 2
+
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[0] = ZA + Vd[i - 1, j]      # x
-            maxargs[1] = ZA + Vd[i - 1, j - 1]  # m
-            maxargs[2] = ZA + Vd[i, j - 1]      # y
+            maxargs[x] = ZA + Vd[i - 1, j]
+            maxargs[m] = ZA + Vd[i - 1, j - 1]
+            maxargs[y] = ZA + Vd[i, j - 1]
             Vd[i, j] = Ztheta[i, j] + \
-                Q[i, j, 0] * maxargs[0] + \
-                Q[i, j, 1] * maxargs[1] + \
-                Q[i, j, 2] * maxargs[2]
-            Qd[i, j] = operator.hessian_product(
+                Q[i, j, x] * maxargs[0] + \
+                Q[i, j, m] * maxargs[1] + \
+                Q[i, j, y] * maxargs[2]
+            Qd[i, j] = _soft_max_hessian_product_numba(
                 Q[i, j], maxargs)
     return Vd[N, M], Qd
 
@@ -226,21 +229,22 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
                                    Vd[i - 1, j - 1],
                                    (ZA + Vd[i, j - 1])])
                 Qd[i, j] = operator.hessian_product(Q[i, j], vd)
+        return Vd[N, M], Qd
     else:
         Vd, Qd = _adjoint_forward_pass_numba(
             Q.detach().numpy(), Ztheta.detach().numpy(),
             float(ZA[0]))
         Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
         Qd = torch.from_numpy(Qd)
-
-    return Vd[N, M], Qd
+        return Vd, Qd
 
 
 @numba.njit
 def _adjoint_backward_pass_numba(E, Q, Qd):
+    m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
-    Ed = np.zeros(N + 2, M + 2)
+    Ed = np.zeros((N + 2, M + 2))
     for ir in range(1, N + 1):
         i = N + 1 - ir
         for jr in range(1, M + 1):
@@ -276,7 +280,7 @@ def _adjoint_backward_pass(E, Q, Qd):
     Careful with Ztheta, it actually has dimensions (N + 2)  x (M + 2).
     The border elements aren't useful, only need Ztheta[1:-1, 1:-1]
     """
-    if not use_numba or operator != 'softmax':
+    if not use_numba:
         m, x, y = 1, 0, 2
         n_1, m_1, _ = Q.shape
         new = Q.new
