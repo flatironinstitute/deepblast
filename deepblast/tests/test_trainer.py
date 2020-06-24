@@ -14,7 +14,7 @@ class TestTrainer(unittest.TestCase):
         self.output_dir = 'output-dir'
         os.mkdir(self.output_dir)
         args = [
-            '--train-pairs', get_data_path('big_train.txt'),
+            '--train-pairs', get_data_path('train.txt'),
             '--test-pairs', get_data_path('test.txt'),
             '--valid-pairs', get_data_path('valid.txt'),
             '--output-directory', self.output_dir,

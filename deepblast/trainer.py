@@ -64,7 +64,7 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
-            test_dataset, self.hparams.batch_size, shuffle=False, 
+            test_dataset, self.hparams.batch_size, shuffle=False,
             num_workers=self.hparams.num_workers)
         return test_dataloader
 
@@ -81,11 +81,11 @@ class LightningAligner(pl.LightningModule):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
-        loss = SoftAlignmentLoss(A, predA)
+        loss = self.loss_func(A, predA)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'valid_loss': loss}
         # TODO: Measure the alignment accuracy
-        return {'validation_loss': loss, 
+        return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
@@ -102,13 +102,13 @@ class LightningAligner(pl.LightningModule):
         losses = list(map(loss_f, outputs))
         val_loss = sum(losses) / len(losses)
         results = {'validation_loss' : val_loss}
-        return results      
+        return results
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
             p.requires_grad = False
         grad_params = list(filter(
-            lambda p: p.requires_grad, self.aligner.parameters()))    
+            lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.Adam(
             self.aligner.parameters(), lr=self.hparams.learning_rate)
         scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
