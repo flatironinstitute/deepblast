@@ -34,6 +34,7 @@ setup(name='deepblast',
           'scipy',
           'torch>=1.4',
           'scikit-learn',
+          'numba',
           'pytorch-lightning==0.8.1'
       ],
       classifiers=classifiers,
