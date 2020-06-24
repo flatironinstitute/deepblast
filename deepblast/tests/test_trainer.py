@@ -14,13 +14,13 @@ class TestTrainer(unittest.TestCase):
         self.output_dir = 'output-dir'
         os.mkdir(self.output_dir)
         args = [
-            '--train-pairs', get_data_path('train.txt'),
+            '--train-pairs', get_data_path('big_train.txt'),
             '--test-pairs', get_data_path('test.txt'),
             '--valid-pairs', get_data_path('valid.txt'),
             '--output-directory', self.output_dir,
             '--epochs', '1',
             '--batch-size', '1',
-            '--num-workers', '1',
+            '--num-workers', '10',
             '--clip-ends', 'True'
         ]
         parser = argparse.ArgumentParser(add_help=False)

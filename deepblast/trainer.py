@@ -46,6 +46,7 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
+        print(self.hparams.train_pairs)
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
@@ -53,7 +54,7 @@ class LightningAligner(pl.LightningModule):
             shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
-    def valid_dataloader(self):
+    def val_dataloader(self):
         valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size,
@@ -63,8 +64,8 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
-            test_dataset, self.hparams.batch_size,
-            shuffle=False, num_workers=self.hparams.num_workers)
+            test_dataset, self.hparams.batch_size, shuffle=False, 
+            num_workers=self.hparams.num_workers)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
@@ -73,29 +74,44 @@ class LightningAligner(pl.LightningModule):
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA)
         assert torch.isnan(loss).item() is False
-        return {'loss': loss}
+        tensorboard_logs = {'train_loss': loss}
+        return {'loss': loss, 'log': tensorboard_logs}
 
-    def valid_step(self, batch, batch_idx):
+    def validation_step(self, batch, batch_idx):
+        x, y, s, A = batch
+        self.aligner.train()
+        predA = self.aligner(x, y)
+        loss = SoftAlignmentLoss(A, predA)
+        assert torch.isnan(loss).item() is False
+        tensorboard_logs = {'valid_loss': loss}
+        # TODO: Measure the alignment accuracy
+        return {'validation_loss': loss, 
+                'log': tensorboard_logs}
+
+    def test_step(self, batch, batch_idx):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = SoftAlignmentLoss(A, predA)
         assert torch.isnan(loss).item() is False
         # TODO: Measure the alignment accuracy
-        return {'validation_loss': loss}
+        return {'test_loss': loss}
 
-    def test_step(self):
-        # TODO: Measure the alignment accuracy
-        pass
+    def validation_epoch_end(self, outputs):
+        loss_f = lambda x: x['validation_loss']
+        losses = list(map(loss_f, outputs))
+        val_loss = sum(losses) / len(losses)
+        results = {'validation_loss' : val_loss}
+        return results      
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
             p.requires_grad = False
         grad_params = list(filter(
-            lambda p: p.requires_grad, self.aligner.parameters()))
+            lambda p: p.requires_grad, self.aligner.parameters()))    
         optimizer = torch.optim.Adam(
-            grad_params, lr=self.hparams.learning_rate)
-        scheduler = StepLR(optimizer, step_size=10)
+            self.aligner.parameters(), lr=self.hparams.learning_rate)
+        scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
         return [optimizer], [scheduler]
 
     @staticmethod
