@@ -28,6 +28,22 @@ def _soft_max_numba(X):
 
 
 @numba.njit
+def _soft_max_hessian_numba(P, Z):
+    prod = P * Z
+
+    prod = np.empty_like(P)
+    for i in range(3):
+        prod[i] = P[i] * Z[i]
+
+    res = np.empty_like(P)
+    total = np.sum(prod)
+    for i in range(3):
+       res[i] = prod[i] - P[i] * total
+
+    return res
+
+
+@numba.njit
 def _forward_pass_numba(theta, A):
     N, M = theta.shape
     V = np.zeros((N + 1, M + 1))     # N x M
@@ -36,13 +52,11 @@ def _forward_pass_numba(theta, A):
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[0] = A + V[i-1, j]
-            maxargs[1] = V[i-1, j-1]
-            maxargs[2] = A + V[i, j-1]
-
+            maxargs[0] = A + V[i-1, j]  # x
+            maxargs[1] = V[i-1, j-1]    # m
+            maxargs[2] = A + V[i, j-1]  # y
             v, Q[i, j] = _soft_max_numba(maxargs)
             V[i, j] = theta[i-1, j-1] + v
-
     Vt = V[N, M]
     return Vt, Q
 
@@ -53,8 +67,8 @@ def _forward_pass(theta, A, operator='softmax'):
     Parameters
     ----------
     theta : torch.Tensor
-        Input potentials of dimension N x M. This represents the
-        pairwise residue match scores.
+        Input potentials of dimension N x M.
+        This represents the pairwise residue match scores.
     A : torch.Tensor
         Gap penality (scalar valued)
     operator : str
@@ -86,7 +100,8 @@ def _forward_pass(theta, A, operator='softmax'):
 
         Vt = V[N, M]
     else:
-        Vt, Q = _forward_pass_numba(theta.detach().numpy(), float(A[0]))
+        Vt, Q = _forward_pass_numba(
+            theta.detach().numpy(), float(A[0]))
         Vt = torch.tensor(Vt, dtype=theta.dtype)
         Q = torch.from_numpy(Q)
 
@@ -105,9 +120,9 @@ def _backward_pass_numba(Et, Q):
         i = N + 1 - ir
         for jr in range(1, M + 1):
             j = M + 1 - jr
-            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
-                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                Q[i, j + 1, y] * E[i, j + 1]
+            E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \    # x
+                Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \  # m
+                Q[i, j + 1, y] * E[i, j + 1]              # y
     return E
 
 
@@ -151,6 +166,27 @@ def _backward_pass(Et, Q):
     return E
 
 
+@numba.njit
+def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
+    N, M = Ztheta.shape
+    N, M = N - 2, M - 2
+    Vd = np.zeros(N + 1, M + 1)      # N x M
+    Qd = np.zeros(N + 2, M + 2, 3)   # N x M x S
+    maxargs = np.empty(3)
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            maxargs[0] = ZA + Vd[i - 1, j]      # x
+            maxargs[1] = ZA + Vd[i - 1, j - 1]  # m
+            maxargs[2] = ZA + Vd[i, j - 1]      # y
+            Vd[i, j] = Ztheta[i, j] + \
+                Q[i, j, 0] * maxargs[0] + \
+                Q[i, j, 1] * maxargs[1] + \
+                Q[i, j, 2] * maxargs[2]
+            Qd[i, j] = operator.hessian_product(
+                Q[i, j], maxargs)
+    return Vd[N, M], Qd
+
+
 def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     """ Calculate directional derivatives and Hessians.
 
@@ -172,25 +208,50 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S
     """
-    m, x, y = 1, 0, 2
-    operator = operators[operator]
-    new = Ztheta.new
-    N, M = Ztheta.size()
-    N, M = N - 2, M - 2
-    Vd = new(N + 1, M + 1).zero_()     # N x M
-    Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
-    for i in range(1, N + 1):
-        for j in range(1, M + 1):
-            Vd[i, j] = Ztheta[i, j] + \
-                Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
-                Q[i, j, m] * Vd[i - 1, j - 1] + \
-                Q[i, j, y] * (ZA + Vd[i, j - 1])
-            vd = torch.Tensor([(ZA + Vd[i - 1, j]),
-                               Vd[i - 1, j - 1],
-                               (ZA + Vd[i, j - 1])])
-            Qd[i, j] = operator.hessian_product(Q[i, j], vd)
+    if not use_numba or operator != 'softmax':
+        m, x, y = 1, 0, 2
+        operator = operators[operator]
+        new = Ztheta.new
+        N, M = Ztheta.size()
+        N, M = N - 2, M - 2
+        Vd = new(N + 1, M + 1).zero_()     # N x M
+        Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
+        for i in range(1, N + 1):
+            for j in range(1, M + 1):
+                Vd[i, j] = Ztheta[i, j] + \
+                    Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
+                    Q[i, j, m] * Vd[i - 1, j - 1] + \
+                    Q[i, j, y] * (ZA + Vd[i, j - 1])
+                vd = torch.Tensor([(ZA + Vd[i - 1, j]),
+                                   Vd[i - 1, j - 1],
+                                   (ZA + Vd[i, j - 1])])
+                Qd[i, j] = operator.hessian_product(Q[i, j], vd)
+    else:
+        Vd, Qd = _adjoint_forward_pass_numba(
+            Q.detach().numpy(), Ztheta.detach().numpy(),
+            float(ZA[0]))
+        Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
+        Qd = torch.from_numpy(Qd)
 
     return Vd[N, M], Qd
+
+
+@numba.njit
+def _adjoint_backward_pass_numba(E, Q, Qd):
+    n_1, m_1, _ = Q.shape
+    N, M = n_1 - 2, m_1 - 2
+    Ed = np.zeros(N + 2, M + 2)
+    for ir in range(1, N + 1):
+        i = N + 1 - ir
+        for jr in range(1, M + 1):
+            j = M + 1 - jr
+            Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
+                Q[i + 1, j, x] * Ed[i + 1, j] + \
+                Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
+                Qd[i, j + 1, y] * E[i, j + 1] + \
+                Q[i, j + 1, y] * Ed[i, j + 1]
+    return Ed
 
 
 def _adjoint_backward_pass(E, Q, Qd):
@@ -215,19 +276,26 @@ def _adjoint_backward_pass(E, Q, Qd):
     Careful with Ztheta, it actually has dimensions (N + 2)  x (M + 2).
     The border elements aren't useful, only need Ztheta[1:-1, 1:-1]
     """
-    m, x, y = 1, 0, 2
-    n_1, m_1, _ = Q.shape
-    new = Q.new
-    N, M = n_1 - 2, m_1 - 2
-    Ed = new(N + 2, M + 2).zero_()
-    for i in reversed(range(1, N + 1)):
-        for j in reversed(range(1, M + 1)):
-            Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
-                Q[i + 1, j, x] * Ed[i + 1, j] + \
-                Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
-                Qd[i, j + 1, y] * E[i, j + 1] + \
-                Q[i, j + 1, y] * Ed[i, j + 1]
+    if not use_numba or operator != 'softmax':
+        m, x, y = 1, 0, 2
+        n_1, m_1, _ = Q.shape
+        new = Q.new
+        N, M = n_1 - 2, m_1 - 2
+        Ed = new(N + 2, M + 2).zero_()
+        for i in reversed(range(1, N + 1)):
+            for j in reversed(range(1, M + 1)):
+                Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
+                    Q[i + 1, j, x] * Ed[i + 1, j] + \
+                    Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
+                    Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
+                    Qd[i, j + 1, y] * E[i, j + 1] + \
+                    Q[i, j + 1, y] * Ed[i, j + 1]
+    else:
+        Ed = _adjoint_backward_pass_numba(
+            E.detach().numpy(), Q.detach().numpy(),
+            Qd.detach().numpy())
+        Ed = torch.tensor(Ed)
+
     return Ed
 
 
