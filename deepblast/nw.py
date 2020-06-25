@@ -48,16 +48,16 @@ def _forward_pass_numba(theta, A):
     N, M = theta.shape
     V = np.zeros((N + 1, M + 1))     # N x M
     Q = np.zeros((N + 2, M + 2, 3))  # N x M x S
-    Q[N+1, M+1] = 1
+    Q[N + 1, M + 1] = 1
     m, x, y = 1, 0, 2
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[x] = A + V[i-1, j]  # x
-            maxargs[m] = V[i-1, j-1]    # m
-            maxargs[y] = A + V[i, j-1]  # y
+            maxargs[x] = A + V[i - 1, j]  # x
+            maxargs[m] = V[i - 1, j - 1]  # m
+            maxargs[y] = A + V[i, j - 1]  # y
             v, Q[i, j] = _soft_max_numba(maxargs)
-            V[i, j] = theta[i-1, j-1] + v
+            V[i, j] = theta[i - 1, j - 1] + v
     Vt = V[N, M]
     return Vt, Q
 
@@ -88,16 +88,16 @@ def _forward_pass(theta, A, operator='softmax'):
         N, M = theta.size()
         V = new(N + 1, M + 1).zero_()     # N x M
         Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-        Q[N+1, M+1] = 1
+        Q[N + 1, M + 1] = 1
         for i in range(1, N + 1):
             for j in range(1, M + 1):
                 tmp = torch.Tensor([
-                    A + V[i-1, j],
-                    V[i-1, j-1],
-                    A + V[i, j-1]
+                    A + V[i - 1, j],
+                    V[i - 1, j - 1],
+                    A + V[i, j - 1]
                 ])
                 v, Q[i, j] = operator.max(tmp)
-                V[i, j] = theta[i-1, j-1] + v
+                V[i, j] = theta[i - 1, j - 1] + v
 
         Vt = V[N, M]
     else:
@@ -115,8 +115,8 @@ def _backward_pass_numba(Et, Q):
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
     E = np.zeros((N + 2, M + 2))
-    E[N+1, M+1] = Et
-    Q[N+1, M+1] = 1
+    E[N + 1, M + 1] = Et
+    Q[N + 1, M + 1] = 1
     for ir in range(1, N + 1):
         i = N + 1 - ir
         for jr in range(1, M + 1):
@@ -148,8 +148,8 @@ def _backward_pass(Et, Q):
         new = Q.new
         N, M = n_1 - 2, m_1 - 2
         E = new(N + 2, M + 2).zero_()
-        E[N+1, M+1] = 1 * Et
-        Q[N+1, M+1] = 1
+        E[N + 1, M + 1] = 1 * Et
+        Q[N + 1, M + 1] = 1
         for i in reversed(range(1, N + 1)):
             for j in reversed(range(1, M + 1)):
                 E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \

@@ -8,7 +8,7 @@ class LMEmbed(nn.Module):
         super(LMEmbed, self).__init__()
 
         if padding_idx == -1:
-            padding_idx = nin-1
+            padding_idx = nin - 1
 
         self.lm = lm
         self.embed = nn.Embedding(
@@ -45,7 +45,7 @@ class EmbedLinear(nn.Module):
         super(EmbedLinear, self).__init__()
 
         if padding_idx == -1:
-            padding_idx = nin-1
+            padding_idx = nin - 1
 
         if lm is not None:
             self.embed = LMEmbed(
@@ -89,7 +89,7 @@ class StackedRNN(nn.Module):
         super(StackedRNN, self).__init__()
 
         if padding_idx == -1:
-            padding_idx = nin-1
+            padding_idx = nin - 1
 
         if lm is not None:
             self.embed = LMEmbed(
@@ -113,7 +113,7 @@ class StackedRNN(nn.Module):
 
         self.rnn = RNN(nembed, nunits, nlayers, batch_first=True,
                        bidirectional=True, dropout=dropout)
-        self.proj = nn.Linear(2*nunits, nout)
+        self.proj = nn.Linear(2 * nunits, nout)
         self.nout = nout
 
     def forward(self, x):
