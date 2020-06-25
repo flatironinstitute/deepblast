@@ -32,7 +32,7 @@ def make_data(T=20):
     random_state = np.random.RandomState(0)
     d = 0.2
     e = 0.1
-    transition_matrix = np.array([[1 - 2*d, d, d],
+    transition_matrix = np.array([[1 - 2 * d, d, d],
                                   [1 - e, e, 0],
                                   [1 - e, 0, e]])
     means = np.array([[0, 0],
