@@ -25,7 +25,7 @@ class BiLM(nn.Module):
         super(BiLM, self).__init__()
 
         if mask_idx is None:
-            mask_idx = nin-1
+            mask_idx = nin - 1
         self.mask_idx = mask_idx
         self.embed = nn.Embedding(nin, embedding_dim, padding_idx=mask_idx)
         self.dropout = nn.Dropout(p=dropout)
@@ -59,7 +59,7 @@ class BiLM(nn.Module):
         h = 0
         if self.tied:
             for layer in self.rnn:
-                h += 2*layer.hidden_size
+                h += 2 * layer.hidden_size
         else:
             for layer in self.lrnn:
                 h += layer.hidden_size
@@ -74,7 +74,7 @@ class BiLM(nn.Module):
             h_rvs = h.clone().zero_()
             for i in range(h.size(0)):
                 n = batch_sizes[i]
-                idx = [j for j in range(n-1, -1, -1)]
+                idx = [j for j in range(n - 1, -1, -1)]
                 idx = torch.LongTensor(idx).to(h.device)
                 h_rvs[i, :n] = h[i].index_select(0, idx)
             # repack h_rvs
@@ -148,8 +148,8 @@ class BiLM(nn.Module):
             if packed:
                 for i in range(len(batch_sizes)):
                     n = batch_sizes[i]
-                    x_[i, 1:n+1] = x[i, :n]
-                batch_sizes = [s+2 for s in batch_sizes]
+                    x_[i, 1:n + 1] = x[i, :n]
+                batch_sizes = [s + 2 for s in batch_sizes]
             else:
                 x_[:, 1:-1] = x
             x = x_
@@ -165,7 +165,7 @@ class BiLM(nn.Module):
         z_fwd = z[:, :-1]
         z_rvs = z[:, 1:]
         if packed:
-            lengths = [s-1 for s in batch_sizes]
+            lengths = [s - 1 for s in batch_sizes]
             z_fwd = pack_padded_sequence(z_fwd, lengths, batch_first=True)
             z_rvs = pack_padded_sequence(z_rvs, lengths, batch_first=True)
         # reverse z_rvs
@@ -194,7 +194,7 @@ class BiLM(nn.Module):
 
         h = torch.cat(concat, 2)
         if packed:
-            batch_s = [s-1 for s in batch_s]
+            batch_s = [s - 1 for s in batch_s]
             h = pack_padded_sequence(h, batch_s, batch_first=True)
 
         return h

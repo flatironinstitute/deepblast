@@ -20,7 +20,7 @@ class TestTrainer(unittest.TestCase):
             '--output-directory', self.output_dir,
             '--epochs', '1',
             '--batch-size', '1',
-            '--num-workers', '1',
+            '--num-workers', '10',
             '--clip-ends', 'True'
         ]
         parser = argparse.ArgumentParser(add_help=False)

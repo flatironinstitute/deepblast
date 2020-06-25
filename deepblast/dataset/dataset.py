@@ -207,10 +207,11 @@ class TMAlignDataset(AlignmentDataset):
         self.tokenizer = tokenizer
         self.tm_threshold = tm_threshold
         self.pairs = pd.read_table(path, header=None)
-        self.pairs.columns = [
+        cols = [
             'chain1_name', 'chain2_name', 'tmscore1', 'tmscore2', 'rmsd',
             'chain1', 'chain2', 'alignment'
         ]
+        self.pairs.columns = cols
         self.pairs['tm'] = np.maximum(
             self.pairs['tmscore1'], self.pairs['tmscore2'])
         idx = self.pairs['tm'] > self.tm_threshold

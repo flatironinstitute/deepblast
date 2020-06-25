@@ -10,19 +10,20 @@ from deepblast.trainer import LightningAligner
 
 
 def main(args):
+    print('args', args)
     model = LightningAligner(args)
     # profiler = AdvancedProfiler()
 
     trainer = Trainer(
-        max_nb_epochs=args.epochs,
+        max_epochs=args.epochs,
         gpus=args.gpus,
-        nb_gpu_nodes=args.nodes,
+        num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         distributed_backend=args.backend,
         precision=args.precision,
         check_val_every_n_epoch=0.1,
         # profiler=profiler,
-        # fast_dev_run=True
+        fast_dev_run=True
         # auto_scale_batch_size='power'
     )
 
@@ -37,12 +38,14 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         filepath=ckpt_path,
         period=1,
-        monitor='val_loss',
+        monitor='validation_loss',
         mode='min',
         verbose=True
     )
     trainer.checkpoint_callback = checkpoint_callback
+    print('model', model)
     trainer.fit(model)
+    # trainer.test()
 
     # In case this doesn't checkpoint
     torch.save(model.state_dict(),

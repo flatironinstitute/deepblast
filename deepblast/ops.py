@@ -46,8 +46,10 @@ class SparseMaxOp:
         cssv = cssv.view(-1, n_states)
         rho = rho.view(-1)
 
-        tau = (torch.gather(cssv, dim=1, index=rho[:, None] - 1)[:, 0]
-               / rho.type(X.type()))
+        tau = (
+            torch.gather(
+                cssv, dim=1, index=rho[:, None] - 1
+            )[:, 0] / rho.type(X.type()))
         tau = tau.view(seq_len, n_batch)
         A = torch.clamp(X - tau[:, :, None], min=0)
         # A /= A.sum(dim=2, keepdim=True)

@@ -1,5 +1,5 @@
 from setuptools import find_packages, setup
-
+from glob import glob
 
 classes = """
     Development Status :: 4 - Beta
@@ -34,7 +34,9 @@ setup(name='deepblast',
           'scipy',
           'torch>=1.4',
           'scikit-learn',
+          'numba',
           'pytorch-lightning==0.8.1'
       ],
+      scripts=glob('scripts/*'),
       classifiers=classifiers,
       package_data={})
