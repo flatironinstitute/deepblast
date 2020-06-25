@@ -45,7 +45,7 @@ def main(args):
     trainer.checkpoint_callback = checkpoint_callback
     print('model', model)
     trainer.fit(model)
-    #trainer.test()
+    # trainer.test()
 
     # In case this doesn't checkpoint
     torch.save(model.state_dict(),
