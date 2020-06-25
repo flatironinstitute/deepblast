@@ -73,5 +73,7 @@ class UniprotTokenizer:
         x = self.alphabet.encode(s)
         # pad with start/stop token
         z = np.zeros(len(x) + 2, dtype=x.dtype)
-        z[1:-1] = x + 1
+        z[1:-1] = x
+        z[0] = 20   # pad start
+        z[-1] = 20  # pad end
         return z
