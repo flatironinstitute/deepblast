@@ -96,12 +96,11 @@ def _backward_pass_batch(Et, Q, E):
 
 
 @cuda.jit(device=True)
-def _adjoint_forward_pass(Q, Ztheta, ZA, Qd, V):
+def _adjoint_forward_pass(Q, Ztheta, ZA, Qd):
     Vd = numba.cuda.local.array((2, max_cols), float_type)
     maxargs = numba.cuda.local.array(3, float_type)
     N, M = Ztheta.shape
     N, M = N - 2, M - 2
-    # Qd = np.zeros((N + 2, M + 2, 3))   # N x M x S
 
     last, curr = 0, 1
     for j in range(M + 1):
@@ -117,7 +116,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, Qd, V):
                 Q[i, j, 0] * maxargs[0] + \
                 Q[i, j, 1] * maxargs[1] + \
                 Q[i, j, 2] * maxargs[2]
-            Qd[i, j] = _soft_max_hessian_product(Q[i, j], maxargs, Qd[i, j])
+            _soft_max_hessian_product(Q[i, j], maxargs, Qd[i, j])
 
         last = curr
         curr = 1 - curr
@@ -130,8 +129,7 @@ def _adjoint_forward_pass_batch(Q, Ztheta, ZA, Vd, Qd):
     batchid = cuda.grid(1)
     if batchid < Q.shape[0]:
         Vd[batchid] = _adjoint_forward_pass(Q[batchid], Ztheta[batchid],
-                                            ZA[batchid], Vd[batchid],
-                                            Qd[batchid])
+                                            ZA[0], Qd[batchid])
 
 
 @cuda.jit(device=True)
