@@ -102,7 +102,7 @@ def _forward_pass(theta, A, operator='softmax'):
         Vt = V[N, M]
     else:
         Vt, Q = _forward_pass_numba(
-            theta.detach().numpy(), float(A[0]))
+            theta.detach().cpu().numpy(), float(A[0]))
         Vt = torch.tensor(Vt, dtype=theta.dtype)
         Q = torch.from_numpy(Q)
 
@@ -162,7 +162,7 @@ def _backward_pass(Et, Q):
         else:
             Et_float = float(Et)
         E = torch.from_numpy(_backward_pass_numba(
-            Et_float, Q.detach().numpy()))
+            Et_float, Q.detach().cpu().numpy()))
 
     return E
 
@@ -232,7 +232,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
         return Vd[N, M], Qd
     else:
         Vd, Qd = _adjoint_forward_pass_numba(
-            Q.detach().numpy(), Ztheta.detach().numpy(),
+            Q.detach().cpu().numpy(), Ztheta.detach().cpu().numpy(),
             float(ZA[0]))
         Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
         Qd = torch.from_numpy(Qd)
@@ -296,8 +296,8 @@ def _adjoint_backward_pass(E, Q, Qd):
                     Q[i, j + 1, y] * Ed[i, j + 1]
     else:
         Ed = _adjoint_backward_pass_numba(
-            E.detach().numpy(), Q.detach().numpy(),
-            Qd.detach().numpy())
+            E.detach().cpu().numpy(), Q.detach().cpu().numpy(),
+            Qd.detach().cpu().numpy())
         Ed = torch.tensor(Ed)
 
     return Ed
@@ -366,6 +366,8 @@ class NeedlemanWunschDecoder(nn.Module):
         self.operator = operator
 
     def forward(self, theta, A):
+        theta = theta.cpu()
+        A = A.cpu()
         return NeedlemanWunschFunction.apply(
             theta, A, self.operator)
 
@@ -408,6 +410,8 @@ class NeedlemanWunschDecoder(nn.Module):
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
         # data, batch_sizes = theta
+        theta = theta.cpu()
+        A = A.cpu()
         with torch.enable_grad():
             # data.requires_grad_()
             nll = self.forward(theta, A)

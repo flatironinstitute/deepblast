@@ -51,18 +51,21 @@ class LightningAligner(pl.LightningModule):
             self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size,
-            shuffle=True, num_workers=self.hparams.num_workers)
+            shuffle=False, num_workers=self.hparams.num_workers)
+        # TODO: enable shuffling
         return train_dataloader
 
     def val_dataloader(self):
-        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
+        valid_dataset = TMAlignDataset(self.hparams.valid_pairs,
+                                       clip_ends=self.hparams.clip_ends)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        test_dataset = TMAlignDataset(self.hparams.test_pairs)
+        test_dataset = TMAlignDataset(self.hparams.test_pairs,
+                                      clip_ends=self.hparams.clip_ends)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             num_workers=self.hparams.num_workers)

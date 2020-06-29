@@ -25,6 +25,8 @@ def match(x):
 
 def state_f(x):
     i, j = x
+    if i == '.' and j == '.':
+       return ''
     if i == '.' and j != '.':
         return '1'
     if i != '.' and j == '.':
@@ -37,7 +39,8 @@ def parse_alignment(ai, aj):
     alignment = list(zip(list(ai), list(aj)))
     x, y = zip(*alignment)
     states = ''.join(list(map(state_f, alignment)))
-    return ''.join(x), ''.join(y), states
+    x, y = ''.join(x).replace('.', ''), ''.join(y).replace('.', '')
+    return x, y, states
 
 
 def gen_alignments(msa, n_alignments):
@@ -47,8 +50,9 @@ def gen_alignments(msa, n_alignments):
         i, j = next(gen)
         n1, ai = re.split(r'\s+', msa[i])
         n2, aj = re.split(r'\s+', msa[j])
-        x, y, s = parse_alignment(ai, aj)
-        alignments.append((n1, n2, 0, 0, 0, x, y, s))
+        x, y, s = parse_alignment(
+            ai.replace('-', '.'), aj.replace('-', '.'))
+        alignments.append((n1, n2, 1, 1, 1, x, y, s))
     return alignments
 
 def hmm_alignments(n, seed, n_alignments, hmmfile):

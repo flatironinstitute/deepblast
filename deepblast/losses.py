@@ -29,4 +29,7 @@ class SoftAlignmentLoss:
         loss : torch.Tensor
             Scalar valued loss.
         """
-        return torch.norm(Ytrue - Ypred)
+        print(Ytrue.shape, Ypred.shape)
+        Ytrue = Ytrue[:, 1:-1, 1:-1].cuda()
+        Ypred = Ypred.cuda()
+        return torch.norm(Ytrue[:, 1:-1, 1:-1] - Ypred)

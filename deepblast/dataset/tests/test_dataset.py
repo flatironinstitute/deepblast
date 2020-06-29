@@ -7,11 +7,19 @@ import pandas as pd
 
 
 class TestDataUtils(unittest.TestCase):
+
+    def test_states2matrix_zinc(self):
+        s = ':1111::::1:'
+        x = 'RGCFH '
+        y = 'YGSVHASERH'
+        s = list(map(tmstate_f, s))
+        states2matrix(s, sparse=True)
+
     def test_states2matrix_only_matches(self):
         s = ":11::11:"
         s = list(map(tmstate_f, s))
         self.assertEqual(s, [1, 0, 0, 1, 1, 0, 0, 1])
-        M = states2matrix(s, 8, 4, sparse=True)
+        M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 0), (2, 0),
                       (3, 1), (4, 2),
@@ -22,7 +30,7 @@ class TestDataUtils(unittest.TestCase):
         s = ":11::22:"
         s = list(map(tmstate_f, s))
         self.assertEqual(s, [1, 0, 0, 1, 1, 2, 2, 1])
-        M = states2matrix(s, 6, 6, sparse=True)
+        M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 0), (2, 0),
                       (3, 1), (4, 2),
@@ -33,7 +41,7 @@ class TestDataUtils(unittest.TestCase):
         s = "::2211::"
         s = list(map(tmstate_f, s))
         self.assertEqual(s, [1, 1, 2, 2, 0, 0, 1, 1])
-        M = states2matrix(s, 6, 6, sparse=True)
+        M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 1),
                       (1, 2), (1, 3), (2, 3),
@@ -44,7 +52,7 @@ class TestDataUtils(unittest.TestCase):
         s = "::1122::"
         s = list(map(tmstate_f, s))
         self.assertEqual(s, [1, 1, 0, 0, 2, 2, 1, 1])
-        M = states2matrix(s, 6, 6, sparse=True)
+        M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 1), (2, 1), (3, 1),
                       (3, 2), (3, 3), (4, 4), (5, 5)]
@@ -93,17 +101,18 @@ class TestTMAlignDataset(unittest.TestCase):
         self.assertEqual(len(states), 105)
         self.assertEqual(alignment_matrix.shape, (105, 23))
 
-    def test_clip_getitem(self):
-        x = TMAlignDataset(self.data_path, tm_threshold=0,
-                           pad_ends=True, clip_ends=True)
-        res = x[0]
-        self.assertEqual(len(res), 4)
-        gene, pos, states, alignment_matrix = res
-        # test the lengths
-        self.assertEqual(len(gene), 23)
-        self.assertEqual(len(pos), 23)
-        self.assertEqual(len(states), 23)
-        self.assertEqual(alignment_matrix.shape, (23, 23))
+    ## No clipping for now
+    # def test_clip_getitem(self):
+    #     x = TMAlignDataset(self.data_path, tm_threshold=0,
+    #                        pad_ends=True, clip_ends=True)
+    #     res = x[0]
+    #     self.assertEqual(len(res), 4)
+    #     gene, pos, states, alignment_matrix = res
+    #     # test the lengths
+    #     self.assertEqual(len(gene), 23)
+    #     self.assertEqual(len(pos), 23)
+    #     self.assertEqual(len(states), 23)
+    #     self.assertEqual(alignment_matrix.shape, (23, 23))
 
 
 class TestMaliDataset(unittest.TestCase):
@@ -125,7 +134,7 @@ class TestMaliDataset(unittest.TestCase):
         self.assertEqual(len(gene) - 2, 81)
         self.assertEqual(len(pos) - 2, 81)
         self.assertEqual(len(states), 100)
-        self.assertEqual(alignment_matrix.shape, (83, 83))
+        self.assertEqual(alignment_matrix.shape, (81, 82))
 
 
 if __name__ == '__main__':
