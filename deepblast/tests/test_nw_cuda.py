@@ -9,7 +9,7 @@ N, M = (800, 800)
 np.random.seed(1)
 theta = np.random.uniform(size=(nbatch, N, M)).astype(np.float32)
 
-Q = np.empty((nbatch, N+2, M+2, 3), dtype=np.float32)
+Q = np.empty((nbatch, N + 2, M + 2, 3), dtype=np.float32)
 d_Q = cuda.device_array_like(Q)
 
 A = np.ones(1)
@@ -23,7 +23,6 @@ d_E = cuda.device_array_like(E)
 
 Et = np.ones(1)
 d_Et = cuda.to_device(Et)
-
 
 threadsperblock = 32
 blockspergrid = (nbatch + (threadsperblock - 1)) // threadsperblock
@@ -44,7 +43,6 @@ d_Q.copy_to_host(Q)
 d_Vt.copy_to_host(Vt)
 d_E.copy_to_host(E)
 print("time: ", time.time() - start)
-
 
 Vt_numba, Q_numba = _forward_pass_numba(theta[0], A[0])
 E_numba = _backward_pass_numba(Et[0], Q[0])
