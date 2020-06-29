@@ -246,7 +246,6 @@ class TMAlignDataset(AlignmentDataset):
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
-        print(gene, pos, states)
         states = list(map(tmstate_f, states))
         # if self.clip_ends:  # TODO: this is broken. May want to remove.
         #     gene, pos, states = clip_boundaries(gene, pos, states)
