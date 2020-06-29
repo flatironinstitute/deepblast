@@ -1,9 +1,9 @@
-from deepblast.nw_cuda import (
-    _forward_pass_batch, _backward_pass_batch, _adjoint_forward_pass_batch
-)
-from deepblast.nw import (
-    _forward_pass_numba, _backward_pass_numba, _adjoint_forward_pass_numba
-)
+from deepblast.nw_cuda import (_forward_pass_batch, _backward_pass_batch,
+                               _adjoint_forward_pass_batch,
+                               _adjoint_backward_pass_batch)
+from deepblast.nw import (_forward_pass_numba, _backward_pass_numba,
+                          _adjoint_forward_pass_numba,
+                          _adjoint_backward_pass_numba)
 import numpy as np
 import time
 from numba import cuda
@@ -64,11 +64,15 @@ d_negone = cuda.to_device(negone)
 Qd = np.empty((nbatch, N + 2, M + 2, 3), dtype=np.float32)
 d_Qd = cuda.device_array_like(Qd)
 Vd = np.empty_like(Vt)
+Ed = np.empty((nbatch, N + 2, M + 2), dtype=np.float32)
+d_Ed = cuda.device_array_like(Ed)
 
 d_Ztheta = cuda.to_device(Ztheta)
 _forward_pass_batch[blockspergrid, threadsperblock](d_theta, d_negone, d_Q,
                                                     d_Vt)
-_adjoint_forward_pass_batch[blockspergrid, threadsperblock](d_Q, d_Ztheta, d_negone, d_Vt, d_Qd)
+_adjoint_forward_pass_batch[blockspergrid,
+                            threadsperblock](d_Q, d_Ztheta, d_negone, d_Vt,
+                                             d_Qd)
 d_Vt.copy_to_host(Vd)
 d_Qd.copy_to_host(Qd)
 d_Q.copy_to_host(Q)
@@ -77,3 +81,10 @@ Vd_numba, Qd_numba = _adjoint_forward_pass_numba(Q[0], Ztheta[0], -1.0)
 
 print(Vd[0] - Vd_numba)
 print(np.linalg.norm(Qd_numba - Qd[0]) / np.sqrt(Qd[0].size))
+
+_adjoint_backward_pass_batch[blockspergrid, threadsperblock](d_E, d_Q, d_Qd,
+                                                             d_Ed)
+d_Ed.copy_to_host(Ed)
+
+Ed_numba = _adjoint_backward_pass_numba(E[0], Q[0], Qd[0])
+print(np.linalg.norm(Ed_numba - Ed[0]) / np.sqrt(Ed[0].size))

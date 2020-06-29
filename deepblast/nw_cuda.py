@@ -137,7 +137,7 @@ def _adjoint_backward_pass(E, Q, Qd, Ed):
     m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
-    # Ed = np.zeros((N + 2, M + 2))
+
     for ir in range(1, N + 1):
         i = N + 1 - ir
         for jr in range(1, M + 1):
