@@ -189,7 +189,7 @@ class NeedlemanWunschFunction(torch.autograd.Function):
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
-        ctx.device_arrays = d_theta, d_A, d_Q, d_Vt
+        # ctx.device_arrays = d_theta, d_A, d_Q, d_Vt
         return Vt
 
     @staticmethod
@@ -269,8 +269,8 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
                                                d_Qd)
         _adjoint_backward_pass_kernel[tpb, bpg](d_E, d_Q, d_Qd, d_Ed)
 
-        d_Vtd.to_host(Vtd.detach().numpy())
-        d_Ed.to_host(Ed.detach().numpy())
+        d_Vtd.copy_to_host(Vtd.detach().numpy())
+        d_Ed.copy_to_host(Ed.detach().numpy())
 
         Ed = Ed[:, 1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
