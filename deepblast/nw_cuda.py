@@ -222,11 +222,11 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
 
         B, N, M = theta.shape
 
-        E = torch.empty((B, N + 2, M + 2), dtype=theta.dtype)
+        E = torch.zeros((B, N + 2, M + 2), dtype=theta.dtype)
 
         d_Et = cuda.to_device(Et.detach().numpy())
         d_Q = cuda.to_device(Q.detach().numpy())
-        d_E = cuda.device_array_like(E.detach().numpy())
+        d_E = cuda.to_device(E.detach().numpy())
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
         _backward_pass_kernel[tpb, bpg](d_Et, d_Q, d_E)
@@ -256,18 +256,18 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         B, ZN, ZM = Ztheta.shape
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        Qd = torch.empty((B, ZN, ZM, 3), dtype=Ztheta.dtype)
-        Vtd = torch.empty(B, dtype=Ztheta.dtype)
-        Ed = torch.empty_like(Ztheta)
+        Qd = torch.zeros((B, ZN, ZM, 3), dtype=Ztheta.dtype)
+        Vtd = torch.zeros(B, dtype=Ztheta.dtype)
+        Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype)
 
         d_Q = cuda.to_device(Q.detach().numpy())
         d_Ztheta = cuda.to_device(Ztheta.detach().numpy())
         d_ZA = cuda.to_device(ZA.detach().numpy())
-        d_Vtd = cuda.device_array_like(Vtd.detach().numpy())
-        d_Qd = cuda.device_array_like(Qd.detach().numpy())
+        d_Vtd = cuda.to_device(Vtd.detach().numpy())
+        d_Qd = cuda.to_device(Qd.detach().numpy())
 
         d_E = cuda.to_device(E.detach().numpy())
-        d_Ed = cuda.device_array_like(Ed.detach().numpy())
+        d_Ed = cuda.to_device(Ed.detach().numpy())
 
         _adjoint_forward_pass_kernel[tpb, bpg](d_Q, d_Ztheta, d_ZA, d_Vtd,
                                                d_Qd)

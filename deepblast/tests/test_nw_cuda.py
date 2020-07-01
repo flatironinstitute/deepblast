@@ -47,7 +47,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
 
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = ()
         theta, A = self.theta, self.A
         theta.requires_grad_()
         gradcheck(needle, (theta, A), eps=1e-2)
@@ -60,4 +59,3 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
