@@ -23,13 +23,13 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 2, 3, 5, 5
+        B, S, N, M = 3, 3, 5, 5
         self.theta = torch.rand(
             B, N, M, requires_grad=True, dtype=torch.float64)
         self.Ztheta = torch.rand(
             B, N, M, requires_grad=True, dtype=torch.float64)
-        self.Et = torch.Tensor([1., 1.])
-        self.A = torch.Tensor([-1., -1.])
+        self.Et = torch.ones(B)
+        self.A = torch.ones(B) * -1.0
         self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
@@ -54,7 +54,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1)
+        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
 
 
 if __name__ == "__main__":

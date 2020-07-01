@@ -142,10 +142,6 @@ def _adjoint_backward_pass_device(E, Q, Qd, Ed):
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
 
-    for i in range(0, N + 2):
-        for j in range(0, M + 2):
-            Ed[i, j] = 0.0
-
     for ir in range(1, N + 1):
         i = N + 1 - ir
         for jr in range(1, M + 1):
