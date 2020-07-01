@@ -5,7 +5,7 @@ from numba import cuda
 from math import log, exp
 
 max_cols = 2048
-float_type = numba.float32
+float_type = numba.float64
 tpb = 32  # threads per block
 
 
@@ -167,8 +167,8 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         if operator != 'softmax':
             raise NotImplementedError(
                 "CUDA variant only supports 'softmax' operator")
-        if theta.dtype != torch.float32:
-            raise TypeError("CUDA variant only supports torch.float32 type")
+        if theta.dtype != torch.float64:
+            raise TypeError("CUDA variant only supports torch.float64 type")
 
         # Return both the alignment matrix
         B, N, M = theta.shape
@@ -203,7 +203,7 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         """
         theta, A, Q = ctx.saved_tensors
         operator = ctx.others
-        print(ctx.device_arrays[0])
+        # print(ctx.device_arrays[0])
         E, A = NeedlemanWunschFunctionBackward.apply(theta, A, Et, Q, operator)
         return E[:, 1:-1, 1:-1], A, None, None, None
 
@@ -216,13 +216,15 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
                 "CUDA variant only supports 'softmax' operator")
 
         B, N, M = theta.shape
+
         E = torch.empty((B, N + 2, M + 2), dtype=theta.dtype)
 
-        d_Et = cuda.to_device(Et.detach().numpy)
+        d_Et = cuda.to_device(Et.detach().numpy())
         d_Q = cuda.to_device(Q.detach().numpy())
-        d_E = cuda.device_array_like(E.detach.numpy())
+        d_E = cuda.device_array_like(E.detach().numpy())
+        bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        _backward_pass_kernel(d_Et, d_Q, d_E)
+        _backward_pass_kernel[tpb, bpg](d_Et, d_Q, d_E)
         d_E.copy_to_host(E.detach().numpy())
         # almost certainly not necessary. only assigning Q[:, -1, -1] = 1
         d_Q.copy_to_host(Q.detach().numpy())
@@ -247,6 +249,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         # operator = ctx.others
 
         B, N, M = Ztheta.shape
+        bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
         Qd = torch.empty((B, N + 2, M + 2, 3), dtype=Ztheta.dtype)
         Vtd = torch.empty(B, dtype=Ztheta.dtype)
@@ -261,8 +264,9 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         d_E = cuda.to_device(E.detach().numpy())
         d_Ed = cuda.device_array_like(Ed.detach().numpy())
 
-        _adjoint_forward_pass_kernel(d_Q, d_Ztheta, d_ZA, d_Vtd, d_Qd)
-        _adjoint_backward_pass_kernel(d_E, d_Q, d_Qd, d_Ed)
+        _adjoint_forward_pass_kernel[tpb, bpg](d_Q, d_Ztheta, d_ZA, d_Vtd,
+                                               d_Qd)
+        _adjoint_backward_pass_kernel[tpb, bpg](d_E, d_Q, d_Qd, d_Ed)
 
         d_Vtd.to_host(Vtd.detach().numpy())
         d_Ed.to_host(Ed.detach().numpy())

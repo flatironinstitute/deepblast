@@ -4,9 +4,7 @@ from scipy.stats import multivariate_normal
 import inspect
 
 
-def sample(transition_matrix,
-           means, covs,
-           start_state, n_samples,
+def sample(transition_matrix, means, covs, start_state, n_samples,
            random_state):
     n_states, n_features, _ = covs.shape
     states = np.zeros(n_samples, dtype='int')
@@ -18,8 +16,8 @@ def sample(transition_matrix,
             prev_state = states[i - 1]
         state = random_state.choice(n_states,
                                     p=transition_matrix[:, prev_state])
-        emissions[i] = random_state.multivariate_normal(means[state],
-                                                        covs[state])
+        emissions[i] = random_state.multivariate_normal(
+            means[state], covs[state])
         states[i] = state
     return emissions, states
 
@@ -32,22 +30,18 @@ def make_data(T=20):
     random_state = np.random.RandomState(0)
     d = 0.2
     e = 0.1
-    transition_matrix = np.array([[1 - 2 * d, d, d],
-                                  [1 - e, e, 0],
+    transition_matrix = np.array([[1 - 2 * d, d, d], [1 - e, e, 0],
                                   [1 - e, 0, e]])
-    means = np.array([[0, 0],
-                      [10, 0],
-                      [5, -5]])
-    covs = np.array([[[1, 0],
-                      [0, 1]],
-                     [[.2, 0],
-                      [0, .3]],
-                     [[2, 0],
-                      [0, 1]]])
+    means = np.array([[0, 0], [10, 0], [5, -5]])
+    covs = np.array([[[1, 0], [0, 1]], [[.2, 0], [0, .3]], [[2, 0], [0, 1]]])
     start_state = 0
 
-    emissions, states = sample(transition_matrix, means, covs, start_state,
-                               n_samples=T, random_state=random_state)
+    emissions, states = sample(transition_matrix,
+                               means,
+                               covs,
+                               start_state,
+                               n_samples=T,
+                               random_state=random_state)
     emission_log_likelihood = []
     for mean, cov in zip(means, covs):
         rv = multivariate_normal(mean, cov)
@@ -56,10 +50,18 @@ def make_data(T=20):
     log_transition_matrix = np.log(transition_matrix)
 
     # CRF potential from HMM model
-    theta = emission_log_likelihood[:, :, np.newaxis]
-    theta += log_transition_matrix[np.newaxis, :, :]
+    theta = emission_log_likelihood[:, :, np.newaxis] \
+            + log_transition_matrix[np.newaxis, :, :]
 
     return states, emissions, theta
+
+
+def make_alignment_data():
+    rng = np.random.RandomState(0)
+    m, n = 2, 2
+    X = rng.randn(m, 3)
+    Y = rng.randn(n, 3)
+    return pairwise_distances(X, Y) / 10
 
 
 def get_data_path(fn, subfolder='data'):
