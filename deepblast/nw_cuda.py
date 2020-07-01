@@ -109,12 +109,12 @@ def _adjoint_forward_pass_device(Q, Ztheta, ZA, Qd):
     last, curr = 0, 1
     for j in range(M + 1):
         Vd[last, j] = 0.0
-    Vd[curr][0] = 0.0
+        Vd[curr, j] = 0.0
 
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             maxargs[0] = ZA + Vd[last, j]  # x
-            maxargs[1] = ZA + Vd[last, j - 1]  # m
+            maxargs[1] = Vd[last, j - 1]  # m
             maxargs[2] = ZA + Vd[curr, j - 1]  # y
             Vd[curr, j] = Ztheta[i, j] + \
                 Q[i, j, 0] * maxargs[0] + \
@@ -141,6 +141,10 @@ def _adjoint_backward_pass_device(E, Q, Qd, Ed):
     m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
+
+    for i in range(0, N + 2):
+        for j in range(0, M + 2):
+            Ed[i, j] = 0.0
 
     for ir in range(1, N + 1):
         i = N + 1 - ir
@@ -249,12 +253,12 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         E, Q = ctx.saved_tensors
         # operator = ctx.others
 
-        B, N, M = Ztheta.shape
+        B, ZN, ZM = Ztheta.shape
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        Qd = torch.empty((B, N + 2, M + 2, 3), dtype=Ztheta.dtype)
+        Qd = torch.empty((B, ZN, ZM, 3), dtype=Ztheta.dtype)
         Vtd = torch.empty(B, dtype=Ztheta.dtype)
-        Ed = torch.empty((B, N + 2, M + 2), dtype=Ztheta.dtype)
+        Ed = torch.empty_like(Ztheta)
 
         d_Q = cuda.to_device(Q.detach().numpy())
         d_Ztheta = cuda.to_device(Ztheta.detach().numpy())
