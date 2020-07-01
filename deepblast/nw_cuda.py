@@ -178,14 +178,14 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         # Return both the alignment matrix
         B, N, M = theta.shape
 
-        Q = torch.empty((B, N + 2, M + 2, 3), dtype=theta.dtype)
-        Vt = torch.empty((B), dtype=theta.dtype)
+        Q = torch.zeros((B, N + 2, M + 2, 3), dtype=theta.dtype)
+        Vt = torch.zeros((B), dtype=theta.dtype)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
         d_theta = cuda.to_device(theta.detach().numpy())
         d_A = cuda.to_device(A.detach().numpy())
-        d_Q = cuda.device_array_like(Q.detach().numpy())
-        d_Vt = cuda.device_array_like(Vt.detach().numpy())
+        d_Q = cuda.to_device(Q.detach().numpy())
+        d_Vt = cuda.to_device(Vt.detach().numpy())
 
         _forward_pass_kernel[tpb, bpg](d_theta, d_A, d_Q, d_Vt)
         d_Q.copy_to_host(Q.detach().numpy())
