@@ -71,11 +71,11 @@ def _forward_pass_device(theta, A, Q):
 def _forward_pass_kernel(theta, A, Q, Vt):
     batchid = cuda.grid(1)
     if batchid < theta.shape[0]:
-        Vt[batchid] = _forward_pass_device(theta[batchid], A[0], Q[batchid])
+        Vt[batchid] = _forward_pass_device(theta[batchid], A[batchid], Q[batchid])
 
 
 @cuda.jit(device=True)
-def _backward_pass(Et, Q, E):
+def _backward_pass_device(Et, Q, E):
     m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
@@ -95,7 +95,7 @@ def _backward_pass(Et, Q, E):
 def _backward_pass_kernel(Et, Q, E):
     batchid = cuda.grid(1)
     if batchid < Q.shape[0]:
-        _backward_pass(Et[0], Q[batchid], E[batchid])
+        _backward_pass_device(Et[batchid], Q[batchid], E[batchid])
 
 
 @cuda.jit(device=True)
@@ -132,11 +132,11 @@ def _adjoint_forward_pass_kernel(Q, Ztheta, ZA, Vd, Qd):
     batchid = cuda.grid(1)
     if batchid < Q.shape[0]:
         Vd[batchid] = _adjoint_forward_pass_device(Q[batchid], Ztheta[batchid],
-                                                   ZA[0], Qd[batchid])
+                                                   ZA[batchid], Qd[batchid])
 
 
 @cuda.jit(device=True)
-def _adjoint_backward_pass(E, Q, Qd, Ed):
+def _adjoint_backward_pass_device(E, Q, Qd, Ed):
     m, x, y = 1, 0, 2
     n_1, m_1, _ = Q.shape
     N, M = n_1 - 2, m_1 - 2
