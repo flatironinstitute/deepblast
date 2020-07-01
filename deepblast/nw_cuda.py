@@ -71,7 +71,8 @@ def _forward_pass_device(theta, A, Q):
 def _forward_pass_kernel(theta, A, Q, Vt):
     batchid = cuda.grid(1)
     if batchid < theta.shape[0]:
-        Vt[batchid] = _forward_pass_device(theta[batchid], A[batchid], Q[batchid])
+        Vt[batchid] = _forward_pass_device(theta[batchid], A[batchid],
+                                           Q[batchid])
 
 
 @cuda.jit(device=True)
@@ -157,8 +158,8 @@ def _adjoint_backward_pass_device(E, Q, Qd, Ed):
 def _adjoint_backward_pass_kernel(E, Q, Qd, Ed):
     batchid = cuda.grid(1)
     if batchid < Q.shape[0]:
-        _adjoint_backward_pass(E[batchid], Q[batchid], Qd[batchid],
-                               Ed[batchid])
+        _adjoint_backward_pass_device(E[batchid], Q[batchid], Qd[batchid],
+                                      Ed[batchid])
 
 
 class NeedlemanWunschFunction(torch.autograd.Function):
