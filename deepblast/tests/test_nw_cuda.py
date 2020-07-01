@@ -28,7 +28,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
             B, N, M, requires_grad=True, dtype=torch.float64)
         self.Ztheta = torch.rand(
             B, N, M, requires_grad=True, dtype=torch.float64)
-        self.Et = torch.ones(B)
         self.A = torch.ones(B) * -1.0
         self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
