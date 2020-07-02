@@ -39,8 +39,9 @@ def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
     px, py = list(zip(*pred_alignment))
     tx, ty = list(zip(*truth_alignment))
     pred_matrix = pred_matrix.detach().cpu().numpy().squeeze()
+    # TODO: we somehow got a bunch of coordinates swapped
     pred = coo_matrix((np.ones(len(pred_alignment)),
-                       (px, py))).todense()
+                       (px, py))).todense().T
 
     truth = coo_matrix((np.ones(len(truth_alignment)),
                         (tx, ty))).todense()
