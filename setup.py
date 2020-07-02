@@ -35,7 +35,8 @@ setup(name='deepblast',
           'torch>=1.4',
           'scikit-learn',
           'numba',
-          'pytorch-lightning>=0.8.1'
+          'pytorch-lightning>=0.8.1',
+          'pillow'
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,

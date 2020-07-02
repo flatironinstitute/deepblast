@@ -12,7 +12,7 @@ from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges
 from deepblast.losses import SoftAlignmentLoss
-from deepblast.score import roc_edges, alignment_visualization
+from deepblast.score import roc_edges, alignment_visualization, alignment_text
 
 
 class LightningAligner(pl.LightningModule):
@@ -95,19 +95,23 @@ class LightningAligner(pl.LightningModule):
                            self.tokenizer.alphabet)
             y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
-            res = next(gen)
-            pred_x, pred_y, pred_states = zip(*res)
+            decoded, pred_A = next(gen)
+            pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = list(pred_states)
             truth_states = list(s[b].cpu().detach().numpy())
             pred_edges = list(zip(pred_y, pred_x))
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
-                # something is fucked up with pred_states
-                viz = alignment_visualization(
+                text = alignment_text(
                     x_str, y_str, pred_states, truth_states)
+                fig, _ = alignment_visualization(
+                    true_edges, pred_edges, pred_A)
                 self.logger.experiment.add_text(
-                    'alignment', viz,
+                    'alignment', text,
+                    self.global_step)
+                self.logger.experiment.add_figure(
+                    'alignment-matrix', fig,
                     self.global_step)
             statistics.append(stats)
         statistics = pd.DataFrame(

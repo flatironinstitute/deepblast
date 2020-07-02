@@ -1,5 +1,7 @@
-from deepblast.dataset.dataset import states2alignment
+import numpy as np
 import matplotlib.pyplot as plt
+from scipy.sparse import coo_matrix
+from deepblast.dataset.dataset import states2alignment
 
 
 def roc_edges(true_edges, pred_edges):
@@ -14,15 +16,17 @@ def roc_edges(true_edges, pred_edges):
     fdr = fp / (fp + tp)
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
-def alignment_visualization(pred_aligment, truth_alignment):
+def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
     """ Visualize alignment matrix
 
     Parameters
     ----------
-    pred_alignment : torch.Tensor
-        Predicted alignment matrix
     truth_alignment : torch.Tensor
-        Ground truth alignment matrix
+        Ground truth alignment
+    pred_alignment : list of tuple
+        Predicted alignment
+    pred_matrix : list of tuple
+        Predicted alignment matrix
 
     Returns
     -------
@@ -31,19 +35,27 @@ def alignment_visualization(pred_aligment, truth_alignment):
     ax : list of matplotlib.pyplot.Axes
        Matplotlib axes objects
     """
-    pred = pred_alignment.detach().cpu().numpy().squeeze()
-    truth = truth_alignment.detach().cpu().numpy().squeeze()
+    px, py = list(zip(*pred_alignment))
+    tx, ty = list(zip(*truth_alignment))
+    pred_matrix = pred_matrix.detach().cpu().numpy().squeeze()
+    pred = coo_matrix((np.ones(len(pred_alignment)),
+                       (px, py))).todense()
 
-    fig, ax = plt.subplots(3, 1)
-    ax[0].imshow(pred)
+    truth = coo_matrix((np.ones(len(truth_alignment)),
+                        (tx, ty))).todense()
+    fig, ax = plt.subplots(1, 3, figsize=(10, 3))
+    ax[0].imshow(truth)
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')
-    ax[0].set_title('Predicted \n alignment matrix')
-
-    ax[2].imshow(pred)
+    ax[0].set_title('Ground truth alignment')
+    ax[1].imshow(pred)
+    ax[1].set_xlabel('Positions')
+    ax[1].set_ylabel('Positions')
+    ax[1].set_title('Predicted alignment')
+    ax[2].imshow(pred_matrix)
     ax[2].set_xlabel('Positions')
     ax[2].set_ylabel('Positions')
-    ax[2].set_title('Grouth truth\n alignment matrix')
+    ax[2].set_title('Predicted alignment matrix')
 
     return fig, ax
 
