@@ -126,7 +126,6 @@ def states2alignment(states, X, Y):
     """ Converts state string to gapped alignments """
     i, j = 0, 0
     res = []
-    print(X, Y, states)
     for k in range(len(states)):
         if states[k] == x:
             cx = X[i]

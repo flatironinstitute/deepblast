@@ -84,7 +84,6 @@ class LightningAligner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
-        self.aligner.train()
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA)
         # assert torch.isnan(loss).item() is False
@@ -100,14 +99,16 @@ class LightningAligner(pl.LightningModule):
             pred_x, pred_y, pred_states = zip(*res)
             pred_states = list(pred_states)
             truth_states = list(s[b].cpu().detach().numpy())
-            pred_edges = list(zip(pred_x, pred_y))
+            pred_edges = list(zip(pred_y, pred_x))
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
                 # something is fucked up with pred_states
                 viz = alignment_visualization(
                     x_str, y_str, pred_states, truth_states)
-                self.logger.experiment.add_text('alignment', viz)
+                self.logger.experiment.add_text(
+                    'alignment', viz,
+                    self.global_step)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
@@ -128,7 +129,7 @@ class LightningAligner(pl.LightningModule):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
         loss = sum(losses) / len(losses)
-        self.logger.experiment.add_scalar('val_loss', loss)
+        self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
         metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
                    'val_ppv', 'val_fnr', 'val_fdr']
         scores = []
@@ -137,9 +138,11 @@ class LightningAligner(pl.LightningModule):
             losses = list(map(loss_f, outputs))
             scalar = sum(losses) / len(losses)
             scores.append(scalar)
-            self.logger.experiment.add_scalar(m, scalar)
-        results = dict([('val_loss', loss)] + list(zip(metrics, scores)))
-        return results
+            self.logger.experiment.add_scalar(m, scalar, self.global_step)
+        tensorboard_logs = dict(
+            [('val_loss', loss)] + list(zip(metrics, scores))
+        )
+        return {'val_loss': loss, 'log': tensorboard_logs}
 
     def test_epoch_end(self, outputs):
         pass

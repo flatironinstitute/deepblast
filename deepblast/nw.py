@@ -390,17 +390,24 @@ class NeedlemanWunschDecoder(nn.Module):
         T = max(N, M)
         i, j = N - 1, M - 1
         states = [(i, j, m)]
-        for t in reversed(range(1, T)):
+        max_ = -100000
+        while True:
             idx = torch.Tensor([
                 [i - 1, j],
                 [i - 1, j - 1],
                 [i, j - 1]
             ]).long()
+
+            left = max_ if i <= 0 else grad[i - 1, j]
+            diag = max_ if (i <= 0 and j <= 0) else grad[i - 1, j - 1]
+            upper = max_ if j <= 0 else grad[i, j - 1]
+            if diag == max_ and upper == max_ and left == max_:
+                break
             ij = torch.argmax(
                 torch.Tensor([
-                    grad[i - 1, j],
-                    grad[i - 1, j - 1],
-                    grad[i, j - 1]
+                    left,
+                    diag,
+                    upper
                 ])
             )
             xmy = torch.Tensor([x, m, y])
