@@ -26,7 +26,7 @@ def match(x):
 def state_f(x):
     i, j = x
     if i == '.' and j == '.':
-       return ''
+        return ''
     if i == '.' and j != '.':
         return '1'
     if i != '.' and j == '.':
@@ -54,6 +54,7 @@ def gen_alignments(msa, n_alignments):
             ai.replace('-', '.'), aj.replace('-', '.'))
         alignments.append((n1, n2, 1, 1, 1, x, y, s))
     return alignments
+
 
 def hmm_alignments(n, seed, n_alignments, hmmfile):
     cmd = f'hmmemit -a -N {n} --seed {seed} {hmmfile}'

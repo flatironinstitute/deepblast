@@ -387,7 +387,6 @@ class NeedlemanWunschDecoder(nn.Module):
         m, x, y = 1, 0, 2
         N, M = grad.shape
         states = torch.zeros(max(N, M))
-        T = max(N, M)
         i, j = N - 1, M - 1
         states = [(i, j, m)]
         max_ = -100000

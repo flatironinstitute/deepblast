@@ -16,6 +16,7 @@ def roc_edges(true_edges, pred_edges):
     fdr = fp / (fp + tp)
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
+
 def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
     """ Visualize alignment matrix
 

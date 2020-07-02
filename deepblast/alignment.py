@@ -92,4 +92,3 @@ class NeedlemanWunschAligner(nn.Module):
                 aln = self.nw.decode(theta[b], A[b])
                 decoded = self.nw.traceback(aln)
                 yield decoded, aln
-

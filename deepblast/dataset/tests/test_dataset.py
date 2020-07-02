@@ -10,8 +10,8 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2matrix_zinc(self):
         s = ':1111::::1:'
-        x = 'RGCFH '
-        y = 'YGSVHASERH'
+        # x = 'RGCFH '
+        # y = 'YGSVHASERH'
         s = list(map(tmstate_f, s))
         states2matrix(s, sparse=True)
 
@@ -80,19 +80,6 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(res_x, exp_x)
         self.assertEqual(res_y, exp_y)
 
-    def test_states2alignment_3(self):
-        X = 'XIKCTECGKWRKHPRVGKRQSTFQLHYNFDHX'
-        Y = 'XLQCHGKCSKSYRDAVATARHRERHX'
-        truth = [1, 1, 1, 1, 1, 0, 1, 1, 1, 2,
-                 2, 2, 2, 2, 2, 1, 1, 1, 1, 1,
-                 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1]
-        pred = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1,
-                1, 0, 1, 0, 1, 1, 1, 1, 1, 0, 2,
-                0, 1, 1, 1, 1, 0, 2, 0, 1, 1]
-        import numpy as np
-        # x = 0, m = 1, y = 2
-        states2alignment(truth, X, Y)
-        states2alignment(pred, X, Y)
 
 class TestTMAlignDataset(unittest.TestCase):
     def setUp(self):
@@ -113,19 +100,6 @@ class TestTMAlignDataset(unittest.TestCase):
         self.assertEqual(len(pos), 23)
         self.assertEqual(len(states), 105)
         self.assertEqual(alignment_matrix.shape, (105, 23))
-
-    ## No clipping for now
-    # def test_clip_getitem(self):
-    #     x = TMAlignDataset(self.data_path, tm_threshold=0,
-    #                        pad_ends=True, clip_ends=True)
-    #     res = x[0]
-    #     self.assertEqual(len(res), 4)
-    #     gene, pos, states, alignment_matrix = res
-    #     # test the lengths
-    #     self.assertEqual(len(gene), 23)
-    #     self.assertEqual(len(pos), 23)
-    #     self.assertEqual(len(states), 23)
-    #     self.assertEqual(alignment_matrix.shape, (23, 23))
 
 
 class TestMaliDataset(unittest.TestCase):

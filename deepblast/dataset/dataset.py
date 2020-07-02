@@ -276,7 +276,6 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.tokenizer(str.encode(pos))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
-        N, M = len(gene), len(pos)
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         return gene, pos, states, alignment_matrix
@@ -330,6 +329,5 @@ class MaliAlignmentDataset(AlignmentDataset):
         pos = self.tokenizer(str.encode(pos.replace('-', '')))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
-        N, M = len(gene), len(pos)
         alignment_matrix = torch.from_numpy(states2matrix(states))
         return gene, pos, states, alignment_matrix
