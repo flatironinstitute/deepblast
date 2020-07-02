@@ -56,7 +56,6 @@ def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
     ax[2].set_xlabel('Positions')
     ax[2].set_ylabel('Positions')
     ax[2].set_title('Predicted alignment matrix')
-
     return fig, ax
 
 
@@ -74,12 +73,13 @@ def alignment_text(x, y, pred, truth):
     truth : list of it
         Ground truth states
     """
+    # TODO: we got the truth and prediction edges swapped somewhere earlier
     true_alignment = states2alignment(truth, y, x)
     pred_alignment = states2alignment(pred, x, y)
 
     truth_viz = (
         '# Ground truth\n'
-        f'    {true_alignment[0]}\n    {true_alignment[1]}'
+        f'    {true_alignment[1]}\n    {true_alignment[0]}'
     )
     pred_viz = (
         '# Prediction\n'
