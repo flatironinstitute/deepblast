@@ -80,6 +80,14 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(res_x, exp_x)
         self.assertEqual(res_y, exp_y)
 
+    def test_states2alignment(self):
+        x = 'XFECNGCGMVFSSQSSAEKHIRKKHX'
+        y = 'XHRCDHPGVNCGKSTRKQGELVEHKSTHX'
+        s = [1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1,
+             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+             1, 1, 1, 1, 1, 0, 1, 1]
+        true_alignment = states2alignment(s, y, x)
+
 
 class TestTMAlignDataset(unittest.TestCase):
     def setUp(self):
