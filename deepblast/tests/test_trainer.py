@@ -6,7 +6,7 @@ from deepblast.utils import get_data_path
 from deepblast.sim import hmm_alignments
 from pytorch_lightning import Trainer
 import argparse
-import argparse
+
 
 class TestTrainer(unittest.TestCase):
     def setUp(self):
