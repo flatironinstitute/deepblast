@@ -105,10 +105,6 @@ def states2matrix(states, sparse=False):
     ----------
     states : list
        The state string
-    N : int
-       Length of sequence x.
-    M : int
-       Length of sequence y.
     """
     coords = states2edges(states)
     data = np.ones(len(coords))

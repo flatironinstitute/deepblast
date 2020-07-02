@@ -23,7 +23,6 @@ class TestAlphabet(unittest.TestCase):
              9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
              19, 20, 11, 4, 20, 20, 20])
         npt.assert_allclose(exp, res)
-        self.assertEqual(len(x), len(res))
 
 
 if __name__ == '__main__':

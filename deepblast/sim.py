@@ -59,11 +59,16 @@ def gen_alignments(msa, n_alignments):
 def hmm_alignments(n, seed, n_alignments, hmmfile):
     cmd = f'hmmemit -a -N {n} --seed {seed} {hmmfile}'
     proc = Popen(cmd, shell=True, stdout=PIPE)
-    # proc.wait()
+    proc.wait()
     # construct alignments
     lines = proc.stdout.readlines()
     lines = list(map(lambda x: x.decode('utf-8'), lines))
     lines = list(map(lambda x: x.rstrip().upper(), lines))
-    alignments = gen_alignments(lines[3:-2], n_alignments)
+    # filter out useless lines
+    lines = list(filter(
+        lambda x: len(x) != 0 and not x[0] in {' ', '#', '/'},
+        lines
+    ))
+    alignments = gen_alignments(lines, n_alignments)
     df = pd.DataFrame(alignments)
     return df

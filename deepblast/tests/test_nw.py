@@ -118,7 +118,9 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         v = needle(theta, A)
         v.backward()
         decoded = needle.traceback(theta.grad)
-        states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
+        states = [(0, 0, 0), (1, 0, 0),
+                  (2, 0, 1), (3, 1, 1),
+                  (4, 2, 2), (4, 3, 1)]
         self.assertListEqual(states, decoded)
 
     def test_grad_needlemanwunsch_function(self):
