@@ -24,19 +24,25 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         # smoke tests
         torch.manual_seed(2)
         B, S, N, M = 3, 3, 5, 5
-        self.theta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float64)
-        self.Ztheta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float64)
-        self.A = torch.ones(B) * -1.0
+        self.theta = torch.rand(B,
+                                N,
+                                M,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.Ztheta = torch.rand(B,
+                                 N,
+                                 M,
+                                 requires_grad=True,
+                                 dtype=torch.float32)
+        self.A = torch.ones(B, dtype=torch.float32) * -1.0
         self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
     def test_decoding(self):
-        theta = torch.from_numpy(make_data()).unsqueeze(0)
+        theta = torch.from_numpy(make_data().astype(np.float32)).unsqueeze(0)
         theta.requires_grad_()
-        A = torch.Tensor([0.1])
+        A = torch.tensor([0.1], dtype=torch.float32)
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
@@ -48,7 +54,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         needle = NeedlemanWunschDecoder(self.operator)
         theta, A = self.theta, self.A
         theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-2)
+        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
 
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)

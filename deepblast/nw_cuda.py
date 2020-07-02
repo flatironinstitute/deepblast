@@ -5,7 +5,7 @@ from numba import cuda
 from math import log, exp
 
 max_cols = 2048
-float_type = numba.float64
+float_type = numba.float32
 tpb = 32  # threads per block
 
 
@@ -168,8 +168,8 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         if operator != 'softmax':
             raise NotImplementedError(
                 "CUDA variant only supports 'softmax' operator")
-        if theta.dtype != torch.float64:
-            raise TypeError("CUDA variant only supports torch.float64 type")
+        if theta.dtype != torch.float32:
+            raise TypeError("CUDA variant only supports torch.float32 type")
 
         # Return both the alignment matrix
         B, N, M = theta.shape
