@@ -1,13 +1,9 @@
 import numpy as np
-import pytest
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from deepblast.nw_cuda import NeedlemanWunschDecoder
-from deepblast.utils import make_data, make_alignment_data
 from sklearn.metrics.pairwise import pairwise_distances
-import numpy.testing as npt
 import unittest
 
 
@@ -27,44 +23,44 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 2, 3, 5, 5
-        self.theta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float32)
-        self.Ztheta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float32)
-        self.Et = torch.Tensor([1., 1.])
-        self.A = torch.Tensor([-1., -1.])
+        B, S, N, M = 3, 3, 5, 5
+        self.theta = torch.rand(B,
+                                N,
+                                M,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.Ztheta = torch.rand(B,
+                                 N,
+                                 M,
+                                 requires_grad=True,
+                                 dtype=torch.float32)
+        self.A = torch.ones(B, dtype=torch.float32) * -1.0
         self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
     def test_decoding(self):
-        theta = torch.from_numpy(make_data()).unsqueeze(0)
+        theta = torch.from_numpy(make_data().astype(np.float32)).unsqueeze(0)
         theta.requires_grad_()
-        A = torch.Tensor([0.1]).unsqueeze(0)
+        A = torch.tensor([0.1], dtype=torch.float32)
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
-        decoded = needle.traceback(theta.grad)
-        states = [(0, 0, 0), (1, 0, 0),
-                  (2, 0, 1), (3, 1, 1),
-                  (4, 2, 2), (4, 3, 1)]
+        decoded = needle.traceback(theta.grad.squeeze())
+        states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = ()
-        theta, A = self.theta.double(), self.A.double()
+        theta, A = self.theta, self.A
         theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-2)
+        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
 
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1)
+        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
 
 
 if __name__ == "__main__":
     unittest.main()
-
-

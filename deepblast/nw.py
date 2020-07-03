@@ -179,7 +179,7 @@ def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             maxargs[x] = ZA + Vd[i - 1, j]
-            maxargs[m] = ZA + Vd[i - 1, j - 1]
+            maxargs[m] = Vd[i - 1, j - 1]
             maxargs[y] = ZA + Vd[i, j - 1]
             Vd[i, j] = Ztheta[i, j] + \
                 Q[i, j, x] * maxargs[0] + \
