@@ -77,6 +77,7 @@ class LightningAligner(pl.LightningModule):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
+        print(len(x[0]), len(y[0]), A.shape, predA.shape)
         loss = self.loss_func(A, predA)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'train_loss': loss}
@@ -193,7 +194,7 @@ class LightningAligner(pl.LightningModule):
             '--batch-size', help='Training batch size',
             required=False, type=int, default=32)
         parser.add_argument(
-            '--finetune', help='Perform finetuning (does not work with mean)',
+            '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
         parser.add_argument(
             '--clip-ends',

@@ -177,13 +177,13 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         Vt = torch.zeros((B), dtype=theta.dtype)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        d_theta = cuda.to_device(theta.detach().numpy())
-        d_A = cuda.to_device(A.detach().numpy())
-        d_Q = cuda.to_device(Q.detach().numpy())
-        d_Vt = cuda.to_device(Vt.detach().numpy())
+        d_theta = cuda.to_device(theta.detach().cpu().numpy())
+        d_A = cuda.to_device(A.detach().cpu().numpy())
+        d_Q = cuda.to_device(Q.detach().cpu().numpy())
+        d_Vt = cuda.to_device(Vt.detach().cpu().numpy())
 
         _forward_pass_kernel[tpb, bpg](d_theta, d_A, d_Q, d_Vt)
-        d_Vt.copy_to_host(Vt.detach().numpy())
+        d_Vt.copy_to_host(Vt.detach().cpu().numpy())
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
@@ -244,7 +244,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         """
         # operator = ctx.others
         d_Q, d_E  = ctx.device_arrays
-        
+
         B, ZN, ZM = Ztheta.shape
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
@@ -252,11 +252,12 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         Vtd = torch.zeros(B, dtype=Ztheta.dtype)
         Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype)
 
-        d_Ztheta = cuda.to_device(Ztheta.detach().numpy())
-        d_ZA = cuda.to_device(ZA.detach().numpy())
-        d_Vtd = cuda.to_device(Vtd.detach().numpy())
-        d_Qd = cuda.to_device(Qd.detach().numpy())
-        d_Ed = cuda.to_device(Ed.detach().numpy())
+        # TODO: need to figure out how to remove data bottleneck
+        d_Ztheta = cuda.to_device(Ztheta.detach().cpu().numpy())
+        d_ZA = cuda.to_device(ZA.detach().cpu().numpy())
+        d_Vtd = cuda.to_device(Vtd.detach().cpu().numpy())
+        d_Qd = cuda.to_device(Qd.detach().cpu().numpy())
+        d_Ed = cuda.to_device(Ed.detach().cpu().numpy())
 
         _adjoint_forward_pass_kernel[tpb, bpg](d_Q, d_Ztheta, d_ZA, d_Vtd,
                                                d_Qd)
@@ -283,27 +284,35 @@ class NeedlemanWunschDecoder(nn.Module):
         Parameters
         ----------
         grad : torch.Tensor
-            Gradients of the alignment matrix of dimension N x M.
+            Gradients of the alignment matrix.
 
         Returns
         -------
         states : list of tuple
             Indices representing matches.
         """
-        # m, x, y = 1, 0, 2
+        m, x, y = 1, 0, 2
         N, M = grad.shape
         states = torch.zeros(max(N, M))
-        T = max(N, M)
         i, j = N - 1, M - 1
-        states = [(i, j)]
-        for t in reversed(range(T)):
+        states = [(i, j, m)]
+        max_ = -100000
+        while True:
             idx = torch.Tensor([[i - 1, j], [i - 1, j - 1], [i, j - 1]]).long()
+            left = max_ if i <= 0 else grad[i - 1, j]
+            diag = max_ if (i <= 0 and j <= 0) else grad[i - 1, j - 1]
+            upper = max_ if j <= 0 else grad[i, j - 1]
+            if diag == max_ and upper == max_ and left == max_:
+                break
             ij = torch.argmax(
-                torch.Tensor(
-                    [grad[i - 1, j], grad[i - 1, j - 1], grad[i, j - 1]]))
+                torch.Tensor([left, diag, upper ])
+            )
+            xmy = torch.Tensor([x, m, y])
             i, j = int(idx[ij][0]), int(idx[ij][1])
-            states.append((i, j))
+            s = int(xmy[ij])
+            states.append((i, j, s))
         return states[::-1]
+
 
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
