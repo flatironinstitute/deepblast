@@ -1,0 +1,20 @@
+import argparse
+import pandas as pd
+from deepblast.sim import hmm_alignments
+
+
+def main(args):
+    df = hmm_alignments(arg.n, args.seed, args.n_alignments, args.hmmfile)
+    df.to_csv(args.output_file, sep='\t', header=None, index=None)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument('-n', type=int, default=100)
+    parser.add_argument('--seed', type=int, default=0)
+    parser.add_argument('--hmmfile', type=str,
+                        default=None, required=True)
+    parser.add_argument('--n-alignments', type=int, default=100)
+    parser.add_argument('--output-file', type=str, default=100)
+    args = parser.parse_args()
+    main(args)

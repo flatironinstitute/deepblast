@@ -1,5 +1,7 @@
 import datetime
 import argparse
+import random
+import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -8,7 +10,9 @@ import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
+from deepblast.dataset.dataset import decode, states2edges
 from deepblast.losses import SoftAlignmentLoss
+from deepblast.score import roc_edges, alignment_visualization, alignment_text
 
 
 class LightningAligner(pl.LightningModule):
@@ -46,7 +50,6 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        print(self.hparams.train_pairs)
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
@@ -55,14 +58,16 @@ class LightningAligner(pl.LightningModule):
         return train_dataloader
 
     def val_dataloader(self):
-        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
+        valid_dataset = TMAlignDataset(self.hparams.valid_pairs,
+                                       clip_ends=self.hparams.clip_ends)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        test_dataset = TMAlignDataset(self.hparams.test_pairs)
+        test_dataset = TMAlignDataset(self.hparams.test_pairs,
+                                      clip_ends=self.hparams.clip_ends)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             num_workers=self.hparams.num_workers)
@@ -79,30 +84,72 @@ class LightningAligner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
-        self.aligner.train()
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA)
-        assert torch.isnan(loss).item() is False
+        # assert torch.isnan(loss).item() is False
+        # Obtain alignment statistics + visualizations
+        gen = self.aligner.traceback(x, y)
+        statistics = []
+        for b in range(len(x)):
+            x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
+                           self.tokenizer.alphabet)
+            y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
+                           self.tokenizer.alphabet)
+            decoded, pred_A = next(gen)
+            pred_x, pred_y, pred_states = list(zip(*decoded))
+            pred_states = list(pred_states)
+            truth_states = list(s[b].cpu().detach().numpy())
+            pred_edges = list(zip(pred_y, pred_x))
+            true_edges = states2edges(truth_states)
+            stats = roc_edges(true_edges, pred_edges)
+            if random.random() < self.hparams.visualization_fraction:
+                text = alignment_text(
+                    x_str, y_str, pred_states, truth_states)
+                fig, _ = alignment_visualization(
+                    true_edges, pred_edges, pred_A)
+                self.logger.experiment.add_text(
+                    'alignment', text,
+                    self.global_step)
+                self.logger.experiment.add_figure(
+                    'alignment-matrix', fig,
+                    self.global_step)
+            statistics.append(stats)
+        statistics = pd.DataFrame(
+            statistics, columns=[
+                'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+                'val_ppv', 'val_fnr', 'val_fdr'
+            ]
+        )
+        statistics = statistics.mean(axis=0).to_dict()
         tensorboard_logs = {'valid_loss': loss}
-        # TODO: Measure the alignment accuracy
+        tensorboard_logs = {**tensorboard_logs, **statistics}
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        x, y, s, A = batch
-        self.aligner.train()
-        predA = self.aligner(x, y)
-        loss = SoftAlignmentLoss(A, predA)
-        assert torch.isnan(loss).item() is False
-        # TODO: Measure the alignment accuracy
-        return {'test_loss': loss}
+        pass
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
-        val_loss = sum(losses) / len(losses)
-        results = {'validation_loss': val_loss}
-        return results
+        loss = sum(losses) / len(losses)
+        self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
+        metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+                   'val_ppv', 'val_fnr', 'val_fdr']
+        scores = []
+        for i, m in enumerate(metrics):
+            loss_f = lambda x: x['log'][m]
+            losses = list(map(loss_f, outputs))
+            scalar = sum(losses) / len(losses)
+            scores.append(scalar)
+            self.logger.experiment.add_scalar(m, scalar, self.global_step)
+        tensorboard_logs = dict(
+            [('val_loss', loss)] + list(zip(metrics, scores))
+        )
+        return {'val_loss': loss, 'log': tensorboard_logs}
+
+    def test_epoch_end(self, outputs):
+        pass
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
@@ -156,6 +203,10 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--epochs', help='Training batch size',
             required=False, type=int, default=10)
+        parser.add_argument(
+            '--visualization-fraction',
+            help='Fraction of alignments to be visualized per epoch',
+            required=False, type=float, default=0.1)
         parser.add_argument(
             '-o', '--output-directory',
             help='Output directory of model results', required=True)

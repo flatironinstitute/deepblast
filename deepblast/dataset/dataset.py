@@ -98,22 +98,19 @@ def states2edges(states):
     return coords
 
 
-def states2matrix(states, N, M, sparse=False):
+def states2matrix(states, sparse=False):
     """ Converts state string to alignment matrix.
 
     Parameters
     ----------
     states : list
        The state string
-    N : int
-       Length of sequence x.
-    M : int
-       Length of sequence y.
     """
     coords = states2edges(states)
     data = np.ones(len(coords))
     row, col = list(zip(*coords))
     row, col = np.array(row), np.array(col)
+    N, M = max(row) + 1, max(col) + 1
     mat = coo_matrix((data, (row, col)), shape=(N, M))
     if sparse:
         return mat
@@ -130,19 +127,39 @@ def states2alignment(states, X, Y):
             cx = X[i]
             cy = '-'
             i += 1
-        if states[k] == y:
+        elif states[k] == y:
             cx = '-'
             cy = Y[j]
             j += 1
-        if states[k] == m:
+        elif states[k] == m:
             cx = X[i]
             cy = Y[j]
             i += 1
             j += 1
+        else:
+            raise ValueError(f'{states[k]} is not recognized')
         res.append((cx, cy))
 
     aligned_x, aligned_y = zip(*res)
     return ''.join(aligned_x), ''.join(aligned_y)
+
+
+def decode(codes, alphabet):
+    """ Converts one-hot encodings to string
+
+    Parameters
+    ----------
+    code : torch.Tensor
+        One-hot encodings.
+    alphabet : Alphabet
+        Matches one-hot encodings to letters.
+
+    Returns
+    -------
+    str
+    """
+    s = list(map(lambda x: alphabet[int(x)], codes))
+    return ''.join(s)
 
 
 class AlignmentDataset(Dataset):
@@ -245,18 +262,18 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
-        if self.clip_ends:
-            gene, pos, states = clip_boundaries(gene, pos, states)
+        # if self.clip_ends:  # TODO: this is broken. May want to remove.
+        #     gene, pos, states = clip_boundaries(gene, pos, states)
         if self.pad_ends:
             states = [m] + states + [m]
-        states = torch.Tensor(states)
+
+        states = torch.Tensor(states).long()
         gene = self.tokenizer(str.encode(gene))
         pos = self.tokenizer(str.encode(pos))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
-        N, M = len(gene), len(pos)
         alignment_matrix = torch.from_numpy(
-            states2matrix(states, N, M))
+            states2matrix(states))
         return gene, pos, states, alignment_matrix
 
 
@@ -308,6 +325,5 @@ class MaliAlignmentDataset(AlignmentDataset):
         pos = self.tokenizer(str.encode(pos.replace('-', '')))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
-        N, M = len(gene), len(pos)
-        alignment_matrix = torch.from_numpy(states2matrix(states, N, M))
+        alignment_matrix = torch.from_numpy(states2matrix(states))
         return gene, pos, states, alignment_matrix

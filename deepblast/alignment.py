@@ -69,25 +69,27 @@ class NeedlemanWunschAligner(nn.Module):
             xmean = zx.mean(axis=1)   # dim B x D
             ymean = zy.mean(axis=1)   # dim B x D
             merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
-
             A = self.gap_score(merged)
             # TODO enable batching on needleman-wunsch
             B, N, M = theta.shape
-            aln = torch.zeros((B, N, M))
+            aln = torch.zeros((B, M, N), device=theta.device)
             for b in range(B):
-                aln[b] = self.nw.decode(theta[b], A[b])
+                # TODO: Somehow all of the dimensions are backwards
+                aln[b] = self.nw.decode(theta[b], A[b]).T
             return aln
 
     def traceback(self, x, y):
-        zx = self.embedding(x)    # dim B x N x D
-        zy = self.embedding(y)    # dim B x M x D
-        # Obtain theta through an inner product across latent dimensions
-        theta = torch.einsum('bij,bjk->bij', zx, zy)
-        xmean = zx.mean(axis=1)   # dim B x D
-        ymean = zy.mean(axis=1)   # dim B x D
-        merged = torch.concat((xmean, ymean), axis=1)  # dim B x 2D
-        A = self.gap_score(merged)
-        aln = self.nw(theta, A)
-        aln.backward()
-        decoded = self.nw.traceback(theta.grad)
-        return decoded
+        with torch.enable_grad():
+            zx = self.embedding(x)    # dim B x N x D
+            zy = self.embedding(y)    # dim B x M x D
+            # Obtain theta through an inner product across latent dimensions
+            theta = torch.einsum('bid,bjd->bij', zx, zy)
+            xmean = zx.mean(axis=1)   # dim B x D
+            ymean = zy.mean(axis=1)   # dim B x D
+            merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
+            A = self.gap_score(merged)
+            B, _, _ = theta.shape
+            for b in range(B):
+                aln = self.nw.decode(theta[b], A[b])
+                decoded = self.nw.traceback(aln)
+                yield decoded, aln
