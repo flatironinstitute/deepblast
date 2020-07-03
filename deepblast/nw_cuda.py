@@ -82,7 +82,6 @@ def _backward_pass_device(Et, Q, E):
     N, M = n_1 - 2, m_1 - 2
 
     E[N + 1, M + 1] = Et
-    Q[N + 1, M + 1] = 1
     for ir in range(1, N + 1):
         i = N + 1 - ir
         for jr in range(1, M + 1):
@@ -184,12 +183,11 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         d_Vt = cuda.to_device(Vt.detach().numpy())
 
         _forward_pass_kernel[tpb, bpg](d_theta, d_A, d_Q, d_Vt)
-        d_Q.copy_to_host(Q.detach().numpy())
         d_Vt.copy_to_host(Vt.detach().numpy())
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
-        # ctx.device_arrays = d_theta, d_A, d_Q, d_Vt
+        ctx.device_arrays = d_Q
         return Vt
 
     @staticmethod
@@ -203,15 +201,16 @@ class NeedlemanWunschFunction(torch.autograd.Function):
            Last alignment trace (scalar value)
         """
         theta, A, Q = ctx.saved_tensors
+        d_Q = ctx.device_arrays
         operator = ctx.others
-        # print(ctx.device_arrays[0])
-        E, A = NeedlemanWunschFunctionBackward.apply(theta, A, Et, Q, operator)
+
+        E, A = NeedlemanWunschFunctionBackward.apply(theta, A, Et, d_Q, operator)
         return E[:, 1:-1, 1:-1], A, None, None, None
 
 
 class NeedlemanWunschFunctionBackward(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, theta, A, Et, Q, operator):
+    def forward(ctx, theta, A, Et, d_Q, operator):
         if operator != 'softmax':
             raise NotImplementedError(
                 "CUDA variant only supports 'softmax' operator")
@@ -221,17 +220,14 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         E = torch.zeros((B, N + 2, M + 2), dtype=theta.dtype)
 
         d_Et = cuda.to_device(Et.detach().numpy())
-        d_Q = cuda.to_device(Q.detach().numpy())
         d_E = cuda.to_device(E.detach().numpy())
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
         _backward_pass_kernel[tpb, bpg](d_Et, d_Q, d_E)
         d_E.copy_to_host(E.detach().numpy())
-        # almost certainly not necessary. only assigning Q[:, -1, -1] = 1
-        d_Q.copy_to_host(Q.detach().numpy())
 
-        ctx.save_for_backward(E, Q)
         ctx.others = operator
+        ctx.device_arrays = d_Q, d_E
         return E, A
 
     @staticmethod
@@ -246,9 +242,9 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         ZA : torch.Tensor
             Derivative of transition matrix of dimension 3 x 3
         """
-        E, Q = ctx.saved_tensors
         # operator = ctx.others
-
+        d_Q, d_E  = ctx.device_arrays
+        
         B, ZN, ZM = Ztheta.shape
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
@@ -256,13 +252,10 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         Vtd = torch.zeros(B, dtype=Ztheta.dtype)
         Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype)
 
-        d_Q = cuda.to_device(Q.detach().numpy())
         d_Ztheta = cuda.to_device(Ztheta.detach().numpy())
         d_ZA = cuda.to_device(ZA.detach().numpy())
         d_Vtd = cuda.to_device(Vtd.detach().numpy())
         d_Qd = cuda.to_device(Qd.detach().numpy())
-
-        d_E = cuda.to_device(E.detach().numpy())
         d_Ed = cuda.to_device(Ed.detach().numpy())
 
         _adjoint_forward_pass_kernel[tpb, bpg](d_Q, d_Ztheta, d_ZA, d_Vtd,
