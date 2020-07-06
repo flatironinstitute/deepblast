@@ -179,7 +179,7 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        _forward_pass_kernel[tpb, bpg](theta.detach(), A, Q, Vt)
+        _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), Q, Vt)
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
