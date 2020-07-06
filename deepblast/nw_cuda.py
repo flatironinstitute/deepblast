@@ -249,7 +249,6 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         _adjoint_forward_pass_kernel[tpb, bpg](Q, Ztheta, ZA, Vtd, Qd)
         _adjoint_backward_pass_kernel[tpb, bpg](E.detach(), Q, Qd, Ed)
 
-        # This almost definitely forces a CPU copy
         Ed = Ed[:, 1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
 
