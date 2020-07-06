@@ -73,8 +73,7 @@ class NeedlemanWunschAligner(nn.Module):
             xmean = zx.mean(axis=1)   # dim B x D
             ymean = zy.mean(axis=1)   # dim B x D
             merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
-            A = self.gap_score(merged)
-            print(theta.shape, A.shape)
+            A = self.gap_score(merged).squeeze()
             aln = self.nw.decode(theta, A)
             return aln
 

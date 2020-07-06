@@ -77,7 +77,6 @@ class LightningAligner(pl.LightningModule):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
-        print(len(x[0]), len(y[0]), A.shape, predA.shape)
         loss = self.loss_func(A, predA)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'train_loss': loss}

@@ -161,6 +161,11 @@ def decode(codes, alphabet):
     s = list(map(lambda x: alphabet[int(x)], codes))
     return ''.join(s)
 
+def collate_f(batch):
+    genes = [x[0] for x in batch]
+    others = [x[1] for x in batch]
+    states = [x[2] for x in batch]
+    alignments = [x[2] for x in batch]
 
 class AlignmentDataset(Dataset):
     def __init__(self, pairs, tokenizer=UniprotTokenizer()):
@@ -274,7 +279,7 @@ class TMAlignDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
-        return gene, pos, states, alignment_matrix
+        return gene, pos, states, alignment_matrix.t()
 
 
 class MaliAlignmentDataset(AlignmentDataset):
