@@ -89,6 +89,6 @@ class NeedlemanWunschAligner(nn.Module):
             A = self.gap_score(merged)
             B, _, _ = theta.shape
             for b in range(B):
-                aln = self.nw.decode(theta[b].unsqueeze(0), A[b].unsqueeze(0))
-                decoded = self.nw.traceback(aln)
+                aln = self.nw.decode(theta[b].unsqueeze(0), A[b].squeeze())
+                decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln
