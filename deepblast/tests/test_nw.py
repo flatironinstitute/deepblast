@@ -1,13 +1,9 @@
 import numpy as np
-import pytest
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 from deepblast.nw_cuda import NeedlemanWunschDecoder
-from deepblast.utils import make_data, make_alignment_data
 from sklearn.metrics.pairwise import pairwise_distances
-import numpy.testing as npt
 import unittest
 
 
@@ -28,10 +24,16 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         # smoke tests
         torch.manual_seed(2)
         B, S, N, M = 2, 3, 5, 5
-        self.theta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float32)
-        self.Ztheta = torch.rand(
-            B, N, M, requires_grad=True, dtype=torch.float32)
+        self.theta = torch.rand(B,
+                                N,
+                                M,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.Ztheta = torch.rand(B,
+                                 N,
+                                 M,
+                                 requires_grad=True,
+                                 dtype=torch.float32)
         self.Et = torch.Tensor([1., 1.])
         self.A = torch.Tensor([-1., -1.])
         self.B, self.S, self.N, self.M = B, S, N, M
@@ -46,14 +48,12 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         v = needle(theta, A)
         v.backward()
         decoded = needle.traceback(theta.grad)
-        states = [(0, 0, 0), (1, 0, 0),
-                  (2, 0, 1), (3, 1, 1),
-                  (4, 2, 2), (4, 3, 1)]
+        states = [(0, 0, 0), (1, 0, 0), (2, 0, 1), (3, 1, 1), (4, 2, 2),
+                  (4, 3, 1)]
         self.assertListEqual(states, decoded)
 
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = ()
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(needle, (theta, A), eps=1e-2)
@@ -66,5 +66,3 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
-
