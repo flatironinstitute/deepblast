@@ -173,21 +173,16 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         # Return both the alignment matrix
         B, N, M = theta.shape
 
-        Q = torch.zeros((B, N + 2, M + 2, 3), dtype=theta.dtype)
-        Vt = torch.zeros((B), dtype=theta.dtype)
+        Q = torch.zeros((B, N + 2, M + 2, 3),
+                        dtype=theta.dtype,
+                        device=theta.device)
+        Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        d_theta = cuda.to_device(theta.detach().numpy())
-        d_A = cuda.to_device(A.detach().numpy())
-        d_Q = cuda.to_device(Q.detach().numpy())
-        d_Vt = cuda.to_device(Vt.detach().numpy())
-
-        _forward_pass_kernel[tpb, bpg](d_theta, d_A, d_Q, d_Vt)
-        d_Vt.copy_to_host(Vt.detach().numpy())
+        _forward_pass_kernel[tpb, bpg](theta.detach(), A, Q, Vt)
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
-        ctx.device_arrays = d_Q
         return Vt
 
     @staticmethod
@@ -201,33 +196,30 @@ class NeedlemanWunschFunction(torch.autograd.Function):
            Last alignment trace (scalar value)
         """
         theta, A, Q = ctx.saved_tensors
-        d_Q = ctx.device_arrays
         operator = ctx.others
 
-        E, A = NeedlemanWunschFunctionBackward.apply(theta, A, Et, d_Q, operator)
+        E, A = NeedlemanWunschFunctionBackward.apply(theta, A, Et, Q, operator)
         return E[:, 1:-1, 1:-1], A, None, None, None
 
 
 class NeedlemanWunschFunctionBackward(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, theta, A, Et, d_Q, operator):
+    def forward(ctx, theta, A, Et, Q, operator):
         if operator != 'softmax':
             raise NotImplementedError(
                 "CUDA variant only supports 'softmax' operator")
 
         B, N, M = theta.shape
 
-        E = torch.zeros((B, N + 2, M + 2), dtype=theta.dtype)
-
-        d_Et = cuda.to_device(Et.detach().numpy())
-        d_E = cuda.to_device(E.detach().numpy())
+        E = torch.zeros((B, N + 2, M + 2),
+                        dtype=theta.dtype,
+                        device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        _backward_pass_kernel[tpb, bpg](d_Et, d_Q, d_E)
-        d_E.copy_to_host(E.detach().numpy())
+        _backward_pass_kernel[tpb, bpg](Et.detach(), Q, E)
 
+        ctx.save_for_backward(Q, E)
         ctx.others = operator
-        ctx.device_arrays = d_Q, d_E
         return E, A
 
     @staticmethod
@@ -243,28 +235,21 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
             Derivative of transition matrix of dimension 3 x 3
         """
         # operator = ctx.others
-        d_Q, d_E  = ctx.device_arrays
-        
+        Q, E = ctx.saved_tensors
+
         B, ZN, ZM = Ztheta.shape
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        Qd = torch.zeros((B, ZN, ZM, 3), dtype=Ztheta.dtype)
-        Vtd = torch.zeros(B, dtype=Ztheta.dtype)
-        Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype)
+        Qd = torch.zeros((B, ZN, ZM, 3),
+                         dtype=Ztheta.dtype,
+                         device=Ztheta.device)
+        Vtd = torch.zeros(B, dtype=Ztheta.dtype, device=Ztheta.device)
+        Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype, device=Ztheta.device)
 
-        d_Ztheta = cuda.to_device(Ztheta.detach().numpy())
-        d_ZA = cuda.to_device(ZA.detach().numpy())
-        d_Vtd = cuda.to_device(Vtd.detach().numpy())
-        d_Qd = cuda.to_device(Qd.detach().numpy())
-        d_Ed = cuda.to_device(Ed.detach().numpy())
+        _adjoint_forward_pass_kernel[tpb, bpg](Q, Ztheta, ZA, Vtd, Qd)
+        _adjoint_backward_pass_kernel[tpb, bpg](E.detach(), Q, Qd, Ed)
 
-        _adjoint_forward_pass_kernel[tpb, bpg](d_Q, d_Ztheta, d_ZA, d_Vtd,
-                                               d_Qd)
-        _adjoint_backward_pass_kernel[tpb, bpg](d_E, d_Q, d_Qd, d_Ed)
-
-        d_Vtd.copy_to_host(Vtd.detach().numpy())
-        d_Ed.copy_to_host(Ed.detach().numpy())
-
+        # This almost definitely forces a CPU copy
         Ed = Ed[:, 1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
 
