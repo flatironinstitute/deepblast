@@ -39,6 +39,7 @@ class TestTrainer(unittest.TestCase):
         if os.path.exists('valid.txt'):
             os.remove('valid.txt')
 
+    @unittest.skip("Can only run with GPU")
     def test_trainer_sim(self):
         output_dir = 'output'
         args = [
@@ -70,6 +71,7 @@ class TestTrainer(unittest.TestCase):
         )
         trainer.fit(model)
 
+    @unittest.skip("Can only run with GPU")
     def test_trainer_struct(self):
         output_dir = 'output'
         args = [
