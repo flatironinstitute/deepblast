@@ -13,7 +13,6 @@ from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import SoftAlignmentLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-from deepblast.utils import mask
 
 
 class LightningAligner(pl.LightningModule):
@@ -78,7 +77,7 @@ class LightningAligner(pl.LightningModule):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
-        loss = self.loss_func(mask(A, x, y), mask(predA, x, y))
+        loss = self.loss_func(A, predA, x, y)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
@@ -86,7 +85,7 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
         predA = self.aligner(x, y)
-        loss = self.loss_func(mask(A, x, y), mask(predA, x, y))
+        loss = self.loss_func(A, predA, x, y)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)

@@ -65,12 +65,6 @@ def make_alignment_data():
     return pairwise_distances(X, Y) / 10
 
 
-def mask(A, x, y):
-    for b in range(A.shape[0]):
-        A[b, len(x):, len(y)] = 0
-    return A
-
-
 def get_data_path(fn, subfolder='data'):
     """Return path to filename ``fn`` in the data folder.
     During testing it is often necessary to load data files. This
