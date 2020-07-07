@@ -39,7 +39,8 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
                                      requires_grad=True,
                                      dtype=torch.float32,
                                      device=cuda_device)
-            self.A = torch.ones(B, dtype=torch.float32, device=cuda_device) * -1.0
+            self.A = torch.ones(
+                B, dtype=torch.float32, device=cuda_device) * -1.0
             self.B, self.S, self.N, self.M = B, S, N, M
             # TODO: Compare against hardmax and sparsemax
             self.operator = 'softmax'
