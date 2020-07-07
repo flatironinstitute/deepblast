@@ -76,7 +76,7 @@ def alignment_text(x, y, pred, truth):
         Ground truth states
     """
     # TODO: we got the truth and prediction edges swapped somewhere earlier
-    true_alignment = states2alignment(truth, y, x)
+    true_alignment = states2alignment(truth, x, y)
     pred_alignment = states2alignment(pred, x, y)
 
     truth_viz = (

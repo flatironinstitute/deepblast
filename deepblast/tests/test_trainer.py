@@ -37,10 +37,9 @@ class TestTrainer(unittest.TestCase):
         if os.path.exists('test.txt'):
             os.remove('test.txt')
         if os.path.exists('valid.txt'):
-          os.remove('valid.txt')
+            os.remove('valid.txt')
 
-    def test_trainer(self):
-
+    def test_trainer_sim(self):
         output_dir = 'output'
         args = [
             '--train-pairs', 'train.txt',
@@ -53,6 +52,37 @@ class TestTrainer(unittest.TestCase):
             '--learning-rate', '1e-4',
             '--clip-ends', 'False',
             '--visualization-fraction', '0.5',
+            '--gpus', '1'
+        ]
+        parser = argparse.ArgumentParser(add_help=False)
+        parser = LightningAligner.add_model_specific_args(parser)
+        parser.add_argument('--num-workers', type=int)
+        parser.add_argument('--gpus', type=int)
+        args = parser.parse_args(args)
+        model = LightningAligner(args)
+        trainer = Trainer(
+            max_epochs=args.epochs,
+            gpus=args.gpus,
+            check_val_every_n_epoch=1,
+            # profiler=profiler,
+            fast_dev_run=True,
+            # auto_scale_batch_size='power'
+        )
+        trainer.fit(model)
+
+    def test_trainer_struct(self):
+        output_dir = 'output'
+        args = [
+            '--train-pairs', get_data_path('train.txt'),
+            '--test-pairs', get_data_path('test.txt'),
+            '--valid-pairs', get_data_path('valid.txt'),
+            '--output-directory', output_dir,
+            '--epochs', '1',
+            '--batch-size', '1',
+            '--num-workers', '1',
+            '--learning-rate', '1e-4',
+            '--clip-ends', 'False',
+            '--visualization-fraction', '1',
             '--gpus', '1'
         ]
         parser = argparse.ArgumentParser(add_help=False)

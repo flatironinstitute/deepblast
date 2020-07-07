@@ -13,7 +13,7 @@ from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import SoftAlignmentLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-from torch.nn.utils.rnn import pad_packed_sequence, pad_packed_sequence
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -106,16 +106,19 @@ class LightningAligner(pl.LightningModule):
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
-                text = alignment_text(
-                    x_str, y_str, pred_states, truth_states)
+                try:
+                    # TODO: Need to figure out wtf is happening here.
+                    # See issue #40
+                    text = alignment_text(
+                        x_str, y_str, pred_states, truth_states)
+                except:
+                    continue
                 fig, _ = alignment_visualization(
                     true_edges, pred_edges, pred_A)
                 self.logger.experiment.add_text(
-                    'alignment', text,
-                    self.global_step)
+                    'alignment', text, self.global_step)
                 self.logger.experiment.add_figure(
-                    'alignment-matrix', fig,
-                    self.global_step)
+                    'alignment-matrix', fig, self.global_step)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
