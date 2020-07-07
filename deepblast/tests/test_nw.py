@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from deepblast.nw_cuda import NeedlemanWunschDecoder
+from deepblast.nw import NeedlemanWunschDecoder
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 
@@ -23,17 +23,17 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 2, 3, 5, 5
+        B, S, N, M = 1, 3, 4, 4
         self.theta = torch.rand(B,
                                 N,
                                 M,
                                 requires_grad=True,
-                                dtype=torch.float32)
+                                dtype=torch.float32).squeeze()
         self.Ztheta = torch.rand(B,
                                  N,
                                  M,
                                  requires_grad=True,
-                                 dtype=torch.float32)
+                                 dtype=torch.float32).squeeze()
         self.Et = torch.Tensor([1., 1.])
         self.A = torch.Tensor([-1., -1.])
         self.B, self.S, self.N, self.M = B, S, N, M
@@ -41,7 +41,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         self.operator = 'softmax'
 
     def test_decoding(self):
-        theta = torch.from_numpy(make_data()).unsqueeze(0)
+        theta = torch.from_numpy(make_data())
         theta.requires_grad_()
         A = torch.Tensor([0.1]).unsqueeze(0)
         needle = NeedlemanWunschDecoder(self.operator)
@@ -61,7 +61,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1)
+        gradgradcheck(needle, inputs, eps=1e-3)
 
 
 if __name__ == "__main__":
