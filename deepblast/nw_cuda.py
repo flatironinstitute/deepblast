@@ -4,6 +4,8 @@ import torch.nn as nn
 from numba import cuda
 from math import log, exp
 
+torch.autograd.set_detect_anomaly(True)
+
 max_cols = 2048
 float_type = numba.float32
 tpb = 32  # threads per block
@@ -267,7 +269,7 @@ class NeedlemanWunschDecoder(nn.Module):
         Parameters
         ----------
         grad : torch.Tensor
-            Gradients of the alignment matrix of dimension N x M.
+            Gradients of the alignment matrix.
 
         Returns
         -------
@@ -277,15 +279,18 @@ class NeedlemanWunschDecoder(nn.Module):
         m, x, y = 1, 0, 2
         N, M = grad.shape
         states = torch.zeros(max(N, M))
-        T = max(N, M)
         i, j = N - 1, M - 1
         states = [(i, j, m)]
-        xmy = torch.Tensor([x, m, y])
-        for t in reversed(range(T)):
+        max_ = -100000
+        while True:
             idx = torch.Tensor([[i - 1, j], [i - 1, j - 1], [i, j - 1]]).long()
-            ij = torch.argmax(
-                torch.Tensor(
-                    [grad[i - 1, j], grad[i - 1, j - 1], grad[i, j - 1]]))
+            left = max_ if i <= 0 else grad[i - 1, j]
+            diag = max_ if (i <= 0 and j <= 0) else grad[i - 1, j - 1]
+            upper = max_ if j <= 0 else grad[i, j - 1]
+            if diag == max_ and upper == max_ and left == max_:
+                break
+            ij = torch.argmax(torch.Tensor([left, diag, upper]))
+            xmy = torch.Tensor([x, m, y])
             i, j = int(idx[ij][0]), int(idx[ij][1])
             s = int(xmy[ij])
             states.append((i, j, s))

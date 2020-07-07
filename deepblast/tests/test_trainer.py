@@ -37,7 +37,7 @@ class TestTrainer(unittest.TestCase):
         if os.path.exists('test.txt'):
             os.remove('test.txt')
         if os.path.exists('valid.txt'):
-            os.remove('valid.txt')
+          os.remove('valid.txt')
 
     def test_trainer(self):
 
@@ -48,7 +48,7 @@ class TestTrainer(unittest.TestCase):
             '--valid-pairs', 'valid.txt',
             '--output-directory', output_dir,
             '--epochs', '1',
-            '--batch-size', '1',
+            '--batch-size', '3',
             '--num-workers', '4',
             '--learning-rate', '1e-4',
             '--clip-ends', 'False',

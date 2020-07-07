@@ -4,6 +4,7 @@ from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw import NeedlemanWunschDecoder as NWDecoderCPU
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class NeedlemanWunschAligner(nn.Module):
@@ -66,8 +67,10 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx = self.embedding(x)    # dim B x N x D
-            zy = self.embedding(y)    # dim B x M x D
+            zx, _ = pad_packed_sequence(
+                self.embedding(x), batch_first=True)  # dim B x N x D
+            zy, _ = pad_packed_sequence(
+                self.embedding(y), batch_first=True)  # dim B x M x D
             # Obtain theta through an inner product across latent dimensions
             theta = torch.einsum('bid,bjd->bij', zx, zy)
             xmean = zx.mean(axis=1)   # dim B x D
@@ -79,8 +82,10 @@ class NeedlemanWunschAligner(nn.Module):
 
     def traceback(self, x, y):
         with torch.enable_grad():
-            zx = self.embedding(x)    # dim B x N x D
-            zy = self.embedding(y)    # dim B x M x D
+            zx, x_len = pad_packed_sequence(
+                self.embedding(x), batch_first=True)  # dim B x N x D
+            zy, y_len = pad_packed_sequence(
+                self.embedding(y), batch_first=True)  # dim B x M x D
             # Obtain theta through an inner product across latent dimensions
             theta = torch.einsum('bid,bjd->bij', zx, zy)
             xmean = zx.mean(axis=1)   # dim B x D
@@ -89,6 +94,9 @@ class NeedlemanWunschAligner(nn.Module):
             A = self.gap_score(merged)
             B, _, _ = theta.shape
             for b in range(B):
-                aln = self.nw.decode(theta[b].unsqueeze(0), A[b].squeeze())
+                aln = self.nw.decode(
+                    theta[b, :x_len[b], :y_len[b]].unsqueeze(0),
+                    A[b].squeeze()
+                )
                 decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln
