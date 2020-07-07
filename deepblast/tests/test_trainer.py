@@ -49,7 +49,7 @@ class TestTrainer(unittest.TestCase):
             '--output-directory', output_dir,
             '--epochs', '1',
             '--batch-size', '3',
-            '--num-workers', '4',
+            '--num-workers', '1',
             '--learning-rate', '1e-4',
             '--clip-ends', 'False',
             '--visualization-fraction', '0.5',

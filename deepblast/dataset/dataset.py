@@ -298,15 +298,14 @@ class TMAlignDataset(AlignmentDataset):
         #     gene, pos, states = clip_boundaries(gene, pos, states)
         if self.pad_ends:
             states = [m] + states + [m]
-
         states = torch.Tensor(states).long()
         gene = self.tokenizer(str.encode(gene))
         pos = self.tokenizer(str.encode(pos))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
-            states2matrix(states))
-        return gene, pos, states, alignment_matrix.t()
+            states2matrix(states)).t()
+        return gene, pos, states, alignment_matrix
 
 
 class MaliAlignmentDataset(AlignmentDataset):

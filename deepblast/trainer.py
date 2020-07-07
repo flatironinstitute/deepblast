@@ -13,6 +13,7 @@ from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import SoftAlignmentLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
+from torch.nn.utils.rnn import pad_packed_sequence, pad_packed_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -90,6 +91,8 @@ class LightningAligner(pl.LightningModule):
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
         statistics = []
+        x, _ = pad_packed_sequence(x, batch_first=True)
+        y, _ = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
             x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
