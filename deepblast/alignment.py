@@ -1,14 +1,15 @@
 import torch
 import torch.nn as nn
 from deepblast.language_model import BiLM, pretrained_language_models
-from deepblast.nw import NeedlemanWunschDecoder
+from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class NeedlemanWunschAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, lm=None):
+                 n_layers=2, lm=None, device='gpu'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -42,9 +43,12 @@ class NeedlemanWunschAligner(nn.Module):
                 n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
         else:
             self.embedding = EmbedLinear(n_alpha, n_input, n_embed, lm=lm)
-
         self.gap_score = nn.Linear(n_embed * 2, 1)
-        self.nw = NeedlemanWunschDecoder(operator='softmax')
+        # TODO: make cpu compatible version
+        # if device == 'cpu':
+        #     self.nw = NWDecoderCPU(operator='softmax')
+        # else:
+        self.nw = NWDecoderCUDA(operator='softmax')
 
     def forward(self, x, y):
         """ Generate alignment matrix.
@@ -62,26 +66,25 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx = self.embedding(x)    # dim B x N x D
-            zy = self.embedding(y)    # dim B x M x D
+            zx, _ = pad_packed_sequence(
+                self.embedding(x), batch_first=True)  # dim B x N x D
+            zy, _ = pad_packed_sequence(
+                self.embedding(y), batch_first=True)  # dim B x M x D
             # Obtain theta through an inner product across latent dimensions
             theta = torch.einsum('bid,bjd->bij', zx, zy)
             xmean = zx.mean(axis=1)   # dim B x D
             ymean = zy.mean(axis=1)   # dim B x D
             merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
-            A = self.gap_score(merged)
-            # TODO enable batching on needleman-wunsch
-            B, N, M = theta.shape
-            aln = torch.zeros((B, M, N), device=theta.device)
-            for b in range(B):
-                # TODO: Somehow all of the dimensions are backwards
-                aln[b] = self.nw.decode(theta[b], A[b]).T
+            A = self.gap_score(merged).squeeze()
+            aln = self.nw.decode(theta, A)
             return aln
 
     def traceback(self, x, y):
         with torch.enable_grad():
-            zx = self.embedding(x)    # dim B x N x D
-            zy = self.embedding(y)    # dim B x M x D
+            zx, x_len = pad_packed_sequence(
+                self.embedding(x), batch_first=True)  # dim B x N x D
+            zy, y_len = pad_packed_sequence(
+                self.embedding(y), batch_first=True)  # dim B x M x D
             # Obtain theta through an inner product across latent dimensions
             theta = torch.einsum('bid,bjd->bij', zx, zy)
             xmean = zx.mean(axis=1)   # dim B x D
@@ -90,6 +93,9 @@ class NeedlemanWunschAligner(nn.Module):
             A = self.gap_score(merged)
             B, _, _ = theta.shape
             for b in range(B):
-                aln = self.nw.decode(theta[b], A[b])
-                decoded = self.nw.traceback(aln)
+                aln = self.nw.decode(
+                    theta[b, :x_len[b], :y_len[b]].unsqueeze(0),
+                    A[b].squeeze()
+                )
+                decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln

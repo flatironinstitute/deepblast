@@ -9,7 +9,7 @@ help:
 test:
 	$(TEST_COMMAND) deepblast
 pep8:
-	pycodestyle deepblast setup.py --ignore=E731
-	flake8 deepblast setup.py scripts scripts/deepblast-train  --ignore=E731
+	pycodestyle deepblast setup.py --ignore=E731,E722
+	flake8 deepblast setup.py scripts scripts/deepblast-train  --ignore=E731,E722
 
 all: pep8 test

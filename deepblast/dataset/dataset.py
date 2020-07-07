@@ -3,6 +3,7 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pack_padded_sequence
 from scipy.sparse import coo_matrix
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import x, m, y
@@ -156,10 +157,42 @@ def decode(codes, alphabet):
 
     Returns
     -------
-    str
+    genes : list of Tensor
+        List of proteins
+    others : list of Tensor
+        List of proteins
+    states : list of Tensor
+        List of alignment state strings
+    dm : torch.Tensor
+        B x N x M dimension matrix with padding.
     """
     s = list(map(lambda x: alphabet[int(x)], codes))
     return ''.join(s)
+
+
+def collate_f(batch):
+    genes = [x[0] for x in batch]
+    others = [x[1] for x in batch]
+    states = [x[2] for x in batch]
+    alignments = [x[3] for x in batch]
+    max_x = max(map(len, genes))
+    max_y = max(map(len, others))
+    B = len(genes)
+    dm = torch.zeros((B, max_x, max_y))
+    gene_codes = torch.zeros((B, max_x), dtype=torch.long)
+    other_codes = torch.zeros((B, max_y), dtype=torch.long)
+    for b in range(B):
+        n, m = len(genes[b]), len(others[b])
+        dm[b, :n, :m] = alignments[b]
+        gene_codes[b, :n] = genes[b]
+        other_codes[b, :m] = others[b]
+    genes = pack_padded_sequence(
+        gene_codes, list(map(len, genes)),
+        batch_first=True, enforce_sorted=False)
+    others = pack_padded_sequence(
+        other_codes, list(map(len, others)),
+        batch_first=True, enforce_sorted=False)
+    return genes, others, states, dm
 
 
 class AlignmentDataset(Dataset):
@@ -266,7 +299,6 @@ class TMAlignDataset(AlignmentDataset):
         #     gene, pos, states = clip_boundaries(gene, pos, states)
         if self.pad_ends:
             states = [m] + states + [m]
-
         states = torch.Tensor(states).long()
         gene = self.tokenizer(str.encode(gene))
         pos = self.tokenizer(str.encode(pos))
@@ -274,6 +306,8 @@ class TMAlignDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
+        if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
+            alignment_matrix = alignment_matrix.t()
         return gene, pos, states, alignment_matrix
 
 

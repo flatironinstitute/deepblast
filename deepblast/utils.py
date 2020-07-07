@@ -2,6 +2,7 @@ import os
 import numpy as np
 from scipy.stats import multivariate_normal
 import inspect
+from sklearn.metrics.pairwise import pairwise_distances
 
 
 def sample(transition_matrix, means, covs, start_state, n_samples,
@@ -51,7 +52,7 @@ def make_data(T=20):
 
     # CRF potential from HMM model
     theta = emission_log_likelihood[:, :, np.newaxis] \
-            + log_transition_matrix[np.newaxis, :, :]
+        + log_transition_matrix[np.newaxis, :, :]
 
     return states, emissions, theta
 

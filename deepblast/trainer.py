@@ -10,9 +10,10 @@ import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
-from deepblast.dataset.dataset import decode, states2edges
+from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import SoftAlignmentLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -53,7 +54,7 @@ class LightningAligner(pl.LightningModule):
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
         train_dataloader = DataLoader(
-            train_dataset, self.hparams.batch_size,
+            train_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
@@ -61,7 +62,7 @@ class LightningAligner(pl.LightningModule):
         valid_dataset = TMAlignDataset(self.hparams.valid_pairs,
                                        clip_ends=self.hparams.clip_ends)
         valid_dataloader = DataLoader(
-            valid_dataset, self.hparams.batch_size,
+            valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
@@ -70,14 +71,14 @@ class LightningAligner(pl.LightningModule):
                                       clip_ends=self.hparams.clip_ends)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
-            num_workers=self.hparams.num_workers)
+            collate_fn=collate_f, num_workers=self.hparams.num_workers)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
         x, y, s, A = batch
         self.aligner.train()
         predA = self.aligner(x, y)
-        loss = self.loss_func(A, predA)
+        loss = self.loss_func(A, predA, x, y)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
@@ -85,12 +86,14 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
         predA = self.aligner(x, y)
-        loss = self.loss_func(A, predA)
+        loss = self.loss_func(A, predA, x, y)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
         statistics = []
-        for b in range(len(x)):
+        x, _ = pad_packed_sequence(x, batch_first=True)
+        y, _ = pad_packed_sequence(y, batch_first=True)
+        for b in range(len(s)):
             x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
             y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
@@ -103,16 +106,19 @@ class LightningAligner(pl.LightningModule):
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
-                text = alignment_text(
-                    x_str, y_str, pred_states, truth_states)
+                try:
+                    # TODO: Need to figure out wtf is happening here.
+                    # See issue #40
+                    text = alignment_text(
+                        x_str, y_str, pred_states, truth_states)
+                except:
+                    continue
                 fig, _ = alignment_visualization(
                     true_edges, pred_edges, pred_A)
                 self.logger.experiment.add_text(
-                    'alignment', text,
-                    self.global_step)
+                    'alignment', text, self.global_step)
                 self.logger.experiment.add_figure(
-                    'alignment-matrix', fig,
-                    self.global_step)
+                    'alignment-matrix', fig, self.global_step)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
@@ -193,7 +199,7 @@ class LightningAligner(pl.LightningModule):
             '--batch-size', help='Training batch size',
             required=False, type=int, default=32)
         parser.add_argument(
-            '--finetune', help='Perform finetuning (does not work with mean)',
+            '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
         parser.add_argument(
             '--clip-ends',

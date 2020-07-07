@@ -36,6 +36,7 @@ setup(name='deepblast',
           'scikit-learn',
           'numba',
           'pytorch-lightning>=0.8.1',
+          'matplotlib',
           'pillow'
       ],
       scripts=glob('scripts/*'),

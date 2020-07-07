@@ -1,4 +1,5 @@
 import torch
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class AlignmentAccuracy:
@@ -7,7 +8,7 @@ class AlignmentAccuracy:
 
 
 class SoftAlignmentLoss:
-    def __call__(self, Ytrue, Ypred):
+    def __call__(self, Ytrue, Ypred, x, y):
         """ Computes soft alignment loss as proposed in Mensch et al.
 
         The soft alignment loss is given by
@@ -29,4 +30,11 @@ class SoftAlignmentLoss:
         loss : torch.Tensor
             Scalar valued loss.
         """
-        return torch.norm(Ytrue - Ypred)
+        _, x_len = pad_packed_sequence(x, batch_first=True)
+        _, y_len = pad_packed_sequence(y, batch_first=True)
+        score = 0
+        for b in range(len(x_len)):
+            score += torch.norm(
+                Ytrue[b, :x_len[b], :y_len[b]] - Ypred[b, :x_len[b], :y_len[b]]
+            )
+        return score

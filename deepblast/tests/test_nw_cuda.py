@@ -21,41 +21,52 @@ def make_data():
 
 class TestNeedlemanWunschDecoder(unittest.TestCase):
     def setUp(self):
-        # smoke tests
-        torch.manual_seed(2)
-        B, S, N, M = 3, 3, 5, 5
-        self.theta = torch.rand(B,
-                                N,
-                                M,
-                                requires_grad=True,
-                                dtype=torch.float32)
-        self.Ztheta = torch.rand(B,
-                                 N,
-                                 M,
-                                 requires_grad=True,
-                                 dtype=torch.float32)
-        self.A = torch.ones(B, dtype=torch.float32) * -1.0
-        self.B, self.S, self.N, self.M = B, S, N, M
-        # TODO: Compare against hardmax and sparsemax
-        self.operator = 'softmax'
+        if torch.cuda.is_available():
+            # smoke tests
+            cuda_device = torch.device('cuda')
 
+            torch.manual_seed(2)
+            B, S, N, M = 3, 3, 5, 5
+            self.theta = torch.rand(B,
+                                    N,
+                                    M,
+                                    requires_grad=True,
+                                    dtype=torch.float32,
+                                    device=cuda_device)
+            self.Ztheta = torch.rand(B,
+                                     N,
+                                     M,
+                                     requires_grad=True,
+                                     dtype=torch.float32,
+                                     device=cuda_device)
+            self.A = torch.ones(
+                B, dtype=torch.float32, device=cuda_device) * -1.0
+            self.B, self.S, self.N, self.M = B, S, N, M
+            # TODO: Compare against hardmax and sparsemax
+            self.operator = 'softmax'
+
+    @unittest.skip("Can only run with GPU")
     def test_decoding(self):
-        theta = torch.from_numpy(make_data().astype(np.float32)).unsqueeze(0)
+        theta = torch.tensor(make_data().astype(np.float32),
+                             device=self.theta.device).unsqueeze(0)
         theta.requires_grad_()
-        A = torch.tensor([0.1], dtype=torch.float32)
+        A = torch.tensor([0.1], dtype=torch.float32, device=self.theta.device)
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
         decoded = needle.traceback(theta.grad.squeeze())
+        decoded = [(x[0], x[1]) for x in decoded]
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
+    @unittest.skip("Can only run with GPU")
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         theta, A = self.theta, self.A
         theta.requires_grad_()
         gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
 
+    @unittest.skip("Can only run with GPU")
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
