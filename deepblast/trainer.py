@@ -13,7 +13,7 @@ from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import SoftAlignmentLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-from torch.nn.utils.rnn import pad_packed_sequence
+from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -51,24 +51,21 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        train_dataset = TMAlignDataset(
-            self.hparams.train_pairs, clip_ends=self.hparams.clip_ends)
+        train_dataset = TMAlignDataset(self.hparams.train_pairs)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=True, num_workers=self.hparams.num_workers)
         return train_dataloader
 
     def val_dataloader(self):
-        valid_dataset = TMAlignDataset(self.hparams.valid_pairs,
-                                       clip_ends=self.hparams.clip_ends)
+        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers)
         return valid_dataloader
 
     def test_dataloader(self):
-        test_dataset = TMAlignDataset(self.hparams.test_pairs,
-                                      clip_ends=self.hparams.clip_ends)
+        test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             collate_fn=collate_f, num_workers=self.hparams.num_workers)
@@ -76,6 +73,8 @@ class LightningAligner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         x, y, s, A = batch
+        x = pack_sequence(x, enforce_sorted=False)
+        y = pack_sequence(y, enforce_sorted=False)            
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA, x, y)
@@ -85,6 +84,8 @@ class LightningAligner(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
+        x = pack_sequence(x, enforce_sorted=False)
+        y = pack_sequence(y, enforce_sorted=False)            
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA, x, y)
         # assert torch.isnan(loss).item() is False

@@ -179,19 +179,14 @@ def collate_f(batch):
     max_y = max(map(len, others))
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
-    gene_codes = torch.zeros((B, max_x), dtype=torch.long)
-    other_codes = torch.zeros((B, max_y), dtype=torch.long)
+    # gene_codes = torch.zeros((B, max_x), dtype=torch.long)
+    # other_codes = torch.zeros((B, max_y), dtype=torch.long)
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
-        gene_codes[b, :n] = genes[b]
-        other_codes[b, :m] = others[b]
-    genes = pack_padded_sequence(
-        gene_codes, list(map(len, genes)),
-        batch_first=True, enforce_sorted=False)
-    others = pack_padded_sequence(
-        other_codes, list(map(len, others)),
-        batch_first=True, enforce_sorted=False)
+        # gene_codes[b, :n] = genes[b]
+        # other_codes[b, :m] = others[b]
+    
     return genes, others, states, dm
 
 
@@ -227,7 +222,7 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
-                 tm_threshold=0.4, clip_ends=False, pad_ends=True):
+                 tm_threshold=0.4, max_len=1024, pad_ends=True):
         """ Read in pairs of proteins.
 
 
@@ -244,10 +239,8 @@ class TMAlignDataset(AlignmentDataset):
             Converts residues to one-hot encodings
         tm_threshold: float
             Minimum threshold to investigate alignments
-        clip_ends: bools
-            Removes gaps at the ends of the alignments.
-            This will trim the sequences to force the tailing gaps
-            to be removed. Default : False.
+        max_len : float
+            Maximum sequence length to be aligned
 
         Notes
         -----
@@ -256,6 +249,7 @@ class TMAlignDataset(AlignmentDataset):
         """
         self.tokenizer = tokenizer
         self.tm_threshold = tm_threshold
+        self.max_len = max_len
         self.pairs = pd.read_table(path, header=None)
         cols = [
             'chain1_name', 'chain2_name', 'tmscore1', 'tmscore2', 'rmsd',
@@ -264,9 +258,11 @@ class TMAlignDataset(AlignmentDataset):
         self.pairs.columns = cols
         self.pairs['tm'] = np.maximum(
             self.pairs['tmscore1'], self.pairs['tmscore2'])
-        idx = self.pairs['tm'] > self.tm_threshold
+        self.pairs['length'] = self.pairs.apply(
+            lambda x: max(len(x['chain1']), len(x['chain2'])), axis=1)
+        idx = np.logical_and(self.pairs['tm'] > self.tm_threshold,
+                             self.pairs['length'] < self.max_len)
         self.pairs = self.pairs.loc[idx]
-        self.clip_ends = clip_ends
         self.pad_ends = True
 
     def __len__(self):
@@ -295,8 +291,6 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
-        # if self.clip_ends:  # TODO: this is broken. May want to remove.
-        #     gene, pos, states = clip_boundaries(gene, pos, states)
         if self.pad_ends:
             states = [m] + states + [m]
         states = torch.Tensor(states).long()

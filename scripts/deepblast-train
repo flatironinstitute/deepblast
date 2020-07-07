@@ -21,10 +21,10 @@ def main(args):
         accumulate_grad_batches=args.grad_accum,
         distributed_backend=args.backend,
         precision=args.precision,
-        check_val_every_n_epoch=0.1,
-        # profiler=profiler,
-        fast_dev_run=True
-        # auto_scale_batch_size='power'
+        check_val_every_n_epoch=1,
+        fast_dev_run=False,        
+        # auto_scale_batch_size='power',
+        # profiler=profiler,        
     )
 
     ckpt_path = os.path.join(
@@ -60,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int, default=1)
     parser.add_argument('--precision', type=int, default=32)
     parser.add_argument('--backend', type=str, default=None)
-    # options include ddp_cpu, dp, dpp
+    # options include ddp_cpu, dp, ddp
 
     parser = LightningAligner.add_model_specific_args(parser)
     hparams = parser.parse_args()

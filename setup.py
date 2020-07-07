@@ -37,7 +37,7 @@ setup(name='deepblast',
           'numba',
           'pytorch-lightning>=0.8.1',
           'matplotlib',
-          'pillow'
+          'pillow',
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,
