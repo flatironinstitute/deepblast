@@ -1,6 +1,4 @@
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.sparse import coo_matrix
 from deepblast.dataset.dataset import states2alignment
 
 

@@ -106,7 +106,7 @@ class LightningAligner(pl.LightningModule):
             pred_edges = list(zip(pred_y, pred_x))
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
-            if True:
+            if random.random() < self.hparams.visualization_fraction:
                 try:
                     # TODO: Need to figure out wtf is happening here.
                     # See issue #40
