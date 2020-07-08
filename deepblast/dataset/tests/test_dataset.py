@@ -167,12 +167,12 @@ class TestTMAlignDataset(unittest.TestCase):
         self.data_path = get_data_path('test_tm_align.tab')
 
     def test_constructor(self):
-        x = TMAlignDataset(self.data_path)
-        self.assertEqual(len(x), 3)
+        x = TMAlignDataset(self.data_path, tm_threshold=0, max_len=10000)
+        self.assertEqual(len(x), 10)
 
     def test_getitem(self):
         x = TMAlignDataset(self.data_path, tm_threshold=0,
-                           pad_ends=True, clip_ends=False)
+                           pad_ends=True)
         res = x[0]
         self.assertEqual(len(res), 4)
         gene, pos, states, alignment_matrix = res
