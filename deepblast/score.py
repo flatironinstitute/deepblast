@@ -17,17 +17,19 @@ def roc_edges(true_edges, pred_edges):
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
 
-def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
+def alignment_visualization(truth, pred, xlen, ylen):
     """ Visualize alignment matrix
 
     Parameters
     ----------
-    truth_alignment : torch.Tensor
+    truth : torch.Tensor
         Ground truth alignment
-    pred_alignment : list of tuple
+    pred : torch.Tensor
         Predicted alignment
-    pred_matrix : list of tuple
-        Predicted alignment matrix
+    xlen : int
+        Length of protein x
+    ylen : int
+        Length of protein y
 
     Returns
     -------
@@ -36,28 +38,15 @@ def alignment_visualization(truth_alignment, pred_alignment, pred_matrix):
     ax : list of matplotlib.pyplot.Axes
        Matplotlib axes objects
     """
-    px, py = list(zip(*pred_alignment))
-    tx, ty = list(zip(*truth_alignment))
-    pred_matrix = pred_matrix.detach().cpu().numpy().squeeze()
-    # TODO: we somehow got a bunch of coordinates swapped
-    pred = coo_matrix((np.ones(len(pred_alignment)),
-                       (px, py))).todense().T
-
-    truth = coo_matrix((np.ones(len(truth_alignment)),
-                        (tx, ty))).todense()
-    fig, ax = plt.subplots(1, 3, figsize=(10, 3))
-    ax[0].imshow(truth)
+    fig, ax = plt.subplots(1, 2, figsize=(8, 3))
+    ax[0].imshow(truth[:xlen, :ylen])
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')
     ax[0].set_title('Ground truth alignment')
-    ax[1].imshow(pred)
+    ax[1].imshow(pred[:xlen, :ylen])
     ax[1].set_xlabel('Positions')
     ax[1].set_ylabel('Positions')
     ax[1].set_title('Predicted alignment')
-    ax[2].imshow(pred_matrix)
-    ax[2].set_xlabel('Positions')
-    ax[2].set_ylabel('Positions')
-    ax[2].set_title('Predicted alignment matrix')
     return fig, ax
 
 
@@ -81,7 +70,7 @@ def alignment_text(x, y, pred, truth):
 
     truth_viz = (
         '# Ground truth\n'
-        f'    {true_alignment[1]}\n    {true_alignment[0]}'
+        f'    {true_alignment[0]}\n    {true_alignment[1]}'
     )
     pred_viz = (
         '# Prediction\n'

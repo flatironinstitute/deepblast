@@ -74,7 +74,7 @@ class LightningAligner(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y, s, A = batch
         x = pack_sequence(x, enforce_sorted=False)
-        y = pack_sequence(y, enforce_sorted=False)            
+        y = pack_sequence(y, enforce_sorted=False)
         self.aligner.train()
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA, x, y)
@@ -85,15 +85,15 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y, s, A = batch
         x = pack_sequence(x, enforce_sorted=False)
-        y = pack_sequence(y, enforce_sorted=False)            
+        y = pack_sequence(y, enforce_sorted=False)
         predA = self.aligner(x, y)
         loss = self.loss_func(A, predA, x, y)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
         statistics = []
-        x, _ = pad_packed_sequence(x, batch_first=True)
-        y, _ = pad_packed_sequence(y, batch_first=True)
+        x, xlen = pad_packed_sequence(x, batch_first=True)
+        y, ylen = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
             x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
@@ -106,7 +106,7 @@ class LightningAligner(pl.LightningModule):
             pred_edges = list(zip(pred_y, pred_x))
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
-            if random.random() < self.hparams.visualization_fraction:
+            if True:
                 try:
                     # TODO: Need to figure out wtf is happening here.
                     # See issue #40
@@ -115,7 +115,9 @@ class LightningAligner(pl.LightningModule):
                 except:
                     continue
                 fig, _ = alignment_visualization(
-                    true_edges, pred_edges, pred_A)
+                    A[b].cpu().detach().numpy().squeeze(),
+                    predA[b].cpu().detach().numpy().squeeze(),
+                    xlen[b], ylen[b])
                 self.logger.experiment.add_text(
                     'alignment', text, self.global_step)
                 self.logger.experiment.add_figure(
