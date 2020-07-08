@@ -3,7 +3,6 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pack_padded_sequence
 from scipy.sparse import coo_matrix
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import x, m, y
@@ -186,7 +185,6 @@ def collate_f(batch):
         dm[b, :n, :m] = alignments[b]
         # gene_codes[b, :n] = genes[b]
         # other_codes[b, :m] = others[b]
-    
     return genes, others, states, dm
 
 
