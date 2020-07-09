@@ -1,5 +1,4 @@
 import numpy as np
-import pytest
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
@@ -20,35 +19,31 @@ class TestViterbiUtils(unittest.TestCase):
         torch.manual_seed(0)
         N, M = 4, 5
         self.theta = torch.randn(N, M)
-        self.psi = torch.randn(N)
-        self.phi = torch.randn(M)
         self.Ztheta = torch.randn(N, M)
-        self.Zpsi = torch.randn(N)
-        self.Zphi = torch.randn(M)
-        self.A = torch.Tensor([0.2, 0.1])
+        self.A = torch.Tensor([0.2, 0.1, 0.3, 0.4])
         self.N = N
         self.M = M
         self.operator = 'softmax'
 
     def test_forward_pass(self):
         res = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         self.assertEqual(len(res), 2)
         resV, resQ = res
-        self.assertEqual(resV.shape, (self.N + 1, self.M + 1, 3))
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, 3, 3))
 
     def test_backward_pass(self):
+        Et = 1
         _, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
-        resE = _backward_pass(Q)
+            self.theta, self.A, self.operator)
+        resE = _backward_pass(Et, Q)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
 
     def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         E = _backward_pass(Q)
-        res = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
+        res = _adjoint_forward_pass(Q, E, self.Ztheta, self.ZA,
                                     self.operator)
         self.assertEqual(len(res), 2)
         resVd, resQd = res
@@ -57,9 +52,9 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_adjoint_backward_pass(self):
         V, Q = _forward_pass(
-            self.theta, self.psi, self.phi, self.A, self.operator)
+            self.theta, self.A, self.operator)
         E = _backward_pass(Q)
-        Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.Zpsi, self.Zphi,
+        Vd, Qd = _adjoint_forward_pass(Q, E, self.Ztheta, self.ZA,
                                        self.operator)
         resEd = _adjoint_backward_pass(Q, Qd, E)
         self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, 3))
@@ -68,13 +63,35 @@ class TestViterbiUtils(unittest.TestCase):
 class TestViterbiDecoder(unittest.TestCase):
 
     def setUp(self):
-        pass
+        # smoke tests
+        torch.manual_seed(2)
+        B, S, N, M = 1, 3, 4, 4
+        self.theta = torch.rand(N,
+                                M,
+                                S,
+                                requires_grad=True,
+                                dtype=torch.float32).squeeze()
+        self.Ztheta = torch.rand(N,
+                                 M,
+                                 S,
+                                 requires_grad=True,
+                                 dtype=torch.float32).squeeze()
+        self.Et = torch.Tensor([1.])
+        self.A = torch.Tensor([0.2, 0.3, 0.4, 0.5])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
 
-    def test_forward(self):
-        pass
+    def test_grad_needlemanwunsch_function(self):
+        needle = ViterbiDecoder(self.operator)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        gradcheck(needle, (theta, A), eps=1e-2)
 
-    def test_decode(self):
-        pass
+    def test_hessian_needlemanwunsch_function(self):
+        needle = ViterbiDecoder(self.operator)
+        inputs = (self.theta, self.A)
+        gradgradcheck(needle, inputs, eps=1e-3)
 
 
 if __name__ == "__main__":

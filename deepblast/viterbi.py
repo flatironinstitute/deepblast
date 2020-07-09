@@ -10,8 +10,8 @@ def _forward_pass(theta, A, operator='softmax'):
     Parameters
     ----------
     theta : torch.Tensor
-        Input Potentials of dimension N x M. This represents the
-        pairwise residue distance.
+        Input Potentials of dimension N x M x S. This represents the
+        pairwise residue distance across states.
     psi : torch.Tensor
         Input Potentials of dimension N. This represents the
         gap score for the first sequence X.
@@ -19,7 +19,8 @@ def _forward_pass(theta, A, operator='softmax'):
         Input Potentials of dimension M. This represents the
         gap score for the second sequence Y.
     A : torch.Tensor
-        Transition probabilities. Contains 4 elements [eta, delta, eps, tau].
+        Transition probabilities. Contains 4 elements [n, d, e, t].
+        All of these parameters are assumed to be in log units
     operator : str
         The smoothed maximum operator.
 
@@ -31,19 +32,24 @@ def _forward_pass(theta, A, operator='softmax'):
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
     """
+    ie = 1e-10  # a very small number for numerical stability
     operator = operators[operator]
     new = theta.new
-    N, M = theta.size()
-    eta, delta, eps, tau = A[0], A[1], A[2], A[3]
-    c = torch.log(1 - 2 * delta - tau) - torch.log(1 - eps - tau)
+    N, M, _ = theta.size()
+    n, d, e, t = A[0], A[1], A[2], A[3]
+    eps = (1 - t) * torch.exp(-e)
+    net = (1-n) / (1 - e - t)
+    delta = (1 - 2 * torch.exp(-d) * net)  * net * (1 - t) * torch.exp(-d)
+    c = torch.log(1 - 2 * delta - t + ie) - torch.log(1 - eps - t + ie)
+
     # Initialize the matrices of interest. The 3rd axis here represents the
     # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
     V = new(N + 1, M + 1, 3).zero_()    # N x M x S
     Q = new(N + 2, M + 2, 3, 3).zero_() # N x M x S x S
 
     m, x, y = 0, 1, 2 # state numbering
-    e = 1e-10
-    neg_inf = -1e10
+    neg_inf = -1e10   # very negative number
+    V[0, 0, m] = 2 * n
     # Forward pass
     for i in range(1, N):
         for j in range(1, M):
@@ -56,19 +62,19 @@ def _forward_pass(theta, A, operator='softmax'):
             )
             V[i, j, x], Q[i, j, x] = operator.max(
                 torch.Tensor([
-                    V[i-1, j, m] - delta,
-                    V[i-1, j, x] - eps,
+                    V[i-1, j, m] - d,
+                    V[i-1, j, x] - e,
                     neg_inf
                 ])
             )
             V[i, j, y], Q[i, j, y] = operator.max(
                 torch.Tensor([
                     V[i, j-1, m] - d,
-                    neg_inf
+                    neg_inf,
                     V[i, j-1, m] - e
                 ])
             )
-            V[i, j, m] += theta[i-1, j-1]
+            V[i, j] += theta[i-1, j-1]
 
     V[N, M, m], Q[N, M, m] = operator.max(
         torch.Tensor([
@@ -101,7 +107,6 @@ def _backward_pass(Et, Q):
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
     E[N + 1, M + 1] = Et
-    Q[N + 1, M + 1] = 1  # Is this initialization correct?
 
     # Backward pass
     for i in reversed(range(1, N + 1)):
@@ -112,17 +117,15 @@ def _backward_pass(Et, Q):
     return E
 
 
-def _adjoint_forward_pass(Q, E, Ztheta, ZA, operator='softmax'):
+def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
     ----------
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S
-    E : torch.Tensor
-        Traceback matrix of dimension N x M x S
     Ztheta : torch.Tensor
-        Derivative of theta of dimension N x M
+        Derivative of theta of dimension N x M x S
     ZA : torch.Tensor
         Derivative of transition probabilities A
     operator : str
@@ -137,32 +140,23 @@ def _adjoint_forward_pass(Q, E, Ztheta, ZA, operator='softmax'):
     """
     operator = operators[operator]
     new = Ztheta.new
-    N, M = Ztheta.size()
-    Zeta, Zdelta, Zeps, Ztau = ZA[0], ZA[1], ZA[2], ZA[3]
+    N, M, _ = Ztheta.size()
+    Zn, Zd, Ze, Zt = ZA[0], ZA[1], ZA[2], ZA[3]
 
     Vd = new(N + 1, M + 1, 3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
     m, x, y = 0, 1, 2 # state numbering
-
+    Vd[0, 0, m] = Zn
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            # Need to double check these indices - they maybe wrong.
-            Vd[i, j, m] = Ztheta[i - 1, j - 1] + \
-                Q[i, j, m] @  torch.Tensor([Vd[i - 1, j - 1, m],
-                                            Vd[i - 1, j - 1, x],
-                                            Vd[i - 1, j - 1, y]])
-            Vd[i, j, x] = Zpsi[i - 1] + \
-                Q[i, j, x] @ torch.Tensor([Vd[i - 1, j, m] - Zd,
-                                           Vd[i - 1, j, x] - Ze,
-                                           0])
-            Vd[i, j, y] = Zphi[j - 1] + \
-                Q[i, j, y] @ torch.Tensor([Vd[i, j - 1, m] - Zd,
-                                           0,
-                                           Vd[i, j - 1, y] - Ze])
             vm = torch.Tensor([Vd[i - 1, j - 1, m], Vd[i - 1, j - 1, x], Vd[i - 1, j - 1, y]])
             vx = torch.Tensor([Vd[i - 1, j, m], Vd[i - 1, j, x], 0])
             vy = torch.Tensor([Vd[i, j - 1, m], 0, Vd[i, j - 1, y]])
+            # Need to double check these indices - they maybe wrong.
+            Vd[i, j, m] = Ztheta[i - 1, j - 1, m] + Q[i, j, m] @ vm
+            Vd[i, j, x] = Ztheta[i - 1, j - 1, x] + Q[i, j, x] @ vx
+            Vd[i, j, y] = Ztheta[i - 1, j - 1, y] + Q[i, j, y] @ vy
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
@@ -205,37 +199,39 @@ def _adjoint_backward_pass(Q, Qd, E):
 class ViterbiFunction(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, theta, psi, phi, A, operator):
+    def forward(ctx, theta, A, operator):
         # Return both the alignment matrix
-        V, Q = _forward_pass(theta, psi, phi, A, operator)
-        ctx.save_for_backward(theta, psi, phi, Q)
+        Vt, Q = _forward_pass(theta, A, operator)
+        ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
-        return V
+        return Vt
 
     @staticmethod
-    def backward(ctx, E):
-        theta, psi, phi, Q = ctx.saved_tensors
+    def backward(ctx, Et):
+        theta, A, Q = ctx.saved_tensors
         operator = ctx.others
-        return ViterbiFunctionBackward.apply(
-            theta, psi, phi, Q, E, operator)
+        E, A = ViterbiFunctionBackward.apply(
+            theta, A, Et, Q, operator)
+        return E[1:-1, 1:-1], A, None, None, None
 
 
 class ViterbiFunctionBackward(torch.autograd.Function):
 
     @staticmethod
-    def forward(ctx, theta, psi, phi, Q, E, operator):
-        E = _backward_pass(Q)
-        ctx.save_for_backward(Q, E)
+    def forward(ctx, theta, A, Et, Q, operator):
+        E = _backward_pass(Et, Q)
+        ctx.save_for_backward(E, Q)
         ctx.others = operator
-        return E
+        return E, A
 
     @staticmethod
-    def backward(ctx, Ztheta, Zphi, Zpsi):
-        Q, E = ctx.saved_tensors
+    def backward(ctx, Ztheta, ZA):
+        E, Q = ctx.saved_tensors
         operator = ctx.others
-        Vd, Qd = _adjoint_forward_pass(Q, E, Ztheta, Zpsi, Zphi, operator)
-        Ed = _adjoint_backward_pass(Q, Qd, E)
-        return Ed, Vd
+        Vd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
+        Ed = _adjoint_backward_pass(E, Q, Qd)
+        Ed = Ed[1:-1, 1:-1]
+        return Ed, None, Vtd, None, None, None
 
 
 class ViterbiDecoder(nn.Module):
@@ -244,9 +240,11 @@ class ViterbiDecoder(nn.Module):
         super().__init__()
         self.operator = operator
 
-    def forward(self, theta, psi, phi):
+    def forward(self, theta, A):
+        theta = theta.cpu()
+        A = A.cpu()
         return ViterbiFunction.apply(
-            theta.data, psi.data, phi.data, self.operator)
+            theta, A, self.operator)
 
     def decode(self, theta, psi, phi):
         """ Shortcut for doing inference. """
