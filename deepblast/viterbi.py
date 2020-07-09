@@ -72,7 +72,7 @@ def _forward_pass(theta, A, operator='softmax'):
                 torch.Tensor([
                     V[i, j-1, m] - d,
                     neg_inf,
-                    V[i, j-1, m] - e
+                    V[i, j-1, y] - e
                 ])
             )
             V[i, j] += theta[i-1, j-1]
@@ -257,8 +257,6 @@ class ViterbiDecoder(nn.Module):
         A = A.cpu()
         res =  ViterbiFunction.apply(
             theta, A, self.operator)
-        # print(theta.shape, A.shape)
-        # the returned value is always neg_inf ...
         return res
 
     def decode(self, theta, A):
