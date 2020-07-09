@@ -98,10 +98,12 @@ class LightningAligner(pl.LightningModule):
         x, xlen = pad_packed_sequence(x, batch_first=True)
         y, ylen = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
-            x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
-            y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
+            x_str = decode(
+                list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
+            y_str = decode(
+                list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
             decoded, pred_A = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = list(pred_states)
