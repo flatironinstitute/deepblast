@@ -54,7 +54,8 @@ class LightningAligner(pl.LightningModule):
         train_dataset = TMAlignDataset(self.hparams.train_pairs)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=True, num_workers=self.hparams.num_workers, pin_memory=True)
+            shuffle=True, num_workers=self.hparams.num_workers,
+            pin_memory=False)
         return train_dataloader
 
     def val_dataloader(self):
@@ -62,7 +63,7 @@ class LightningAligner(pl.LightningModule):
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers,
-            pin_memory=True)
+            pin_memory=False)
         return valid_dataloader
 
     def test_dataloader(self):
@@ -70,7 +71,7 @@ class LightningAligner(pl.LightningModule):
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             collate_fn=collate_f, num_workers=self.hparams.num_workers,
-            pin_memory=True)
+            pin_memory=False)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
