@@ -37,4 +37,4 @@ class SoftAlignmentLoss:
             score += torch.norm(
                 Ytrue[b, :x_len[b], :y_len[b]] - Ypred[b, :x_len[b], :y_len[b]]
             )
-        return score
+        return score / len(x_len)

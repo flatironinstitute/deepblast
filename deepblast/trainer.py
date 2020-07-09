@@ -54,20 +54,20 @@ class LightningAligner(pl.LightningModule):
         train_dataset = TMAlignDataset(self.hparams.train_pairs)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=True, num_workers=self.hparams.num_workers)
+            shuffle=True, num_workers=self.hparams.num_workers, drop_last=True)
         return train_dataloader
 
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=False, num_workers=self.hparams.num_workers)
+            shuffle=False, num_workers=self.hparams.num_workers, drop_last=True)
         return valid_dataloader
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
-            test_dataset, self.hparams.batch_size, shuffle=False,
+            test_dataset, self.hparams.batch_size, shuffle=False, drop_last=True,
             collate_fn=collate_f, num_workers=self.hparams.num_workers)
         return test_dataloader
 
@@ -205,12 +205,7 @@ class LightningAligner(pl.LightningModule):
             '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--clip-ends',
-            help=('Specifies if training start/end gaps should be removed. '
-                  'This will speed up runtime.'),
-            default=False, required=False, type=bool)
-        parser.add_argument(
-            '--epochs', help='Training batch size',
+            '--epochs', help='Number of epochs to run',
             required=False, type=int, default=10)
         parser.add_argument(
             '--visualization-fraction',
