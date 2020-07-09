@@ -77,14 +77,14 @@ def _forward_pass(theta, A, operator='softmax'):
             )
             V[i, j] += theta[i-1, j-1]
 
-    V[N, M, m], Q[N, M, m] = operator.max(
+    Vt, Q[N, M, m] = operator.max(
         torch.Tensor([
-            V[N, M, m],
-            V[N, M, x] + c,
-            V[N, M, y] + c
+            V[N - 1, M - 1, m],
+            V[N - 1, M - 1, x] + c,
+            V[N - 1, M - 1, y] + c
         ])
     )
-    return V[N, M, m], Q
+    return Vt, Q
 
 
 def _backward_pass(Et, Q):
@@ -255,10 +255,13 @@ class ViterbiDecoder(nn.Module):
     def forward(self, theta, A):
         theta = theta.cpu()
         A = A.cpu()
-        return ViterbiFunction.apply(
+        res =  ViterbiFunction.apply(
             theta, A, self.operator)
+        # print(theta.shape, A.shape)
+        # the returned value is always neg_inf ...
+        return res
 
-    def decode(self, theta, psi, A):
+    def decode(self, theta, A):
         """ Shortcut for doing inference. """
         # data, batch_sizes = theta
         with torch.enable_grad():
@@ -266,6 +269,6 @@ class ViterbiDecoder(nn.Module):
             nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, = torch.autograd.grad(
-                v, (theta.data, A.data,),
-                create_graph=True)
+                v, (theta, A),
+               create_graph=True)
         return v_grad
