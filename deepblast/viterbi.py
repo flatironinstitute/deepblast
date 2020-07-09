@@ -38,7 +38,7 @@ def _forward_pass(theta, A, operator='softmax'):
     N, M, _ = theta.size()
     n, d, e, t = A[0], A[1], A[2], A[3]
     eps = (1 - t) * torch.exp(-e)
-    net = (1-n) / (1 - e - t)
+    net = (1 - n) / (1 - e - t)
     delta = (1 - 2 * torch.exp(-d) * net)  * net * (1 - t) * torch.exp(-d)
     c = torch.log(1 - 2 * delta - t + ie) - torch.log(1 - eps - t + ie)
 
@@ -138,10 +138,17 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
+    ie = 1e-10  # a very small number for numerical stability
     operator = operators[operator]
     new = Ztheta.new
     N, M, _ = Ztheta.size()
+    N, M = N - 2, M - 2
     Zn, Zd, Ze, Zt = ZA[0], ZA[1], ZA[2], ZA[3]
+    Zeps = (1 - Zt) * torch.exp(-Ze)
+    Znet = (1 - Zn) / (1 - Ze - Zt)
+    Zdelta = (1 - 2 * torch.exp(-Zd) * Znet)  * Znet * (1 - Zt) * torch.exp(-Zd)
+    # TODO : Zc maybe calculated incorrectly
+    Zc = torch.log(1 - 2 * Zdelta - Zt + ie) - torch.log(1 - Zeps - Zt + ie)
 
     Vd = new(N + 1, M + 1, 3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
@@ -150,21 +157,26 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            vm = torch.Tensor([Vd[i - 1, j - 1, m], Vd[i - 1, j - 1, x], Vd[i - 1, j - 1, y]])
+            # vm = torch.Tensor([Vd[i - 1, j - 1, m], Vd[i - 1, j - 1, x], Vd[i - 1, j - 1, y]])
+            vm = Vd[i - 1, j - 1, :]
             vx = torch.Tensor([Vd[i - 1, j, m], Vd[i - 1, j, x], 0])
             vy = torch.Tensor([Vd[i, j - 1, m], 0, Vd[i, j - 1, y]])
-            # Need to double check these indices - they maybe wrong.
-            Vd[i, j, m] = Ztheta[i - 1, j - 1, m] + Q[i, j, m] @ vm
-            Vd[i, j, x] = Ztheta[i - 1, j - 1, x] + Q[i, j, x] @ vx
-            Vd[i, j, y] = Ztheta[i - 1, j - 1, y] + Q[i, j, y] @ vy
+            Vd[i, j, m] = Ztheta[i, j, m] + Q[i, j, m] @ vm
+            Vd[i, j, x] = Ztheta[i, j, x] + Q[i, j, x] @ vx
+            Vd[i, j, y] = Ztheta[i, j, y] + Q[i, j, y] @ vy
             Qd[i, j, m] = operator.hessian_product(Q[i, j, m], vm)
             Qd[i, j, x] = operator.hessian_product(Q[i, j, x], vx)
             Qd[i, j, y] = operator.hessian_product(Q[i, j, y], vy)
-    # TODO: Need to figure out how to terminate
-    return Vd, Qd
+
+    vm = torch.Tensor([
+        Vd[N - 1, M - 1, m], Vd[N - 1, M - 1, x] + Zc, Vd[N - 1, M - 1, y] + Zc
+    ])
+    Vd[N, M, m] = Ztheta[N, M, m] + Q[N, M, m] @ vm
+    Qd[N, M, m] = operator.hessian_product(Q[i, j, m], vm)
+    return Vd[N, M, m], Qd
 
 
-def _adjoint_backward_pass(Q, Qd, E):
+def _adjoint_backward_pass(E, Q, Qd):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
@@ -228,7 +240,7 @@ class ViterbiFunctionBackward(torch.autograd.Function):
     def backward(ctx, Ztheta, ZA):
         E, Q = ctx.saved_tensors
         operator = ctx.others
-        Vd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
+        Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
         Ed = _adjoint_backward_pass(E, Q, Qd)
         Ed = Ed[1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
