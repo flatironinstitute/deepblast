@@ -90,8 +90,10 @@ class TestViterbiDecoder(unittest.TestCase):
 
     def test_hessian_needlemanwunsch_function(self):
         needle = ViterbiDecoder(self.operator)
-        inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-3)
+        theta, A = self.theta, self.A
+        theta.requires_grad_()
+        inputs = (theta, A)
+        gradgradcheck(needle, inputs, eps=1e-2)
 
 
 if __name__ == "__main__":

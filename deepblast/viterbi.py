@@ -49,6 +49,7 @@ def _forward_pass(theta, A, operator='softmax'):
 
     m, x, y = 0, 1, 2 # state numbering
     neg_inf = -1e10   # very negative number
+    V = V + neg_inf
     V[0, 0, m] = 2 * n
     # Forward pass
     for i in range(1, N):
@@ -106,8 +107,7 @@ def _backward_pass(Et, Q):
 
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
-    E[N + 1, M + 1] = Et
-
+    E[N + 1, M + 1, m] = Et
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
@@ -139,6 +139,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
         Derivatives of Q of dimension N x M x S x S
     """
     ie = 1e-10  # a very small number for numerical stability
+    neg_inf = -1e10   # very negative number
     operator = operators[operator]
     new = Ztheta.new
     N, M, _ = Ztheta.size()
@@ -149,18 +150,17 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Zdelta = (1 - 2 * torch.exp(-Zd) * Znet)  * Znet * (1 - Zt) * torch.exp(-Zd)
     # TODO : Zc maybe calculated incorrectly
     Zc = torch.log(1 - 2 * Zdelta - Zt + ie) - torch.log(1 - Zeps - Zt + ie)
-
     Vd = new(N + 1, M + 1, 3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
     m, x, y = 0, 1, 2 # state numbering
-    Vd[0, 0, m] = Zn
+    Vd[0, 0, m] = 2 * Zn
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             # vm = torch.Tensor([Vd[i - 1, j - 1, m], Vd[i - 1, j - 1, x], Vd[i - 1, j - 1, y]])
             vm = Vd[i - 1, j - 1, :]
-            vx = torch.Tensor([Vd[i - 1, j, m], Vd[i - 1, j, x], 0])
-            vy = torch.Tensor([Vd[i, j - 1, m], 0, Vd[i, j - 1, y]])
+            vx = torch.Tensor([Vd[i - 1, j, m] - Zd, Vd[i - 1, j, x] - Ze, 0])
+            vy = torch.Tensor([Vd[i, j - 1, m] - Zd, 0, Vd[i, j - 1, y] - Ze])
             Vd[i, j, m] = Ztheta[i, j, m] + Q[i, j, m] @ vm
             Vd[i, j, x] = Ztheta[i, j, x] + Q[i, j, x] @ vx
             Vd[i, j, y] = Ztheta[i, j, y] + Q[i, j, y] @ vy
@@ -171,9 +171,9 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     vm = torch.Tensor([
         Vd[N - 1, M - 1, m], Vd[N - 1, M - 1, x] + Zc, Vd[N - 1, M - 1, y] + Zc
     ])
-    Vd[N, M, m] = Ztheta[N, M, m] + Q[N, M, m] @ vm
-    Qd[N, M, m] = operator.hessian_product(Q[i, j, m], vm)
-    return Vd[N, M, m], Qd
+    Vtd = Q[N, M, m] @ vm
+    Qd[N + 1, M + 1, m] = operator.hessian_product(Q[N, M, m], vm)
+    return Vtd, Qd
 
 
 def _adjoint_backward_pass(E, Q, Qd):
@@ -198,10 +198,10 @@ def _adjoint_backward_pass(E, Q, Qd):
     new = Qd.new
     Ed = new(N + 2, M + 2, 3).zero_()
     m, x, y = 0, 1, 2 # state numbering
+
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-
             Ed[i, j, m] = Qd[i+1, j+1, m] @ E[i+1, j+1] + Q[i+1, j+1, m] @ Ed[i+1, j+1]
             Ed[i, j, x] = Qd[i+1, j, x] @ E[i+1, j] + Q[i+1, j, x] @ Ed[i+1, j]
             Ed[i, j, y] = Qd[i, j+1, y] @ E[i, j+1] + Q[i, j+1, y] @ Ed[i, j+1]
@@ -258,14 +258,14 @@ class ViterbiDecoder(nn.Module):
         return ViterbiFunction.apply(
             theta, A, self.operator)
 
-    def decode(self, theta, psi, phi):
+    def decode(self, theta, psi, A):
         """ Shortcut for doing inference. """
         # data, batch_sizes = theta
         with torch.enable_grad():
             # data.requires_grad_()
-            nll = self.forward(theta, psi, phi)
+            nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, = torch.autograd.grad(
-                v, (theta.data, psi.data, phi.data,),
+                v, (theta.data, A.data,),
                 create_graph=True)
         return v_grad
