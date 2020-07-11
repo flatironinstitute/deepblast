@@ -5,7 +5,7 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
@@ -54,21 +54,24 @@ class LightningAligner(pl.LightningModule):
         train_dataset = TMAlignDataset(self.hparams.train_pairs)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=True, num_workers=self.hparams.num_workers, drop_last=True)
+            shuffle=True, num_workers=self.hparams.num_workers, drop_last=True,
+            pin_memory=True)
         return train_dataloader
 
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=False, num_workers=self.hparams.num_workers, drop_last=True)
+            shuffle=False, num_workers=self.hparams.num_workers, drop_last=True,
+            pin_memory=True)
         return valid_dataloader
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False, drop_last=True,
-            collate_fn=collate_f, num_workers=self.hparams.num_workers)
+            collate_fn=collate_f, num_workers=self.hparams.num_workers,
+            pin_memory=True)
         return test_dataloader
 
     def training_step(self, batch, batch_idx):
@@ -95,10 +98,12 @@ class LightningAligner(pl.LightningModule):
         x, xlen = pad_packed_sequence(x, batch_first=True)
         y, ylen = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
-            x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
-            y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
+            x_str = decode(
+                list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
+            y_str = decode(
+                list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
             decoded, pred_A = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = list(pred_states)
@@ -167,7 +172,13 @@ class LightningAligner(pl.LightningModule):
             lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.Adam(
             grad_params, lr=self.hparams.learning_rate)
-        scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
+        if self.hparams.scheduler == 'cosine':
+            scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=2)
+        elif self.hparams.scheduler == 'steplr':
+            m = 1e-8  # minimum learning rate
+            steps = int(np.log2(self.hparams.learning_rate / m))
+            steps = self.hparams.epochs // steps
+            scheduler = StepLR(optimizer, stepsize=steps)
         return [optimizer], [scheduler]
 
     @staticmethod
@@ -198,6 +209,9 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--learning-rate', help='Learning rate',
             required=False, type=float, default=5e-5)
+        parser.add_argument(
+            '--scheduler', help='Learning rate scheduler',
+            required=False, type=str, default='cosine')
         parser.add_argument(
             '--batch-size', help='Training batch size',
             required=False, type=int, default=32)

@@ -22,9 +22,7 @@ def main(args):
         distributed_backend=args.backend,
         precision=args.precision,
         check_val_every_n_epoch=1,
-        fast_dev_run=False,        
-        # auto_scale_batch_size='power',
-        # profiler=profiler,        
+        fast_dev_run=False
     )
 
     ckpt_path = os.path.join(
@@ -38,7 +36,7 @@ def main(args):
     checkpoint_callback = ModelCheckpoint(
         filepath=ckpt_path,
         period=1,
-        monitor='validation_loss',
+        monitor='val_loss',
         mode='min',
         verbose=True
     )
