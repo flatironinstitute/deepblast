@@ -4,6 +4,7 @@ import math
 import torch
 from torch.utils.data import Dataset
 from scipy.sparse import coo_matrix
+from scipy.spatial import cKDTree
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import x, m, y
 
@@ -188,6 +189,33 @@ def collate_f(batch):
     return genes, others, states, dm
 
 
+def path_distance_matrix(pi):
+    """ Builds a min path distance matrix.
+
+    This will be passed into the SoftPathLoss function.
+    For each cell, it will compute the distance between
+    coordinates in the cell and the nearest cell located in the path.
+
+    Parameters
+    ----------
+    pi : list of tuple
+       Coordinates of the ground truth alignment
+
+    Returns
+    -------
+    Pdist : np.array
+       Matrix of distances to path.
+    """
+    pi = np.array(pi)
+    model = cKDTree(pi)
+    xs = np.arange(pi[:, 0].max() + 1)
+    ys = np.arange(pi[:, 1].max() + 1)
+    coords = np.dstack(np.meshgrid(xs, ys)).reshape(-1, 2)
+    d, i = model.query(coords)
+    Pdist = np.array(coo_matrix((d, (coords[:, 0], coords[:, 1]))).todense())
+    return Pdist
+
+
 class AlignmentDataset(Dataset):
     def __init__(self, pairs, tokenizer=UniprotTokenizer()):
         self.tokenizer = tokenizer
@@ -284,6 +312,8 @@ class TMAlignDataset(AlignmentDataset):
            Alignment string
         alignment_matrix : torch.Tensor
            Ground truth alignment matrix
+        path_matrix : torch.Tensor
+           Minimum distance to path
         """
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
@@ -298,9 +328,11 @@ class TMAlignDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
+        pi = states2edges(states)
         if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
             alignment_matrix = alignment_matrix.t()
-        return gene, pos, states, alignment_matrix
+        path_matrix = path_distance_matrix(pi)
+        return gene, pos, states, alignment_matrix, path_matrix
 
 
 class MaliAlignmentDataset(AlignmentDataset):
