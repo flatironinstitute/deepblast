@@ -59,7 +59,9 @@ class LightningAligner(pl.LightningModule):
         return writer
 
     def train_dataloader(self):
-        train_dataset = TMAlignDataset(self.hparams.train_pairs)
+        train_dataset = TMAlignDataset(
+            self.hparams.train_pairs,
+            construct_paths=isinstance(self.loss_func, SoftPathLoss))
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=True, num_workers=self.hparams.num_workers,
@@ -67,7 +69,9 @@ class LightningAligner(pl.LightningModule):
         return train_dataloader
 
     def val_dataloader(self):
-        valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
+        valid_dataset = TMAlignDataset(
+            self.hparams.valid_pairs,
+            construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers,
@@ -75,7 +79,9 @@ class LightningAligner(pl.LightningModule):
         return valid_dataloader
 
     def test_dataloader(self):
-        test_dataset = TMAlignDataset(self.hparams.test_pairs)
+        test_dataset = TMAlignDataset(
+            self.hparams.test_pairs,
+            construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             collate_fn=collate_f, num_workers=self.hparams.num_workers,
