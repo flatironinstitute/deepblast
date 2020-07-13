@@ -7,6 +7,36 @@ class AlignmentAccuracy:
         pass
 
 
+class SoftPathLoss:
+    def __call__(self, Pdist, Ypred, x, y):
+        """ Computes a soft path loss
+
+        The soft path loss is given by
+
+        d(ypred, ytrue) = frobieus_norm(ypred x path(ytrue))
+
+        where path(ytrue) gives a pairwise distance matrix yielding
+        the distance between a point and nearest point in the path
+        for every element in the matrix.
+
+
+        Parameters
+        ----------
+        Pdist : torch.Tensor
+            Pairwise path distances.
+        Ypred : torch.Tensor
+            Predicted alignment matrix of dimension N x M.
+        """
+        _, x_len = pad_packed_sequence(x, batch_first=True)
+        _, y_len = pad_packed_sequence(y, batch_first=True)
+        score = 0
+        for b in range(len(x_len)):
+            score += torch.norm(
+                Pdist[b, :x_len[b], :y_len[b]] * Ypred[b, :x_len[b], :y_len[b]]
+            )
+        return score
+
+
 class SoftAlignmentLoss:
     def __call__(self, Ytrue, Ypred, x, y):
         """ Computes soft alignment loss as proposed in Mensch et al.
@@ -29,6 +59,11 @@ class SoftAlignmentLoss:
         -------
         loss : torch.Tensor
             Scalar valued loss.
+
+        Notes
+        -----
+        We aren't extracting the lower triangular matrix here,
+        since it is possible to leave out important parts of the alignment.
         """
         _, x_len = pad_packed_sequence(x, batch_first=True)
         _, y_len = pad_packed_sequence(y, batch_first=True)

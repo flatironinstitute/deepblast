@@ -5,13 +5,13 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
-from deepblast.losses import SoftAlignmentLoss
+from deepblast.losses import SoftAlignmentLoss, SoftPathLoss
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
 from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 
@@ -23,7 +23,12 @@ class LightningAligner(pl.LightningModule):
         self.tokenizer = UniprotTokenizer()
         self.hparams = args
         self.initialize_aligner()
-        self.loss_func = SoftAlignmentLoss()
+        if self.hparams.loss == 'sse':
+            self.loss_func = SoftAlignmentLoss()
+        elif self.hparams.loss == 'path':
+            self.loss_func = SoftPathLoss()
+        else:
+            raise ValueError(f'{loss} is not implemented.')
 
     def initialize_aligner(self):
         n_alpha = len(self.tokenizer.alphabet)
@@ -71,23 +76,30 @@ class LightningAligner(pl.LightningModule):
             collate_fn=collate_f, num_workers=self.hparams.num_workers)
         return test_dataloader
 
+    def compute_loss(self, x, y, predA, A, P):
+        if isinstance(self.loss_func, SoftAlignmentLoss):
+            loss = self.loss_func(A, predA, x, y)
+        elif isinstance(self.loss_func, SoftPathLoss):
+            loss = self.loss_func(P, predA, x, y)
+        return loss
+
     def training_step(self, batch, batch_idx):
-        x, y, s, A = batch
+        self.aligner.train()
+        x, y, s, A, P = batch
         x = pack_sequence(x, enforce_sorted=False)
         y = pack_sequence(y, enforce_sorted=False)
-        self.aligner.train()
         predA = self.aligner(x, y)
-        loss = self.loss_func(A, predA, x, y)
+        loss = self.compute_loss(x, y, predA, A, P)
         assert torch.isnan(loss).item() is False
         tensorboard_logs = {'train_loss': loss}
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_idx):
-        x, y, s, A = batch
+        x, y, s, A, P = batch
         x = pack_sequence(x, enforce_sorted=False)
         y = pack_sequence(y, enforce_sorted=False)
         predA = self.aligner(x, y)
-        loss = self.loss_func(A, predA, x, y)
+        loss = self.compute_loss(x, y, predA, A, P)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
@@ -112,16 +124,16 @@ class LightningAligner(pl.LightningModule):
                     # See issue #40
                     text = alignment_text(
                         x_str, y_str, pred_states, truth_states)
+                    self.logger.experiment.add_text(
+                        f'alignment/{batch_idx}/{b}', text, self.global_step)
                 except:
                     continue
                 fig, _ = alignment_visualization(
                     A[b].cpu().detach().numpy().squeeze(),
                     predA[b].cpu().detach().numpy().squeeze(),
                     xlen[b], ylen[b])
-                self.logger.experiment.add_text(
-                    'alignment', text, self.global_step)
                 self.logger.experiment.add_figure(
-                    'alignment-matrix', fig, self.global_step)
+                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
@@ -167,7 +179,13 @@ class LightningAligner(pl.LightningModule):
             lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.Adam(
             grad_params, lr=self.hparams.learning_rate)
-        scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
+        if self.hparams.scheduler == 'cosine':
+            scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=2)
+        elif self.hparams.scheduler == 'steplr':
+            m = 1e-8  # minimum learning rate
+            steps = int(np.log2(self.hparams.learning_rate / m))
+            steps = self.hparams.epochs // steps
+            scheduler = SteLR(optimizer, step_size=steps)
         return [optimizer], [scheduler]
 
     @staticmethod
@@ -196,6 +214,10 @@ class LightningAligner(pl.LightningModule):
             '--layers', help='Number of RNN layers (default 2).',
             required=False, type=int, default=2)
         parser.add_argument(
+            '--loss',
+            help='Loss function. Options include sse, path (default path)',
+            default='path', required=False, type=str)
+        parser.add_argument(
             '--learning-rate', help='Learning rate',
             required=False, type=float, default=5e-5)
         parser.add_argument(
@@ -205,10 +227,10 @@ class LightningAligner(pl.LightningModule):
             '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--clip-ends',
-            help=('Specifies if training start/end gaps should be removed. '
-                  'This will speed up runtime.'),
-            default=False, required=False, type=bool)
+            '--scheduler',
+            help=('Learning rate scheduler '
+                  '(choices include `cosine` and `steplr`'),
+            default='cosine', required=False, type=str)
         parser.add_argument(
             '--epochs', help='Training batch size',
             required=False, type=int, default=10)

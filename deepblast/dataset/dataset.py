@@ -175,18 +175,21 @@ def collate_f(batch):
     others = [x[1] for x in batch]
     states = [x[2] for x in batch]
     alignments = [x[3] for x in batch]
+    paths = [x[4] for x in batch]
     max_x = max(map(len, genes))
     max_y = max(map(len, others))
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
+    p = torch.zeros((B, max_x, max_y))
     # gene_codes = torch.zeros((B, max_x), dtype=torch.long)
     # other_codes = torch.zeros((B, max_y), dtype=torch.long)
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
+        p[b, :n, :m] = paths[b]
         # gene_codes[b, :n] = genes[b]
         # other_codes[b, :m] = others[b]
-    return genes, others, states, dm
+    return genes, others, states, dm, p
 
 
 def path_distance_matrix(pi):
@@ -313,7 +316,8 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix : torch.Tensor
            Ground truth alignment matrix
         path_matrix : torch.Tensor
-           Minimum distance to path
+           Pairwise path distances, where the smallest distance
+           to the path is computed for every element in the matrix.
         """
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
@@ -329,9 +333,13 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         pi = states2edges(states)
+        path_matrix = torch.from_numpy(path_distance_matrix(pi))
+
         if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
             alignment_matrix = alignment_matrix.t()
-        path_matrix = path_distance_matrix(pi)
+        if tuple(path_matrix.shape) != (len(gene), len(pos)):
+            path_matrix = path_matrix.t()
+
         return gene, pos, states, alignment_matrix, path_matrix
 
 
