@@ -13,8 +13,8 @@ class MatrixCrossEntropy:
 
         The matrix cross entropy loss is given by
 
-        d(ypred, ytrue) = frobieus_norm(ytrue x log(ypred)) -
-             frobieus_norm((1 - ytrue) x log(1 - ypred))
+        d(ypred, ytrue) = - (mean(ytrue x log(ypred))
+             + mean((1 - ytrue) x log(1 - ypred)))
 
         Parameters
         ----------
@@ -30,11 +30,11 @@ class MatrixCrossEntropy:
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
         Ypred = torch.clamp(Ypred, min=eps, max=1-eps)
         for b in range(len(x_len)):
-            pos = torch.norm(
+            pos = torch.mean(
                 Ytrue[b, :x_len[b], :y_len[b]] *
                 torch.log(Ypred[b, :x_len[b], :y_len[b]])
             )
-            neg = torch.norm(
+            neg = torch.mean(
                 (1 - Ytrue[b, :x_len[b], :y_len[b]]) *
                 torch.log(1 - Ypred[b, :x_len[b], :y_len[b]])
             )
