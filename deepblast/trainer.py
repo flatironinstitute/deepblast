@@ -60,21 +60,24 @@ class LightningAligner(pl.LightningModule):
         train_dataset = TMAlignDataset(self.hparams.train_pairs)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=True, num_workers=self.hparams.num_workers)
+            shuffle=True, num_workers=self.hparams.num_workers,
+            pin_memory=False)
         return train_dataloader
 
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(self.hparams.valid_pairs)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=False, num_workers=self.hparams.num_workers)
+            shuffle=False, num_workers=self.hparams.num_workers,
+            pin_memory=False)
         return valid_dataloader
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(self.hparams.test_pairs)
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
-            collate_fn=collate_f, num_workers=self.hparams.num_workers)
+            collate_fn=collate_f, num_workers=self.hparams.num_workers,
+            pin_memory=False)
         return test_dataloader
 
     def compute_loss(self, x, y, predA, A, P):
@@ -108,9 +111,9 @@ class LightningAligner(pl.LightningModule):
         x, xlen = pad_packed_sequence(x, batch_first=True)
         y, ylen = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
-            x_str = decode(list(x[b].squeeze().cpu().detach().numpy()),
+            x_str = decode(list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
-            y_str = decode(list(y[b].squeeze().cpu().detach().numpy()),
+            y_str = decode(list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
                            self.tokenizer.alphabet)
             decoded, pred_A = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
