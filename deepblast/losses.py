@@ -27,15 +27,16 @@ class MatrixCrossEntropy:
         _, x_len = pad_packed_sequence(x, batch_first=True)
         _, y_len = pad_packed_sequence(y, batch_first=True)
         score = 0
-        eps = 1e-20
+        eps = 1e-14
+        Ypred = torch.clamp(Ypred, min=eps, max=1-eps)
         for b in range(len(x_len)):
             pos = torch.norm(
                 Ytrue[b, :x_len[b], :y_len[b]] *
-                torch.log(Ypred[b, :x_len[b], :y_len[b]] + eps)
+                torch.log(Ypred[b, :x_len[b], :y_len[b]])
             )
             neg = torch.norm(
                 (1 - Ytrue[b, :x_len[b], :y_len[b]]) *
-                torch.log(1 - Ypred[b, :x_len[b], :y_len[b]] + eps)
+                torch.log(1 - Ypred[b, :x_len[b], :y_len[b]])
             )
             score += (pos - neg)
         return score
