@@ -147,7 +147,7 @@ class LightningAligner(pl.LightningModule):
                     predA[b].cpu().detach().numpy().squeeze(),
                     xlen[b], ylen[b])
                 self.logger.experiment.add_figure(
-                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step)
+                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step, close=True)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
