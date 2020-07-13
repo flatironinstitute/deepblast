@@ -2,6 +2,7 @@ import datetime
 import argparse
 import random
 import pandas as pd
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
@@ -28,7 +29,7 @@ class LightningAligner(pl.LightningModule):
         elif self.hparams.loss == 'path':
             self.loss_func = SoftPathLoss()
         else:
-            raise ValueError(f'{loss} is not implemented.')
+            raise ValueError(f'{args.loss} is not implemented.')
 
     def initialize_aligner(self):
         n_alpha = len(self.tokenizer.alphabet)
@@ -180,12 +181,16 @@ class LightningAligner(pl.LightningModule):
         optimizer = torch.optim.Adam(
             grad_params, lr=self.hparams.learning_rate)
         if self.hparams.scheduler == 'cosine':
-            scheduler = CosineAnnealingWarmRestarts(optimizer, T_0=100, T_mult=2)
+            scheduler = CosineAnnealingWarmRestarts(
+                optimizer, T_0=100, T_mult=2)
         elif self.hparams.scheduler == 'steplr':
             m = 1e-8  # minimum learning rate
             steps = int(np.log2(self.hparams.learning_rate / m))
             steps = self.hparams.epochs // steps
-            scheduler = SteLR(optimizer, step_size=steps)
+            scheduler = StepLR(optimizer, step_size=steps)
+        else:
+            s = self.hparams.scheduler
+            raise ValueError(f'{s} is not implemented.')
         return [optimizer], [scheduler]
 
     @staticmethod
