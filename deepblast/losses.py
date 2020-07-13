@@ -7,6 +7,40 @@ class AlignmentAccuracy:
         pass
 
 
+class MatrixCrossEntropy:
+    def __call__(self, Ytrue, Ypred, x, y):
+        """ Computes binary cross entropy on the matrix
+
+        The matrix cross entropy loss is given by
+
+        d(ypred, ytrue) = frobieus_norm(ytrue x log(ypred)) -
+             frobieus_norm((1 - ytrue) x log(1 - ypred))
+
+        Parameters
+        ----------
+        Ytrue : torch.Tensor
+            Ground truth alignment matrix of dimension N x M.
+            All entries are marked by 0 and 1.
+        Ypred : torch.Tensor
+            Predicted alignment matrix of dimension N x M.
+        """
+        _, x_len = pad_packed_sequence(x, batch_first=True)
+        _, y_len = pad_packed_sequence(y, batch_first=True)
+        score = 0
+        eps = 1e-20
+        for b in range(len(x_len)):
+            pos = torch.norm(
+                Ytrue[b, :x_len[b], :y_len[b]] *
+                torch.log(Ypred[b, :x_len[b], :y_len[b]] + eps)
+            )
+            neg = torch.norm(
+                (1 - Ytrue[b, :x_len[b], :y_len[b]]) *
+                torch.log(1 - Ypred[b, :x_len[b], :y_len[b]] + eps)
+            )
+            score += (pos - neg)
+        return score
+
+
 class SoftPathLoss:
     def __call__(self, Pdist, Ypred, x, y):
         """ Computes a soft path loss
