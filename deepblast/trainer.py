@@ -12,7 +12,7 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
-from deepblast.losses import SoftAlignmentLoss, SoftPathLoss
+from deepblast.losses import SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
 from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 
@@ -26,6 +26,8 @@ class LightningAligner(pl.LightningModule):
         self.initialize_aligner()
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
+        if self.hparams.loss == 'cross_entropy':
+            self.loss_func = MatrixCrossEntropy()
         elif self.hparams.loss == 'path':
             self.loss_func = SoftPathLoss()
         else:
@@ -82,6 +84,8 @@ class LightningAligner(pl.LightningModule):
 
     def compute_loss(self, x, y, predA, A, P):
         if isinstance(self.loss_func, SoftAlignmentLoss):
+            loss = self.loss_func(A, predA, x, y)
+        elif isinstance(self.loss_func, MatrixCrossEntropy):
             loss = self.loss_func(A, predA, x, y)
         elif isinstance(self.loss_func, SoftPathLoss):
             loss = self.loss_func(P, predA, x, y)
@@ -223,7 +227,8 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=2)
         parser.add_argument(
             '--loss',
-            help='Loss function. Options include sse, path (default path)',
+            help=('Loss function. Options include {sse, path, cross_entropy} '
+                  '(default path)'),
             default='path', required=False, type=str)
         parser.add_argument(
             '--learning-rate', help='Learning rate',
