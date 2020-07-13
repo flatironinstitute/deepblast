@@ -251,7 +251,8 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
-                 tm_threshold=0.4, max_len=1024, pad_ends=True):
+                 tm_threshold=0.4, max_len=1024, pad_ends=True,
+                 construct_paths=False):
         """ Read in pairs of proteins.
 
 
@@ -270,6 +271,10 @@ class TMAlignDataset(AlignmentDataset):
             Minimum threshold to investigate alignments
         max_len : float
             Maximum sequence length to be aligned
+        pad_ends : bool
+            Specifies if the ends of the sequences should be padded or not.
+        construct_paths : bool
+            Specifies if path distances should be calculated.
 
         Notes
         -----
@@ -280,6 +285,7 @@ class TMAlignDataset(AlignmentDataset):
         self.tm_threshold = tm_threshold
         self.max_len = max_len
         self.pairs = pd.read_table(path, header=None)
+        self.construct_paths = construct_paths
         cols = [
             'chain1_name', 'chain2_name', 'tmscore1', 'tmscore2', 'rmsd',
             'chain1', 'chain2', 'alignment'
@@ -332,13 +338,15 @@ class TMAlignDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
-        pi = states2edges(states)
-        path_matrix = torch.from_numpy(path_distance_matrix(pi))
+        path_matrix = torch.empty(*alignment_matrix.shape)
+        if self.construct_paths:
+            pi = states2edges(states)
+            path_matrix = torch.from_numpy(path_distance_matrix(pi))
 
-        if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
-            alignment_matrix = alignment_matrix.t()
         if tuple(path_matrix.shape) != (len(gene), len(pos)):
             path_matrix = path_matrix.t()
+        if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
+            alignment_matrix = alignment_matrix.t()
 
         return gene, pos, states, alignment_matrix, path_matrix
 
