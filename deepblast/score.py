@@ -37,11 +37,11 @@ def alignment_visualization(truth, pred, xlen, ylen):
        Matplotlib axes objects
     """
     fig, ax = plt.subplots(1, 2, figsize=(8, 3))
-    ax[0].imshow(truth[:xlen, :ylen])
+    ax[0].imshow(truth[:xlen, :ylen], aspect='auto')
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')
     ax[0].set_title('Ground truth alignment')
-    ax[1].imshow(pred[:xlen, :ylen])
+    ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
     ax[1].set_xlabel('Positions')
     ax[1].set_ylabel('Positions')
     ax[1].set_title('Predicted alignment')

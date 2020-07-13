@@ -2,11 +2,25 @@ import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
 from deepblast.dataset.dataset import (
-    tmstate_f, states2matrix, states2alignment)
+    tmstate_f, states2matrix, states2alignment, path_distance_matrix)
 import pandas as pd
+from math import sqrt
+import numpy as np
+import numpy.testing as npt
 
 
 class TestDataUtils(unittest.TestCase):
+
+    def test_path_distance_matrix(self):
+        pi = [(0, 0), (1, 1), (1, 2), (1, 3), (2, 3), (3, 3)]
+        res = path_distance_matrix(pi)
+        exp = np.array([
+            [0, 1, 1, 1],
+            [1, 0, 0, 0],
+            [sqrt(2), 1, 1, 0],
+            [sqrt(5), 2, 1, 0]
+        ])
+        npt.assert_allclose(res, exp)
 
     def test_states2matrix_zinc(self):
         s = ':1111::::1:'
