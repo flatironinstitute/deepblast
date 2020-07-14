@@ -77,7 +77,7 @@ class NeedlemanWunschAligner(nn.Module):
             merged = torch.cat((xmean, ymean), axis=1)  # dim B x 2D
             A = self.gap_score(merged).squeeze()
             aln = self.nw.decode(theta, A)
-            return aln
+            return aln, theta
 
     def traceback(self, x, y):
         with torch.enable_grad():

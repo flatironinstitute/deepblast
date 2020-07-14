@@ -12,7 +12,8 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.dataset import decode, states2edges, collate_f
-from deepblast.losses import SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy
+from deepblast.losses import (
+    SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
 from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 
@@ -88,13 +89,23 @@ class LightningAligner(pl.LightningModule):
             pin_memory=False)
         return test_dataloader
 
-    def compute_loss(self, x, y, predA, A, P):
+    def compute_loss(self, x, y, predA, A, P, theta):
+
         if isinstance(self.loss_func, SoftAlignmentLoss):
             loss = self.loss_func(A, predA, x, y)
         elif isinstance(self.loss_func, MatrixCrossEntropy):
             loss = self.loss_func(A, predA, x, y)
         elif isinstance(self.loss_func, SoftPathLoss):
             loss = self.loss_func(P, predA, x, y)
+
+        if self.hparams.multitask:
+            current_lr = self.trainer.lr_schedulers[0].get_lr()[0]
+            max_lr = self.hparams.learning_rate
+            lam = current_lr / max_lr
+            match_loss = self.loss_func(theta, predA, x, y)
+            # when learning rate is large, weight match
+            # otherwise, weight towards DP
+            loss = lam * match_loss + (1 - lam) * loss
         return loss
 
     def training_step(self, batch, batch_idx):
@@ -102,18 +113,20 @@ class LightningAligner(pl.LightningModule):
         x, y, s, A, P = batch
         x = pack_sequence(x, enforce_sorted=False)
         y = pack_sequence(y, enforce_sorted=False)
-        predA = self.aligner(x, y)
-        loss = self.compute_loss(x, y, predA, A, P)
+        predA, theta = self.aligner(x, y)
+        loss = self.compute_loss(x, y, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
-        tensorboard_logs = {'train_loss': loss}
+        current_lr = self.trainer.lr_schedulers[0].get_lr()[0]
+        tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
+        # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_idx):
         x, y, s, A, P = batch
         x = pack_sequence(x, enforce_sorted=False)
         y = pack_sequence(y, enforce_sorted=False)
-        predA = self.aligner(x, y)
-        loss = self.compute_loss(x, y, predA, A, P)
+        predA, theta = self.aligner(x, y)
+        loss = self.compute_loss(x, y, predA, A, P, theta)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
@@ -121,10 +134,13 @@ class LightningAligner(pl.LightningModule):
         x, xlen = pad_packed_sequence(x, batch_first=True)
         y, ylen = pad_packed_sequence(y, batch_first=True)
         for b in range(len(s)):
-            x_str = decode(list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
-            y_str = decode(list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
-                           self.tokenizer.alphabet)
+            # TODO: Issue #47
+            x_str = decode(
+                list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
+            y_str = decode(
+                list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
+                self.tokenizer.alphabet)
             decoded, pred_A = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = list(pred_states)
@@ -242,6 +258,10 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--batch-size', help='Training batch size',
             required=False, type=int, default=32)
+        parser.add_argument(
+            '--multitask', default=False, required=False, type=bool,
+            help='Compute multitask loss between DP and matchings'
+        )
         parser.add_argument(
             '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
