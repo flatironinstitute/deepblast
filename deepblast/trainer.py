@@ -197,10 +197,10 @@ class LightningAligner(pl.LightningModule):
             scheduler = CosineAnnealingWarmRestarts(
                 optimizer, T_0=100, T_mult=2)
         elif self.hparams.scheduler == 'steplr':
-            m = 1e-8  # minimum learning rate
-            steps = int(np.log2(self.hparams.learning_rate / m))
-            steps = self.hparams.epochs // steps
-            scheduler = StepLR(optimizer, step_size=steps)
+            #m = 1e-8  # minimum learning rate
+            #steps = int(np.log2(self.hparams.learning_rate / m))
+            #steps = self.hparams.epochs // steps
+            scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
         else:
             s = self.hparams.scheduler
             raise ValueError(f'{s} is not implemented.')
