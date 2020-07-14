@@ -99,11 +99,11 @@ class LightningAligner(pl.LightningModule):
             loss = self.loss_func(P, predA, x, y)
 
         if self.hparams.multitask:
-            current_lr = self.trainer.lr_schedulers[0].get_lr()[0]
+            current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
             max_lr = self.hparams.learning_rate
             lam = current_lr / max_lr
-            match_loss = self.loss_func(theta, predA, x, y)
-            # when learning rate is large, weight match
+            match_loss = self.loss_func(torch.sigmoid(theta), predA, x, y)
+            # when learning rate is large, weight match loss
             # otherwise, weight towards DP
             loss = lam * match_loss + (1 - lam) * loss
         return loss
@@ -116,7 +116,7 @@ class LightningAligner(pl.LightningModule):
         predA, theta = self.aligner(x, y)
         loss = self.compute_loss(x, y, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
-        current_lr = self.trainer.lr_schedulers[0].get_lr()[0]
+        current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
