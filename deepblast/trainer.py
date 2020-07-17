@@ -211,7 +211,7 @@ class LightningAligner(pl.LightningModule):
             grad_params, lr=self.hparams.learning_rate)
         if self.hparams.scheduler == 'cosine':
             scheduler = CosineAnnealingWarmRestarts(
-                optimizer, T_0=100, T_mult=2)
+                optimizer, T_0=1, T_mult=2)
         elif self.hparams.scheduler == 'steplr':
             #m = 1e-8  # minimum learning rate
             #steps = int(np.log2(self.hparams.learning_rate / m))
