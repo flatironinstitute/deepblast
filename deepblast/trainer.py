@@ -6,7 +6,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-from torch.optim.lr_scheduler import CosineAnnealingWarmRestarts, StepLR
+from torch.optim.lr_scheduler import (
+    CosineAnnealingWarmRestarts, StepLR, CyclicLR, OneCycleLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
@@ -22,7 +23,7 @@ class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
         super(LightningAligner, self).__init__()
-        self.tokenizer = UniprotTokenizer()
+        self.tokenizer = UniprotTokenizer(pad_ends=False)
         self.hparams = args
         self.initialize_aligner()
         if self.hparams.loss == 'sse':
@@ -207,19 +208,19 @@ class LightningAligner(pl.LightningModule):
             p.requires_grad = False
         grad_params = list(filter(
             lambda p: p.requires_grad, self.aligner.parameters()))
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             grad_params, lr=self.hparams.learning_rate)
         if self.hparams.scheduler == 'cosine':
             scheduler = CosineAnnealingWarmRestarts(
                 optimizer, T_0=1, T_mult=2)
         elif self.hparams.scheduler == 'steplr':
-            #m = 1e-8  # minimum learning rate
-            #steps = int(np.log2(self.hparams.learning_rate / m))
-            #steps = self.hparams.epochs // steps
-            scheduler = StepLR(optimizer, step_size=1, gamma=0.5)
+            m = 1e-6  # minimum learning rate
+            steps = int(np.log2(self.hparams.learning_rate / m))
+            steps = self.hparams.epochs // steps
+            scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
         else:
             s = self.hparams.scheduler
-            raise ValueError(f'{s} is not implemented.')
+            raise ValueError(f'`{s}` scheduler is not implemented.')
         return [optimizer], [scheduler]
 
     @staticmethod
@@ -264,6 +265,9 @@ class LightningAligner(pl.LightningModule):
         )
         parser.add_argument(
             '--finetune', help='Perform finetuning',
+            default=False, required=False, type=bool)
+        parser.add_argument(
+            '--clip-ends', help='Clip ends of training alignments.',
             default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',

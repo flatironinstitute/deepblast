@@ -251,8 +251,8 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
-                 tm_threshold=0.4, max_len=1024, pad_ends=True,
-                 construct_paths=False):
+                 tm_threshold=0.4, max_len=1024, pad_ends=False,
+                 clip_ends=True, construct_paths=False):
         """ Read in pairs of proteins.
 
 
@@ -262,7 +262,7 @@ class TMAlignDataset(AlignmentDataset):
 
         Parameters
         ----------
-        patys: np.array of str
+        path: path
             Data path to aligned protein pairs.  This includes gaps
             and require that the proteins have the same length
         tokenizer: UniprotTokenizer
@@ -273,6 +273,8 @@ class TMAlignDataset(AlignmentDataset):
             Maximum sequence length to be aligned
         pad_ends : bool
             Specifies if the ends of the sequences should be padded or not.
+        clip_ends : bool
+            Specifies if the ends of the alignments should be clipped or not.
         construct_paths : bool
             Specifies if path distances should be calculated.
 
@@ -298,7 +300,8 @@ class TMAlignDataset(AlignmentDataset):
         idx = np.logical_and(self.pairs['tm'] > self.tm_threshold,
                              self.pairs['length'] < self.max_len)
         self.pairs = self.pairs.loc[idx]
-        self.pad_ends = True
+        self.pad_ends = pad_ends      # TODO: this needs to be documented properly
+        self.clip_ends = clip_ends
 
     def __len__(self):
         return self.pairs.shape[0]
@@ -329,8 +332,13 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
+
+        if self.clip_ends:
+            gene, pos, states = clip_boundaries(gene, pos, states)
+
         if self.pad_ends:
             states = [m] + states + [m]
+
         states = torch.Tensor(states).long()
         gene = self.tokenizer(str.encode(gene))
         pos = self.tokenizer(str.encode(pos))
