@@ -66,6 +66,20 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         inputs = (self.theta, self.A)
         gradgradcheck(needle, inputs, eps=1e-2)
 
+    def test_grad_needlemanwunsch_function_Arand(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        theta = self.theta.double()
+        A = torch.rand_like(theta)
+        theta.requires_grad_()
+        gradcheck(needle, (theta, A), eps=1e-2)
+
+    def test_hessian_needlemanwunsch_function_Arand(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        theta = self.theta.double()
+        A = torch.rand_like(theta)
+        inputs = (theta, A)
+        gradgradcheck(needle, inputs, eps=1e-2)
+
 
 if __name__ == "__main__":
     unittest.main()
