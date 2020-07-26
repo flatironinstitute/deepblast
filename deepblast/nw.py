@@ -175,13 +175,14 @@ def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
     Vd = np.zeros((N + 1, M + 1))      # N x M
     Qd = np.zeros((N + 2, M + 2, 3))   # N x M x S
     m, x, y = 1, 0, 2
-
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[x] = ZA[i, j] + Vd[i - 1, j]
+            # Note: the indexing of ZA doesn't match Ztheta
+            # See forward_pass method.
+            maxargs[x] = ZA[i - 1, j - 1] + Vd[i - 1, j]
             maxargs[m] = Vd[i - 1, j - 1]
-            maxargs[y] = ZA[i, j] + Vd[i, j - 1]
+            maxargs[y] = ZA[i - 1, j - 1] + Vd[i, j - 1]
             Vd[i, j] = Ztheta[i, j] + \
                 Q[i, j, x] * maxargs[0] + \
                 Q[i, j, m] * maxargs[1] + \
@@ -223,12 +224,12 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
         for i in range(1, N + 1):
             for j in range(1, M + 1):
                 Vd[i, j] = Ztheta[i, j] + \
-                    Q[i, j, x] * (ZA[i, j] + Vd[i - 1, j]) + \
+                    Q[i, j, x] * (ZA[i - 1, j - 1] + Vd[i - 1, j]) + \
                     Q[i, j, m] * Vd[i - 1, j - 1] + \
-                    Q[i, j, y] * (ZA[i, j] + Vd[i, j - 1])
-                vd = torch.Tensor([(ZA[i, j] + Vd[i - 1, j]),
+                    Q[i, j, y] * (ZA[i - 1, j - 1] + Vd[i, j - 1])
+                vd = torch.Tensor([(ZA[i - 1, j - 1] + Vd[i - 1, j]),
                                    Vd[i - 1, j - 1],
-                                   (ZA[i, j] + Vd[i, j - 1])])
+                                   (ZA[i - 1, j - 1] + Vd[i, j - 1])])
                 Qd[i, j] = operator.hessian_product(Q[i, j], vd)
         return Vd[N, M], Qd
     else:
@@ -350,7 +351,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         Ztheta : torch.Tensor
             Derivative of theta of dimension N x M
         ZA : torch.Tensor
-            Derivative of transition matrix of dimension 3 x 3
+            Derivative of affine gap matrix
         """
         E, Q = ctx.saved_tensors
         operator = ctx.others
