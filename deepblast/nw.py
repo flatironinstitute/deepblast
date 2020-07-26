@@ -53,9 +53,9 @@ def _forward_pass_numba(theta, A):
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[x] = A + V[i - 1, j]  # x
+            maxargs[x] = A[i - 1, j - 1] + V[i - 1, j]  # x
             maxargs[m] = V[i - 1, j - 1]  # m
-            maxargs[y] = A + V[i, j - 1]  # y
+            maxargs[y] = A[i - j, 1 - 1] + V[i, j - 1]  # y
             v, Q[i, j] = _soft_max_numba(maxargs)
             V[i, j] = theta[i - 1, j - 1] + v
     Vt = V[N, M]
@@ -92,9 +92,9 @@ def _forward_pass(theta, A, operator='softmax'):
         for i in range(1, N + 1):
             for j in range(1, M + 1):
                 tmp = torch.Tensor([
-                    A + V[i - 1, j],
+                    A[i - 1, j - 1] + V[i - 1, j],
                     V[i - 1, j - 1],
-                    A + V[i, j - 1]
+                    A[i - 1, j - 1] + V[i, j - 1]
                 ])
                 v, Q[i, j] = operator.max(tmp)
                 V[i, j] = theta[i - 1, j - 1] + v
@@ -102,7 +102,8 @@ def _forward_pass(theta, A, operator='softmax'):
         Vt = V[N, M]
     else:
         Vt, Q = _forward_pass_numba(
-            theta.detach().cpu().numpy(), float(A[0]))
+            theta.detach().cpu().numpy(),
+            A.detach().cpu().numpy())
         Vt = torch.tensor(Vt, dtype=theta.dtype)
         Q = torch.from_numpy(Q)
 
@@ -178,9 +179,9 @@ def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
     maxargs = np.empty(3)
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            maxargs[x] = ZA + Vd[i - 1, j]
+            maxargs[x] = ZA[i, j] + Vd[i - 1, j]
             maxargs[m] = Vd[i - 1, j - 1]
-            maxargs[y] = ZA + Vd[i, j - 1]
+            maxargs[y] = ZA[i, j] + Vd[i, j - 1]
             Vd[i, j] = Ztheta[i, j] + \
                 Q[i, j, x] * maxargs[0] + \
                 Q[i, j, m] * maxargs[1] + \
@@ -222,18 +223,18 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
         for i in range(1, N + 1):
             for j in range(1, M + 1):
                 Vd[i, j] = Ztheta[i, j] + \
-                    Q[i, j, x] * (ZA + Vd[i - 1, j]) + \
+                    Q[i, j, x] * (ZA[i, j] + Vd[i - 1, j]) + \
                     Q[i, j, m] * Vd[i - 1, j - 1] + \
-                    Q[i, j, y] * (ZA + Vd[i, j - 1])
-                vd = torch.Tensor([(ZA + Vd[i - 1, j]),
+                    Q[i, j, y] * (ZA[i, j] + Vd[i, j - 1])
+                vd = torch.Tensor([(ZA[i, j] + Vd[i - 1, j]),
                                    Vd[i - 1, j - 1],
-                                   (ZA + Vd[i, j - 1])])
+                                   (ZA[i, j] + Vd[i, j - 1])])
                 Qd[i, j] = operator.hessian_product(Q[i, j], vd)
         return Vd[N, M], Qd
     else:
         Vd, Qd = _adjoint_forward_pass_numba(
             Q.detach().cpu().numpy(), Ztheta.detach().cpu().numpy(),
-            float(ZA[0]))
+            ZA.detach().cpu().numpy())
         Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
         Qd = torch.from_numpy(Qd)
         return Vd, Qd

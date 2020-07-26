@@ -35,7 +35,8 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
         self.Et = torch.Tensor([1., 1.])
-        self.A = torch.Tensor([-1., -1.])
+        # self.A = torch.Tensor([-1., -1.])
+        self.A = torch.ones_like(self.theta) * -1
         self.B, self.S, self.N, self.M = B, S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
@@ -43,7 +44,9 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def test_decoding(self):
         theta = torch.from_numpy(make_data())
         theta.requires_grad_()
-        A = torch.Tensor([0.1]).unsqueeze(0)
+        # A = torch.Tensor([0.1]).unsqueeze(0)
+        A = (torch.ones_like(theta) * 0.1)
+        A.requires_grad_()
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
