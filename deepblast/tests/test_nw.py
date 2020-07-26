@@ -44,8 +44,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
     def test_decoding(self):
         theta = torch.from_numpy(make_data())
         theta.requires_grad_()
-        # A = torch.Tensor([0.1]).unsqueeze(0)
-        A = (torch.ones_like(theta) * 0.1)
+        A = torch.ones_like(theta) * 0.1)
         A.requires_grad_()
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
