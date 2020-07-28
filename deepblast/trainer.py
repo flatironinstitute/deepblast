@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
-    CosineAnnealingWarmRestarts, StepLR, CyclicLR, OneCycleLR)
+    CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR, OneCycleLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
@@ -16,7 +16,7 @@ from deepblast.dataset.dataset import decode, states2edges, collate_f
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
+from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -28,12 +28,12 @@ class LightningAligner(pl.LightningModule):
         self.initialize_aligner()
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
-        if self.hparams.loss == 'cross_entropy':
+        elif self.hparams.loss == 'cross_entropy':
             self.loss_func = MatrixCrossEntropy()
         elif self.hparams.loss == 'path':
             self.loss_func = SoftPathLoss()
         else:
-            raise ValueError(f'{args.loss} is not implemented.')
+            raise ValueError(f'`{args.loss}` is not implemented.')
 
     def initialize_aligner(self):
         n_alpha = len(self.tokenizer.alphabet)
@@ -112,21 +112,20 @@ class LightningAligner(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         self.aligner.train()
         x, y, s, A, P = batch
-        x = pack_sequence(x, enforce_sorted=False)
-        y = pack_sequence(y, enforce_sorted=False)
-        predA, theta = self.aligner(x, y)
+        predA, theta, gap = self.aligner(x, y)
         loss = self.compute_loss(x, y, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
     def validation_step(self, batch, batch_idx):
+        # TODO: something weird is going on with the lengths
+        # Need to make sure that they are being sorted properly
         x, y, s, A, P = batch
-        x = pack_sequence(x, enforce_sorted=False)
-        y = pack_sequence(y, enforce_sorted=False)
-        predA, theta = self.aligner(x, y)
+        predA, theta, gap = self.aligner(x, y)
         loss = self.compute_loss(x, y, predA, A, P, theta)
         # assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
@@ -150,6 +149,14 @@ class LightningAligner(pl.LightningModule):
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
+                fig, _ = alignment_visualization(
+                    A[b].cpu().detach().numpy().squeeze(),
+                    predA[b].cpu().detach().numpy().squeeze(),
+                    theta[b].cpu().detach().numpy().squeeze(),
+                    gap[b].cpu().detach().numpy().squeeze(),
+                    xlen[b], ylen[b])
+                self.logger.experiment.add_figure(
+                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step, close=True)
                 try:
                     # TODO: Need to figure out wtf is happening here.
                     # See issue #40
@@ -159,12 +166,6 @@ class LightningAligner(pl.LightningModule):
                         f'alignment/{batch_idx}/{b}', text, self.global_step)
                 except:
                     continue
-                fig, _ = alignment_visualization(
-                    A[b].cpu().detach().numpy().squeeze(),
-                    predA[b].cpu().detach().numpy().squeeze(),
-                    xlen[b], ylen[b])
-                self.logger.experiment.add_figure(
-                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step, close=True)
             statistics.append(stats)
         statistics = pd.DataFrame(
             statistics, columns=[
@@ -182,6 +183,7 @@ class LightningAligner(pl.LightningModule):
         pass
 
     def validation_epoch_end(self, outputs):
+
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
         loss = sum(losses) / len(losses)
@@ -195,6 +197,7 @@ class LightningAligner(pl.LightningModule):
             scalar = sum(losses) / len(losses)
             scores.append(scalar)
             self.logger.experiment.add_scalar(m, scalar, self.global_step)
+
         tensorboard_logs = dict(
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
@@ -210,9 +213,11 @@ class LightningAligner(pl.LightningModule):
             lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.AdamW(
             grad_params, lr=self.hparams.learning_rate)
-        if self.hparams.scheduler == 'cosine':
+        if self.hparams.scheduler == 'cosine_restarts':
             scheduler = CosineAnnealingWarmRestarts(
                 optimizer, T_0=1, T_mult=2)
+        elif self.hparams.scheduler == 'cosine':
+            scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
         elif self.hparams.scheduler == 'steplr':
             m = 1e-6  # minimum learning rate
             steps = int(np.log2(self.hparams.learning_rate / m))
@@ -251,8 +256,8 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--loss',
             help=('Loss function. Options include {sse, path, cross_entropy} '
-                  '(default path)'),
-            default='path', required=False, type=str)
+                  '(default cross_entropy)'),
+            default='cross_entropy', required=False, type=str)
         parser.add_argument(
             '--learning-rate', help='Learning rate',
             required=False, type=float, default=5e-5)

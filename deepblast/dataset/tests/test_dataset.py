@@ -2,7 +2,8 @@ import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
 from deepblast.dataset.dataset import (
-    tmstate_f, states2matrix, states2alignment, path_distance_matrix)
+    tmstate_f, states2matrix, states2alignment,
+    path_distance_matrix, clip_boundaries)
 import pandas as pd
 from math import sqrt
 import numpy as np
@@ -174,6 +175,43 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
              1, 1, 1, 1]
         states2alignment(s, x, y)
+
+    def test_states2alignment_8(self):
+        x = 'HECDDCSKQFSRNNHLAKHLRAH'
+        y = 'YRCHKVCPYTFVGKSDLDLHQFITAH'
+        print(len(x), len(y))
+        s = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1]
+        states2alignment(s, x, y)
+
+    def test_states2alignment_9(self):
+        x = 'HCH'
+        y = 'HCAH'
+        print(len(x), len(y))
+        s = [1, 1, 0, 1]
+        states2alignment(s, x, y)
+
+    def test_clip_ends_none(self):
+        from deepblast.constants import m
+        s_ = [m, m, m, m]
+        x_ = 'GSSG'
+        y_ = 'GEIR'
+        rx, ry, rs = clip_boundaries(x_, y_, s_)
+        self.assertEqual(x_, rx)
+        self.assertEqual(y_, ry)
+        self.assertEqual(s_, rs)
+
+    def test_clip_ends(self):
+        from deepblast.constants import x, m, y
+        s = [x, m, m, m, y]
+        x = 'GSSG'
+        y = 'GEIR'
+        rx, ry, rs = clip_boundaries(x, y, s)
+        ex, ey, es = 'SSG', 'GEI', [m, m, m]
+
+        self.assertEqual(ex, rx)
+        self.assertEqual(ey, ry)
+        self.assertEqual(es, rs)
 
 
 class TestTMAlignDataset(unittest.TestCase):

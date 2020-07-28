@@ -4,6 +4,7 @@ from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
 from torch.nn.utils.rnn import pad_packed_sequence
+import torch.nn.functional as F
 
 
 class NeedlemanWunschAligner(nn.Module):
@@ -79,10 +80,10 @@ class NeedlemanWunschAligner(nn.Module):
                 self.gap_embedding(y), batch_first=True)  # dim B x M x D
 
             # Obtain theta through an inner product across latent dimensions
-            theta = torch.einsum('bid,bjd->bij', zx, zy)
-            A = torch.einsum('bid,bjd->bij', gx, gy)
+            theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
+            A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             aln = self.nw.decode(theta, A)
-            return aln, theta
+            return aln, theta, A
 
     def traceback(self, x, y):
         with torch.enable_grad():
@@ -94,8 +95,8 @@ class NeedlemanWunschAligner(nn.Module):
                 self.gap_embedding(x), batch_first=True)  # dim B x N x D
             gy, _ = pad_packed_sequence(
                 self.gap_embedding(y), batch_first=True)  # dim B x M x D
-            theta = torch.einsum('bid,bjd->bij', zx, zy)
-            A = torch.einsum('bid,bjd->bij', gx, gy)
+            theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
+            A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = theta.shape
             for b in range(B):
                 aln = self.nw.decode(

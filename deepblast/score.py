@@ -1,3 +1,4 @@
+import numpy as np
 import matplotlib.pyplot as plt
 from deepblast.dataset.dataset import states2alignment
 
@@ -15,7 +16,7 @@ def roc_edges(true_edges, pred_edges):
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
 
-def alignment_visualization(truth, pred, xlen, ylen):
+def alignment_visualization(truth, pred, match, gap, xlen, ylen):
     """ Visualize alignment matrix
 
     Parameters
@@ -24,6 +25,10 @@ def alignment_visualization(truth, pred, xlen, ylen):
         Ground truth alignment
     pred : torch.Tensor
         Predicted alignment
+    match : torch.Tensor
+        Match matrix
+    gap : torch.Tensor
+        Gap matrix
     xlen : int
         Length of protein x
     ylen : int
@@ -36,15 +41,20 @@ def alignment_visualization(truth, pred, xlen, ylen):
     ax : list of matplotlib.pyplot.Axes
        Matplotlib axes objects
     """
-    fig, ax = plt.subplots(1, 2, figsize=(8, 3))
+    fig, ax = plt.subplots(1, 4, figsize=(12, 3))
     ax[0].imshow(truth[:xlen, :ylen], aspect='auto')
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')
     ax[0].set_title('Ground truth alignment')
     ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
     ax[1].set_xlabel('Positions')
-    ax[1].set_ylabel('Positions')
     ax[1].set_title('Predicted alignment')
+    ax[2].imshow(np.log(match[:xlen, :ylen]), aspect='auto')
+    ax[2].set_xlabel('Positions')
+    ax[2].set_title('Match scoring matrix')
+    ax[3].imshow(np.log(-gap[:xlen, :ylen]), aspect='auto')
+    ax[3].set_xlabel('Positions')
+    ax[3].set_title('Gap scoring matrix')
     return fig, ax
 
 

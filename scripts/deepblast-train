@@ -49,7 +49,7 @@ def main(args):
 
     # In case this doesn't checkpoint
     torch.save(model.state_dict(),
-               args.output_directory + '/model_current.pt')
+               args.output_directory + '/last_ckpt.pt')
 
 
 if __name__ == '__main__':

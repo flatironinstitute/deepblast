@@ -3,11 +3,11 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset
+from torch.nn.utils.rnn import pack_padded_sequence
 from scipy.sparse import coo_matrix
 from scipy.spatial import cKDTree
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import x, m, y
-
 
 def state_f(z):
     if z[0] == '-':
@@ -30,8 +30,15 @@ def tmstate_f(z):
 
 def clip_boundaries(X, Y, A):
     """ Remove xs and ys from ends. """
-    first = A.index(m)
-    last = len(A) - A[::-1].index(m)
+    if A[0] == m:
+        first = 0
+    else:
+        first = A.index(m)
+
+    if A[-1] == m:
+        last = len(A)
+    else:
+        last = len(A) - A[::-1].index(m)
     X, Y = states2alignment(A, X, Y)
     X_ = X[first:last].replace('-', '')
     Y_ = Y[first:last].replace('-', '')
@@ -181,15 +188,22 @@ def collate_f(batch):
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
-    # gene_codes = torch.zeros((B, max_x), dtype=torch.long)
-    # other_codes = torch.zeros((B, max_y), dtype=torch.long)
+    gene_codes = torch.zeros((B, max_x), dtype=torch.long)
+    other_codes = torch.zeros((B, max_y), dtype=torch.long)
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-        # gene_codes[b, :n] = genes[b]
-        # other_codes[b, :m] = others[b]
-    return genes, others, states, dm, p
+        gene_codes[b, :n] = genes[b]
+        other_codes[b, :m] = others[b]
+    gene_codes = pack_padded_sequence(
+        gene_codes, torch.Tensor(list(map(len, genes))),
+        enforce_sorted=False, batch_first=True)
+    other_codes = pack_padded_sequence(
+        other_codes, torch.Tensor(list(map(len, others))),
+        enforce_sorted=False, batch_first=True)
+
+    return gene_codes, other_codes, states, dm, p
 
 
 def path_distance_matrix(pi):
