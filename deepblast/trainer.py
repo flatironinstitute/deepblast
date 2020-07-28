@@ -121,19 +121,10 @@ class LightningAligner(pl.LightningModule):
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
-    def validation_step(self, batch, batch_idx):
-        # TODO: something weird is going on with the lengths
-        # Need to make sure that they are being sorted properly
-        x, y, s, A, P = batch
-        predA, theta, gap = self.aligner(x, y)
-        loss = self.compute_loss(x, y, predA, A, P, theta)
-        # assert torch.isnan(loss).item() is False
-        # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(x, y)
+    def validation_stats(self, x, y, xlen, ylen, gen,
+                         states, A, predA, theta, gap, batch_idx):
         statistics = []
-        x, xlen = pad_packed_sequence(x, batch_first=True)
-        y, ylen = pad_packed_sequence(y, batch_first=True)
-        for b in range(len(s)):
+        for b in range(len(xlen)):
             # TODO: Issue #47
             x_str = decode(
                 list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
@@ -141,10 +132,10 @@ class LightningAligner(pl.LightningModule):
             y_str = decode(
                 list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
                 self.tokenizer.alphabet)
-            decoded, pred_A = next(gen)
+            decoded, _ = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
-            pred_states = list(pred_states)
-            truth_states = list(s[b].cpu().detach().numpy())
+            pred_states = np.array(list(pred_states))
+            truth_states = states[b].cpu().detach().numpy()
             pred_edges = list(zip(pred_y, pred_x))
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
@@ -156,17 +147,28 @@ class LightningAligner(pl.LightningModule):
                     gap[b].cpu().detach().numpy().squeeze(),
                     xlen[b], ylen[b])
                 self.logger.experiment.add_figure(
-                    f'alignment-matrix/{batch_idx}/{b}', fig, self.global_step, close=True)
-                try:
-                    # TODO: Need to figure out wtf is happening here.
-                    # See issue #40
-                    text = alignment_text(
-                        x_str, y_str, pred_states, truth_states)
-                    self.logger.experiment.add_text(
-                        f'alignment/{batch_idx}/{b}', text, self.global_step)
-                except:
-                    continue
-            statistics.append(stats)
+                    f'alignment-matrix/{batch_idx}/{b}', fig,
+                    self.global_step, close=True)
+                text = alignment_text(
+                    x_str, y_str, pred_states, truth_states)
+                self.logger.experiment.add_text(
+                    f'alignment/{batch_idx}/{b}', text, self.global_step)
+                statistics.append(stats)
+        return statistics
+
+    def validation_step(self, batch, batch_idx):
+        # TODO: something weird is going on with the lengths
+        # Need to make sure that they are being sorted properly
+        x, y, s, A, P = batch
+        predA, theta, gap = self.aligner(x, y)
+        loss = self.compute_loss(x, y, predA, A, P, theta)
+        # assert torch.isnan(loss).item() is False
+        # Obtain alignment statistics + visualizations
+        gen = self.aligner.traceback(x, y)
+        x, xlen = pad_packed_sequence(x, batch_first=True)
+        y, ylen = pad_packed_sequence(y, batch_first=True)
+        statistics = self.validation_stats(
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(
             statistics, columns=[
                 'val_tp', 'val_fp', 'val_fn', 'val_perc_id',

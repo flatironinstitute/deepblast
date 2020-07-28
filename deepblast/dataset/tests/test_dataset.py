@@ -3,11 +3,13 @@ from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
 from deepblast.dataset.dataset import (
     tmstate_f, states2matrix, states2alignment,
-    path_distance_matrix, clip_boundaries)
+    path_distance_matrix, clip_boundaries, collate_f)
+from deepblast.dataset.alphabet import UniprotTokenizer
 import pandas as pd
 from math import sqrt
 import numpy as np
 import numpy.testing as npt
+import torch
 
 
 class TestDataUtils(unittest.TestCase):
@@ -191,6 +193,13 @@ class TestDataUtils(unittest.TestCase):
         s = [1, 1, 0, 1]
         states2alignment(s, x, y)
 
+    def test_states2alignment_10(self):
+        gen = 'YACSGGCGQNFRTMSEFNEHMIRLVH'
+        oth = 'LICPKHTRDCGKVFKRNSSLRVHEKTH'
+        pred = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                1, 0, 2, 1, 1, 0, 1, 2, 0, 1, 1, 1, 1, 1]
+        states2alignment(pred, gen, oth)
+
     def test_clip_ends_none(self):
         from deepblast.constants import m
         s_ = [m, m, m, m]
@@ -208,15 +217,24 @@ class TestDataUtils(unittest.TestCase):
         y = 'GEIR'
         rx, ry, rs = clip_boundaries(x, y, s)
         ex, ey, es = 'SSG', 'GEI', [m, m, m]
-
         self.assertEqual(ex, rx)
         self.assertEqual(ey, ry)
         self.assertEqual(es, rs)
+
+    def test_clip_ends_2(self):
+        gen = 'YACNHCGATAIRNPNWKNHQREH'
+        oth = 'FHCKSQRVMSDCGSNGSKPFVTNYYVRHQCRKH'
+        st = np.array([1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1,
+                       1, 2, 2, 2, 2, 1, 1, 1, 0, 1, 1, 1,
+                       1, 1, 1, 1, 1, 1, 1, 1, 2, 1])
+        rx, ry, rs = clip_boundaries(gen, oth, st)
+        self.assertTrue(1)
 
 
 class TestTMAlignDataset(unittest.TestCase):
     def setUp(self):
         self.data_path = get_data_path('test_tm_align.tab')
+        self.tokenizer = UniprotTokenizer(pad_ends=False)
 
     def test_constructor(self):
         x = TMAlignDataset(self.data_path, tm_threshold=0, max_len=10000)

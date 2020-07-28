@@ -49,10 +49,10 @@ def alignment_visualization(truth, pred, match, gap, xlen, ylen):
     ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
     ax[1].set_xlabel('Positions')
     ax[1].set_title('Predicted alignment')
-    ax[2].imshow(np.log(match[:xlen, :ylen]), aspect='auto')
+    ax[2].imshow(match[:xlen, :ylen], aspect='auto')
     ax[2].set_xlabel('Positions')
     ax[2].set_title('Match scoring matrix')
-    ax[3].imshow(np.log(-gap[:xlen, :ylen]), aspect='auto')
+    ax[3].imshow(gap[:xlen, :ylen], aspect='auto')
     ax[3].set_xlabel('Positions')
     ax[3].set_title('Gap scoring matrix')
     return fig, ax

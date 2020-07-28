@@ -78,7 +78,6 @@ class NeedlemanWunschAligner(nn.Module):
                 self.gap_embedding(x), batch_first=True)  # dim B x N x D
             gy, _ = pad_packed_sequence(
                 self.gap_embedding(y), batch_first=True)  # dim B x M x D
-
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
@@ -86,10 +85,12 @@ class NeedlemanWunschAligner(nn.Module):
             return aln, theta, A
 
     def traceback(self, x, y):
+        _, x_len = pad_packed_sequence(x)
+        _, y_len = pad_packed_sequence(y)
         with torch.enable_grad():
-            zx, x_len = pad_packed_sequence(
+            zx, _ = pad_packed_sequence(
                 self.match_embedding(x), batch_first=True)  # dim B x N x D
-            zy, y_len = pad_packed_sequence(
+            zy, _ = pad_packed_sequence(
                 self.match_embedding(y), batch_first=True)  # dim B x M x D
             gx, _ = pad_packed_sequence(
                 self.gap_embedding(x), batch_first=True)  # dim B x N x D

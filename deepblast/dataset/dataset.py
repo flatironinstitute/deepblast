@@ -126,8 +126,24 @@ def states2matrix(states, sparse=False):
         return mat.toarray()
 
 
-def states2alignment(states, X, Y):
+def states2alignment(states : np.array, X : str, Y : str):
     """ Converts state string to gapped alignments """
+    sx = np.sum(states == x) + np.sum(states == m)
+    sy = np.sum(states == y) + np.sum(states == m)
+    if sx != len(X):
+        raise ValueError(
+            f'The state string length {sx} does not match '
+            f'the length of sequence {len(X)}.\n'
+            f'SequenceX: {X}\nSequenceY: {Y}\nStates: {states}\n'
+        )
+    if sy != len(Y):
+        raise ValueError(
+            f'The state string length {sy} does not match '
+            f'the length of sequence {len(X)}.\n'
+            f'SequenceX: {X}\nSequenceY: {Y}\nStates: {states}\n'
+
+        )
+
     i, j = 0, 0
     res = []
     for k in range(len(states)):
@@ -196,11 +212,13 @@ def collate_f(batch):
         p[b, :n, :m] = paths[b]
         gene_codes[b, :n] = genes[b]
         other_codes[b, :m] = others[b]
+    gene_len = torch.Tensor(list(map(len, genes)))
+    other_len = torch.Tensor(list(map(len, others)))
     gene_codes = pack_padded_sequence(
-        gene_codes, torch.Tensor(list(map(len, genes))),
+        gene_codes, gene_len,
         enforce_sorted=False, batch_first=True)
     other_codes = pack_padded_sequence(
-        other_codes, torch.Tensor(list(map(len, others))),
+        other_codes, other_len,
         enforce_sorted=False, batch_first=True)
 
     return gene_codes, other_codes, states, dm, p
@@ -346,9 +364,8 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
-
         if self.clip_ends:
-            gene, pos, states = clip_boundaries(gene, pos, states)
+            gene, pos, states = clip_boundaries(gene, pos, np.array(states))
 
         if self.pad_ends:
             states = [m] + states + [m]
@@ -361,6 +378,7 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         path_matrix = torch.empty(*alignment_matrix.shape)
+        #print(len(gene), len(pos), alignment_matrix.shape)
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))

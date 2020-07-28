@@ -3,6 +3,8 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw_cuda import NeedlemanWunschDecoder
+from deepblast.utils import get_data_path
+from deepblast.dataset.dataset import states2alignment
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 
@@ -75,6 +77,17 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
         gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
+
+    # @unittest.skip("Can only run with GPU")
+    def test_decoding2(self):
+        X = 'YKCPDCPTLCFENKTQLTLHMKLTH'
+        Y = 'HRCNKCSGTNFPRQGGLKKHYCVKH'
+        needle = NeedlemanWunschDecoder(self.operator)
+        theta = torch.Tensor(np.loadtxt(get_data_path('theta.txt')))
+        decoded = needle.traceback(theta)
+        pred_x, pred_y, pred_states = list(zip(*decoded))
+        print(theta.shape, len(X), len(Y))
+        states2alignment(pred_states, X, Y)
 
 
 if __name__ == "__main__":
