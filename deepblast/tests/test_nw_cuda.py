@@ -50,6 +50,19 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
             self.operator = 'softmax'
 
     @unittest.skip("Can only run with GPU")
+    def test_grad_needlemanwunsch_function(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        theta, A = self.theta, self.A
+        theta.requires_grad_()
+        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
+
+    @unittest.skip("Can only run with GPU")
+    def test_hessian_needlemanwunsch_function(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        inputs = (self.theta, self.A)
+        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
+
+    @unittest.skip("Can only run with GPU")
     def test_decoding(self):
         theta = torch.tensor(make_data().astype(np.float32),
                              device=self.theta.device).unsqueeze(0)
@@ -65,29 +78,15 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
-    @unittest.skip("Can only run with GPU")
-    def test_grad_needlemanwunsch_function(self):
-        needle = NeedlemanWunschDecoder(self.operator)
-        theta, A = self.theta, self.A
-        theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
-
-    @unittest.skip("Can only run with GPU")
-    def test_hessian_needlemanwunsch_function(self):
-        needle = NeedlemanWunschDecoder(self.operator)
-        inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
-
-    # @unittest.skip("Can only run with GPU")
     def test_decoding2(self):
-        X = 'YKCPDCPTLCFENKTQLTLHMKLTH'
-        Y = 'HRCNKCSGTNFPRQGGLKKHYCVKH'
+        X = 'HECDRKTCDESFSTKGNLRVHKLGH'
+        Y = 'LKCSGCGKNFKSQYAYKRHEQTH'
+
         needle = NeedlemanWunschDecoder(self.operator)
-        theta = torch.Tensor(np.loadtxt(get_data_path('theta.txt')))
-        decoded = needle.traceback(theta)
+        dm = torch.Tensor(np.loadtxt(get_data_path('dm.txt')))
+        decoded = needle.traceback(dm)
         pred_x, pred_y, pred_states = list(zip(*decoded))
-        print(theta.shape, len(X), len(Y))
-        states2alignment(pred_states, X, Y)
+        states2alignment(np.array(pred_states), X, Y)
 
 
 if __name__ == "__main__":

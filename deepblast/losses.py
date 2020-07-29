@@ -39,7 +39,7 @@ class MatrixCrossEntropy:
                 torch.log(1 - Ypred[b, :x_len[b], :y_len[b]])
             )
             score += -(pos + neg)
-        return score
+        return score / len(x_len)
 
 
 class SoftPathLoss:
@@ -69,7 +69,7 @@ class SoftPathLoss:
             score += torch.norm(
                 Pdist[b, :x_len[b], :y_len[b]] * Ypred[b, :x_len[b], :y_len[b]]
             )
-        return score
+        return score / len(x_len)
 
 
 class SoftAlignmentLoss:
@@ -107,4 +107,4 @@ class SoftAlignmentLoss:
             score += torch.norm(
                 Ytrue[b, :x_len[b], :y_len[b]] - Ypred[b, :x_len[b], :y_len[b]]
             )
-        return score
+        return score / len(x_len)

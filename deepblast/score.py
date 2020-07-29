@@ -49,7 +49,7 @@ def alignment_visualization(truth, pred, match, gap, xlen, ylen):
     ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
     ax[1].set_xlabel('Positions')
     ax[1].set_title('Predicted alignment')
-    ax[2].imshow(match[:xlen, :ylen], aspect='auto')
+    ax[2].imshow(np.log(match[:xlen, :ylen]), aspect='auto')
     ax[2].set_xlabel('Positions')
     ax[2].set_title('Match scoring matrix')
     ax[3].imshow(gap[:xlen, :ylen], aspect='auto')
@@ -58,7 +58,7 @@ def alignment_visualization(truth, pred, match, gap, xlen, ylen):
     return fig, ax
 
 
-def alignment_text(x, y, pred, truth):
+def alignment_text(x, y, pred, truth, stats):
     """ Used to visualize alignment as text
 
     Parameters
@@ -67,15 +67,21 @@ def alignment_text(x, y, pred, truth):
         Protein X
     y : str
         Protein Y
-    pred : list of it
+    pred : list of int
         Predicted states
-    truth : list of it
+    truth : list of int
         Ground truth states
+    stats : list of float
+        List of statistics from roc_edges
     """
     # TODO: we got the truth and prediction edges swapped somewhere earlier
     true_alignment = states2alignment(truth, x, y)
     pred_alignment = states2alignment(pred, x, y)
+    cols = ['tp', 'fp', 'fn', 'perc_id', 'ppv', 'fnr', 'fdr']
+    stats = list(map(lambda x: np.round(x, 2), stats))
+    s = list(map(lambda x: f'{x[0]}: {x[1]}', list(zip(cols, stats))))
 
+    stats_viz = ' '.join(s)
     truth_viz = (
         '# Ground truth\n'
         f'    {true_alignment[0]}\n    {true_alignment[1]}'
@@ -84,5 +90,6 @@ def alignment_text(x, y, pred, truth):
         '# Prediction\n'
         f'    {pred_alignment[0]}\n    {pred_alignment[1]}'
     )
-    s = truth_viz + '\n' + pred_viz
+
+    s = stats_viz + '\n' + truth_viz + '\n' + pred_viz
     return s

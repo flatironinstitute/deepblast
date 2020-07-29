@@ -280,20 +280,33 @@ class NeedlemanWunschDecoder(nn.Module):
         N, M = grad.shape
         states = torch.zeros(max(N, M))
         i, j = N - 1, M - 1
+        idx = torch.Tensor([[i - 1, j], [i - 1, j - 1], [i, j - 1]]).long()
         states = [(i, j, m)]
-        max_ = -100000
+        max_ = -1e10
         while True:
-            idx = torch.Tensor([[i - 1, j], [i - 1, j - 1], [i, j - 1]]).long()
             left = max_ if i <= 0 else grad[i - 1, j]
             diag = max_ if (i <= 0 and j <= 0) else grad[i - 1, j - 1]
             upper = max_ if j <= 0 else grad[i, j - 1]
-            if diag == max_ and upper == max_ and left == max_:
+            if diag == max_ or upper == max_ or left == max_:
                 break
             ij = torch.argmax(torch.Tensor([left, diag, upper]))
             xmy = torch.Tensor([x, m, y])
             i, j = int(idx[ij][0]), int(idx[ij][1])
+            idx = torch.Tensor([[i - 1, j], [i - 1, j - 1], [i, j - 1]]).long()
             s = int(xmy[ij])
             states.append((i, j, s))
+
+        # take care of any outstanding gaps
+        while i > 0:
+            i = i - 1
+            s = x
+            states.append((i, j, s))
+
+        while j > 0:
+            j = j - 1
+            s = y
+            states.append((i, j, s))
+
         return states[::-1]
 
     def decode(self, theta, A):

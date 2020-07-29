@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
-    CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR, OneCycleLR)
+    CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, OneCycleLR, CyclicLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
@@ -98,7 +98,6 @@ class LightningAligner(pl.LightningModule):
             loss = self.loss_func(A, predA, x, y)
         elif isinstance(self.loss_func, SoftPathLoss):
             loss = self.loss_func(P, predA, x, y)
-
         if self.hparams.multitask:
             current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
             max_lr = self.hparams.learning_rate
@@ -115,8 +114,10 @@ class LightningAligner(pl.LightningModule):
         predA, theta, gap = self.aligner(x, y)
         loss = self.compute_loss(x, y, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
-        current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
-
+        if len(self.trainer.lr_schedulers) >= 1:
+            current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+        else:
+            current_lr = self.hparams.learning_rate
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
@@ -136,7 +137,7 @@ class LightningAligner(pl.LightningModule):
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = np.array(list(pred_states))
             truth_states = states[b].cpu().detach().numpy()
-            pred_edges = list(zip(pred_y, pred_x))
+            pred_edges = states2edges(pred_states)
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
@@ -149,10 +150,17 @@ class LightningAligner(pl.LightningModule):
                 self.logger.experiment.add_figure(
                     f'alignment-matrix/{batch_idx}/{b}', fig,
                     self.global_step, close=True)
-                text = alignment_text(
-                    x_str, y_str, pred_states, truth_states)
-                self.logger.experiment.add_text(
-                    f'alignment/{batch_idx}/{b}', text, self.global_step)
+                try:
+                    text = alignment_text(
+                        x_str, y_str, pred_states, truth_states, stats)
+                    self.logger.experiment.add_text(
+                        f'alignment/{batch_idx}/{b}', text, self.global_step)
+                except Exception as e:
+                    print(predA[b])
+                    print(A[b])
+                    print(theta[b])
+                    print(xlen[b], ylen[b])
+                    raise e
                 statistics.append(stats)
         return statistics
 
@@ -220,11 +228,21 @@ class LightningAligner(pl.LightningModule):
                 optimizer, T_0=1, T_mult=2)
         elif self.hparams.scheduler == 'cosine':
             scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
+        elif self.hparams.scheduler == 'triangular':
+            base_lr = 1e-8
+            steps = int(np.log2(self.hparams.learning_rate / base_lr))
+            steps = self.hparams.epochs // steps
+            scheduler = CyclicLR(optimizer, base_lr, max_lr=self.hparams.learning_rate,
+                                 step_size_up=steps,
+                                 mode='triangular2',
+                                 cycle_momentum=False)
         elif self.hparams.scheduler == 'steplr':
             m = 1e-6  # minimum learning rate
             steps = int(np.log2(self.hparams.learning_rate / m))
             steps = self.hparams.epochs // steps
             scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
+        elif self.hparams.scheduler == 'none':
+            return [optimizer]
         else:
             s = self.hparams.scheduler
             raise ValueError(f'`{s}` scheduler is not implemented.')

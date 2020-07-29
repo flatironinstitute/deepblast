@@ -200,6 +200,15 @@ class TestDataUtils(unittest.TestCase):
                 1, 0, 2, 1, 1, 0, 1, 2, 0, 1, 1, 1, 1, 1]
         states2alignment(pred, gen, oth)
 
+    def test_states2alignment_11(self):
+        gen = 'LNCKEIKKYCEMSFRNPDDIRKHRGAIH'
+        oth = 'YTCSSCNESLRTAWCLNKHLRQH'
+        pred = [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+                2, 2, 2, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 1]
+        states2alignment(pred, gen, oth)
+
     def test_clip_ends_none(self):
         from deepblast.constants import m
         s_ = [m, m, m, m]
