@@ -3,6 +3,7 @@ import torch.nn as nn
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
+from deepblast.dataset.dataset import unpack
 from torch.nn.utils.rnn import pad_packed_sequence
 import torch.nn.functional as F
 
@@ -70,39 +71,28 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx, _ = pad_packed_sequence(
-                self.match_embedding(x), batch_first=True)  # dim B x N x D
-            zy, _ = pad_packed_sequence(
-                self.match_embedding(y), batch_first=True)  # dim B x M x D
-            gx, _ = pad_packed_sequence(
-                self.gap_embedding(x), batch_first=True)  # dim B x N x D
-            gy, _ = pad_packed_sequence(
-                self.gap_embedding(y), batch_first=True)  # dim B x M x D
+            zx, _, zy, _ = unpack(self.match_embedding(x), batch_first=True)
+            gx, _, gy, _ = unpack(self.gap_embedding(x), batch_first=True)
+
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             aln = self.nw.decode(theta, A)
             return aln, theta, A
 
-    def traceback(self, x, y):
-        _, x_len = pad_packed_sequence(x)
-        _, y_len = pad_packed_sequence(y)
+    def traceback(self, x):
+        # dim B x N x D
         with torch.enable_grad():
-            zx, _ = pad_packed_sequence(
-                self.match_embedding(x), batch_first=True)  # dim B x N x D
-            zy, _ = pad_packed_sequence(
-                self.match_embedding(y), batch_first=True)  # dim B x M x D
-            gx, _ = pad_packed_sequence(
-                self.gap_embedding(x), batch_first=True)  # dim B x N x D
-            gy, _ = pad_packed_sequence(
-                self.gap_embedding(y), batch_first=True)  # dim B x M x D
-            theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
-            A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
-            B, _, _ = theta.shape
+            zx, _, zy, _ = unpack(self.match_embedding(x), batch_first=True)
+            gx, xlen, gy, ylen = unpack(
+                self.gap_embedding(x), batch_first=True)
+            match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
+            gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
+            B, _, _ = match.shape
             for b in range(B):
                 aln = self.nw.decode(
-                    theta[b, :x_len[b], :y_len[b]].unsqueeze(0),
-                    A[b, :x_len[b], :y_len[b]].unsqueeze(0)
+                    match[b, :x_len[b], :y_len[b]].unsqueeze(0),
+                    gap[b, :x_len[b], :y_len[b]].unsqueeze(0)
                 )
                 decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln

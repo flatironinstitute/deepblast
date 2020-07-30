@@ -42,19 +42,26 @@ def alignment_visualization(truth, pred, match, gap, xlen, ylen):
        Matplotlib axes objects
     """
     fig, ax = plt.subplots(1, 4, figsize=(12, 3))
+    # print(truth.shape, pred.shape, match.shape, gap.shape, xlen, ylen)
+    # print(f'score           :', gap[:xlen, :ylen].mean(axis=0))
+    # print(f'score           :', gap[:xlen, :ylen].mean(axis=1))
     ax[0].imshow(truth[:xlen, :ylen], aspect='auto')
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')
     ax[0].set_title('Ground truth alignment')
-    ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
+    im1 = ax[1].imshow(pred[:xlen, :ylen], aspect='auto')
     ax[1].set_xlabel('Positions')
     ax[1].set_title('Predicted alignment')
-    ax[2].imshow(np.log(match[:xlen, :ylen]), aspect='auto')
+    fig.colorbar(im1, ax=ax[1])
+    im2 = ax[2].imshow(match[:xlen, :ylen], aspect='auto')
     ax[2].set_xlabel('Positions')
     ax[2].set_title('Match scoring matrix')
-    ax[3].imshow(gap[:xlen, :ylen], aspect='auto')
+    fig.colorbar(im2, ax=ax[2])
+    im3 = ax[3].imshow(gap[:xlen, :ylen], aspect='auto')
     ax[3].set_xlabel('Positions')
     ax[3].set_title('Gap scoring matrix')
+    fig.colorbar(im3, ax=ax[3])
+    plt.tight_layout()
     return fig, ax
 
 

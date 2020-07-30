@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
-from deepblast.dataset.dataset import decode, states2edges, collate_f
+from deepblast.dataset.dataset import decode, states2edges, collate_f, unpack
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
@@ -141,12 +141,12 @@ class LightningAligner(pl.LightningModule):
             true_edges = states2edges(truth_states)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
+                Av = A[b].cpu().detach().numpy().squeeze()
+                pv = predA[b].cpu().detach().numpy().squeeze()
+                tv = theta[b].cpu().detach().numpy().squeeze()
+                gv = gap[b].cpu().detach().numpy().squeeze()
                 fig, _ = alignment_visualization(
-                    A[b].cpu().detach().numpy().squeeze(),
-                    predA[b].cpu().detach().numpy().squeeze(),
-                    theta[b].cpu().detach().numpy().squeeze(),
-                    gap[b].cpu().detach().numpy().squeeze(),
-                    xlen[b], ylen[b])
+                    Av, pv, tv, gv, xlen[b], ylen[b])
                 self.logger.experiment.add_figure(
                     f'alignment-matrix/{batch_idx}/{b}', fig,
                     self.global_step, close=True)
@@ -167,14 +167,14 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # TODO: something weird is going on with the lengths
         # Need to make sure that they are being sorted properly
-        x, y, s, A, P = batch
-        predA, theta, gap = self.aligner(x, y)
-        loss = self.compute_loss(x, y, predA, A, P, theta)
-        # assert torch.isnan(loss).item() is False
+        packed, s, A, P = batch
+        predA, theta, gap = self.aligner(packed)
+        loss = self.compute_loss(packed, predA, A, P, theta)
+        assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(x, y)
-        x, xlen = pad_packed_sequence(x, batch_first=True)
-        y, ylen = pad_packed_sequence(y, batch_first=True)
+        # TODO; compare the traceback and the forward
+        x, xlen, y, ylen = unpack(packed)
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(
@@ -232,7 +232,8 @@ class LightningAligner(pl.LightningModule):
             base_lr = 1e-8
             steps = int(np.log2(self.hparams.learning_rate / base_lr))
             steps = self.hparams.epochs // steps
-            scheduler = CyclicLR(optimizer, base_lr, max_lr=self.hparams.learning_rate,
+            scheduler = CyclicLR(optimizer, base_lr,
+                                 max_lr=self.hparams.learning_rate,
                                  step_size_up=steps,
                                  mode='triangular2',
                                  cycle_momentum=False)

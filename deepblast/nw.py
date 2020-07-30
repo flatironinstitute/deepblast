@@ -404,6 +404,18 @@ class NeedlemanWunschDecoder(nn.Module):
             i, j = int(idx[ij][0]), int(idx[ij][1])
             s = int(xmy[ij])
             states.append((i, j, s))
+
+        # take care of any outstanding gaps
+        while i > 0:
+            i = i - 1
+            s = x
+            states.append((i, j, s))
+
+        while j > 0:
+            j = j - 1
+            s = y
+            states.append((i, j, s))
+
         return states[::-1]
 
     def decode(self, theta, A):

@@ -3,11 +3,12 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 from scipy.sparse import coo_matrix
 from scipy.spatial import cKDTree
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import x, m, y
+
 
 def state_f(z):
     if z[0] == '-':
@@ -39,7 +40,7 @@ def clip_boundaries(X, Y, A):
         last = len(A)
     else:
         last = len(A) - A[::-1].index(m)
-    X, Y = states2alignment(A, X, Y)
+    X, Y = states2alignment(np.array(A), X, Y)
     X_ = X[first:last].replace('-', '')
     Y_ = Y[first:last].replace('-', '')
     A_ = A[first:last]
@@ -193,6 +194,44 @@ def decode(codes, alphabet):
     return ''.join(s)
 
 
+def pack_sequences(genes, others):
+    x = genes + others
+    order = torch.Tensor(np.argsort(list(map(len, x)))[::-1])
+    y = [x[i] for i in order]
+    packed = pack_sequence(y)
+    return packed, order
+
+
+def unpack_sequences(x, order):
+    """ Unpack object into two sequences.
+
+    Parameters
+    ----------
+    x : PackedSequence
+        Packed sequence object containing 2 sequences.
+    order : torch.Tensor
+        The original order of the sequences.
+
+    Returns
+    -------
+    x : torch.Tensor
+        Tensor representation for first protein sequences.
+    xlen : torch.Tensor
+        Lengths of the first protein sequences.
+    y : torch.Tensor
+        Tensor representation for second protein sequences.
+    ylen : torch.Tensor
+        Lengths of the second protein sequences.
+    """
+    seq, seqlen = pad_packed_sequence(pseq, batch_first=True)
+    seq = [seq[i] for i in order]
+    seqlen = [seqlen[i] for i in order]
+    b = len(seqlen) // 2
+    x, xlen = torch.Tensor(seq[:b]), torch.Tensor(seqlen[:b])
+    y, ylen = torch.Tensor(seq[b:]), torch.Tensor(seqlen[b:])
+    return x, xlen, y, ylen
+
+
 def collate_f(batch):
     genes = [x[0] for x in batch]
     others = [x[1] for x in batch]
@@ -204,24 +243,12 @@ def collate_f(batch):
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
-    gene_codes = torch.zeros((B, max_x), dtype=torch.long)
-    other_codes = torch.zeros((B, max_y), dtype=torch.long)
+    packed = pack_sequences(genes, others)
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-        gene_codes[b, :n] = genes[b]
-        other_codes[b, :m] = others[b]
-    gene_len = torch.Tensor(list(map(len, genes)))
-    other_len = torch.Tensor(list(map(len, others)))
-    gene_codes = pack_padded_sequence(
-        gene_codes, gene_len,
-        enforce_sorted=False, batch_first=True)
-    other_codes = pack_padded_sequence(
-        other_codes, other_len,
-        enforce_sorted=False, batch_first=True)
-
-    return gene_codes, other_codes, states, dm, p
+    return packed, states, dm, p
 
 
 def path_distance_matrix(pi):
@@ -365,7 +392,7 @@ class TMAlignDataset(AlignmentDataset):
         states = self.pairs.iloc[i]['alignment']
         states = list(map(tmstate_f, states))
         if self.clip_ends:
-            gene, pos, states = clip_boundaries(gene, pos, np.array(states))
+            gene, pos, states = clip_boundaries(gene, pos, states)
 
         if self.pad_ends:
             states = [m] + states + [m]
@@ -378,7 +405,6 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         path_matrix = torch.empty(*alignment_matrix.shape)
-        #print(len(gene), len(pos), alignment_matrix.shape)
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
