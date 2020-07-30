@@ -26,7 +26,6 @@ class MatrixCrossEntropy:
         """
         _, x_len = pad_packed_sequence(x, batch_first=True)
         _, y_len = pad_packed_sequence(y, batch_first=True)
-        #print('loss:', x_len, y_len)
         score = 0
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
         Ypred = torch.clamp(Ypred, min=eps, max=1-eps)

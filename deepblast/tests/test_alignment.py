@@ -44,9 +44,9 @@ class TestAlignmentModel(unittest.TestCase):
     def test_batch_alignment(self):
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
-        l = len('ARNDCQEGHILKMFPSTWYVXOUBZ')
-        x = torch.zeros((2, l))
-        y = torch.zeros((2, l))
+        length = len('ARNDCQEGHILKMFPSTWYVXOUBZ')
+        x = torch.zeros((2, length))
+        y = torch.zeros((2, length))
         x1 = self.tokenizer(b'ARNDCQEGHILKMFPSTWYVXOUBZ')
         x2 = self.tokenizer(b'ARNDCQEGHILKMFPSTWY')
         y1 = self.tokenizer(b'ARNDCQEGHILKMFPSTWYVXOUBZ')
@@ -62,8 +62,8 @@ class TestAlignmentModel(unittest.TestCase):
         x = pack_padded_sequence(x, x_len, batch_first=True)
         y = pack_padded_sequence(y, y_len, batch_first=True)
         aln, theta, A = self.aligner(x, y)
-        self.assertEqual(aln.shape, (2, l, l))
-        self.assertEqual(theta.shape, (2, l, l))
+        self.assertEqual(aln.shape, (2, length, length))
+        self.assertEqual(theta.shape, (2, length, length))
 
     def test_collate_alignment(self):
         N = 4

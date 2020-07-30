@@ -41,8 +41,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
                                      requires_grad=True,
                                      dtype=torch.float32,
                                      device=cuda_device)
-            #self.A = torch.ones(
-            #    B, dtype=torch.float32, device=cuda_device) * -1.0
             self.A = -1. * torch.ones_like(
                 self.theta, dtype=torch.float32, device=cuda_device)
             self.B, self.S, self.N, self.M = B, S, N, M
@@ -67,7 +65,6 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         theta = torch.tensor(make_data().astype(np.float32),
                              device=self.theta.device).unsqueeze(0)
         theta.requires_grad_()
-        #A = torch.tensor([0.1], dtype=torch.float32, device=self.theta.device)
         A = 0.1 * torch.ones_like(
             theta, dtype=torch.float32, device=self.theta.device)
         needle = NeedlemanWunschDecoder(self.operator)

@@ -7,7 +7,7 @@ import torch
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
-    CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, OneCycleLR, CyclicLR)
+    CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
@@ -16,7 +16,6 @@ from deepblast.dataset.dataset import decode, states2edges, collate_f, unpack
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class LightningAligner(pl.LightningModule):
@@ -99,7 +98,8 @@ class LightningAligner(pl.LightningModule):
         elif isinstance(self.loss_func, SoftPathLoss):
             loss = self.loss_func(P, predA, x, y)
         if self.hparams.multitask:
-            current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+            current_lr = self.trainer.lr_schedulers[0]['scheduler']
+            current_lr = current_lr.get_last_lr()[0]
             max_lr = self.hparams.learning_rate
             lam = current_lr / max_lr
             match_loss = self.loss_func(torch.sigmoid(theta), predA, x, y)
@@ -115,7 +115,8 @@ class LightningAligner(pl.LightningModule):
         loss = self.compute_loss(x, y, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
-            current_lr = self.trainer.lr_schedulers[0]['scheduler'].get_last_lr()[0]
+            current_lr = self.trainer.lr_schedulers[0]['scheduler']
+            current_lr = current_lr.get_last_lr()[0]
         else:
             current_lr = self.hparams.learning_rate
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
@@ -172,7 +173,7 @@ class LightningAligner(pl.LightningModule):
         loss = self.compute_loss(packed, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(x, y)
+        gen = self.aligner.traceback(packed)
         # TODO; compare the traceback and the forward
         x, xlen, y, ylen = unpack(packed)
         statistics = self.validation_stats(
@@ -193,7 +194,6 @@ class LightningAligner(pl.LightningModule):
         pass
 
     def validation_epoch_end(self, outputs):
-
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
         loss = sum(losses) / len(losses)

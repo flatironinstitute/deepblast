@@ -4,7 +4,6 @@ from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
 from deepblast.dataset.dataset import unpack
-from torch.nn.utils.rnn import pad_packed_sequence
 import torch.nn.functional as F
 
 
@@ -46,8 +45,10 @@ class NeedlemanWunschAligner(nn.Module):
             self.gap_embedding = StackedRNN(
                 n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
         else:
-            self.match_embedding = EmbedLinear(n_alpha, n_input, n_embed, lm=lm)
-            self.gap_embedding = EmbedLinear(n_alpha, n_input, n_embed, lm=lm)
+            self.match_embedding = EmbedLinear(
+                n_alpha, n_input, n_embed, lm=lm)
+            self.gap_embedding = EmbedLinear(
+                n_alpha, n_input, n_embed, lm=lm)
 
         # TODO: make cpu compatible version
         # if device == 'cpu':
@@ -91,8 +92,8 @@ class NeedlemanWunschAligner(nn.Module):
             B, _, _ = match.shape
             for b in range(B):
                 aln = self.nw.decode(
-                    match[b, :x_len[b], :y_len[b]].unsqueeze(0),
-                    gap[b, :x_len[b], :y_len[b]].unsqueeze(0)
+                    match[b, :xlen[b], :ylen[b]].unsqueeze(0),
+                    gap[b, :xlen[b], :ylen[b]].unsqueeze(0)
                 )
                 decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln
