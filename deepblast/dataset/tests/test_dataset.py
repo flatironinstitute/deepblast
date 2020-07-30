@@ -1,15 +1,8 @@
 import unittest
 from deepblast.utils import get_data_path
 from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
-from deepblast.dataset.dataset import (
-    tmstate_f, states2matrix, states2alignment,
-    path_distance_matrix, clip_boundaries, collate_f)
 from deepblast.dataset.alphabet import UniprotTokenizer
 import pandas as pd
-from math import sqrt
-import numpy as np
-import numpy.testing as npt
-import torch
 
 
 class TestTMAlignDataset(unittest.TestCase):

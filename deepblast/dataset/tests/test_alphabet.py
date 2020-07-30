@@ -35,5 +35,6 @@ class TestAlphabet(unittest.TestCase):
              19, 20, 11, 4, 20, 20])
         npt.assert_allclose(exp, res)
 
+
 if __name__ == '__main__':
     unittest.main()
