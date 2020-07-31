@@ -3,7 +3,7 @@ import torch.nn as nn
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
-from deepblast.dataset.dataset import unpack
+from deepblast.dataset.utils import unpack_sequences, pack_sequences
 import torch.nn.functional as F
 
 
@@ -56,15 +56,13 @@ class NeedlemanWunschAligner(nn.Module):
         # else:
         self.nw = NWDecoderCUDA(operator='softmax')
 
-    def forward(self, x, y):
+    def forward(self, x, order):
         """ Generate alignment matrix.
 
         Parameters
         ----------
-        x : torch.Tensor
-            Tokens for sequence x (dim B x N)
-        y : torch.Tensor
-            Tokens for sequence y (dim B x M)
+        x : PackedSequence
+            Packed sequence object of proteins to align.
 
         Returns
         -------
@@ -72,8 +70,8 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx, _, zy, _ = unpack(self.match_embedding(x), batch_first=True)
-            gx, _, gy, _ = unpack(self.gap_embedding(x), batch_first=True)
+            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
+            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -81,12 +79,11 @@ class NeedlemanWunschAligner(nn.Module):
             aln = self.nw.decode(theta, A)
             return aln, theta, A
 
-    def traceback(self, x):
+    def traceback(self, x, order):
         # dim B x N x D
         with torch.enable_grad():
-            zx, _, zy, _ = unpack(self.match_embedding(x), batch_first=True)
-            gx, xlen, gy, ylen = unpack(
-                self.gap_embedding(x), batch_first=True)
+            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
+            gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
             match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = match.shape

@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from deepblast.dataset.dataset import states2alignment
+from deepblast.dataset.utils import states2alignment
 
 
 def roc_edges(true_edges, pred_edges):
@@ -42,9 +42,6 @@ def alignment_visualization(truth, pred, match, gap, xlen, ylen):
        Matplotlib axes objects
     """
     fig, ax = plt.subplots(1, 4, figsize=(12, 3))
-    # print(truth.shape, pred.shape, match.shape, gap.shape, xlen, ylen)
-    # print(f'score           :', gap[:xlen, :ylen].mean(axis=0))
-    # print(f'score           :', gap[:xlen, :ylen].mean(axis=1))
     ax[0].imshow(truth[:xlen, :ylen], aspect='auto')
     ax[0].set_xlabel('Positions')
     ax[0].set_ylabel('Positions')

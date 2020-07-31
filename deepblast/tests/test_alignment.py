@@ -4,7 +4,7 @@ from torch.nn.utils.rnn import pad_packed_sequence
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset.dataset import collate_f
+from deepblast.dataset.utils import collate_f
 import numpy as np
 import numpy.testing as npt
 import unittest

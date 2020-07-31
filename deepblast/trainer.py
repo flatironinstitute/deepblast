@@ -12,7 +12,7 @@ import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
-from deepblast.dataset.dataset import decode, states2edges, collate_f, unpack
+from deepblast.dataset.utils import decode, states2edges, collate_f, unpack_sequences
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
@@ -110,9 +110,10 @@ class LightningAligner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         self.aligner.train()
-        x, y, s, A, P = batch
-        predA, theta, gap = self.aligner(x, y)
-        loss = self.compute_loss(x, y, predA, A, P, theta)
+        xy, s, A, P = batch
+        predA, theta, gap = self.aligner(*xy)
+        _, xlen, _, ylen = unpack_sequences(*xy)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
@@ -168,14 +169,14 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # TODO: something weird is going on with the lengths
         # Need to make sure that they are being sorted properly
-        packed, s, A, P = batch
-        predA, theta, gap = self.aligner(packed)
-        loss = self.compute_loss(packed, predA, A, P, theta)
+        xy, s, A, P = batch
+        predA, theta, gap = self.aligner(*xy)
+        x, xlen, y, ylen = unpack_sequences(*xy)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(packed)
+        gen = self.aligner.traceback(*xy)
         # TODO; compare the traceback and the forward
-        x, xlen, y, ylen = unpack(packed)
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(

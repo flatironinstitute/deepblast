@@ -4,7 +4,7 @@ from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw_cuda import NeedlemanWunschDecoder
 from deepblast.utils import get_data_path
-from deepblast.dataset.dataset import states2alignment
+from deepblast.dataset.utils import states2alignment
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 
