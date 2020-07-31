@@ -26,15 +26,15 @@ class MatrixCrossEntropy:
         """
         score = 0
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
-        Ypred = torch.clamp(Ypred, min=eps, max=1-eps)
+        Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
         for b in range(len(x_len)):
             pos = torch.mean(
-                Ytrue[b, :x_len[b], :y_len[b]] *
-                torch.log(Ypred[b, :x_len[b], :y_len[b]])
+                Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
+                    Ypred[b, :x_len[b], :y_len[b]])
             )
             neg = torch.mean(
-                (1 - Ytrue[b, :x_len[b], :y_len[b]]) *
-                torch.log(1 - Ypred[b, :x_len[b], :y_len[b]])
+                (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
+                    1 - Ypred[b, :x_len[b], :y_len[b]])
             )
             score += -(pos + neg)
         return score / len(x_len)
