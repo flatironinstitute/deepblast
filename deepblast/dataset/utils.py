@@ -241,12 +241,11 @@ def collate_f(batch):
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
-    packed = pack_sequences(genes, others)
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-    return packed, states, dm, p
+    return genes, others, states, dm, p
 
 
 def path_distance_matrix(pi):
