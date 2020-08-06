@@ -32,6 +32,7 @@ setup(name='deepblast',
       install_requires=[
           'numpy',
           'scipy',
+          'pandas',
           'torch>=1.4',
           'scikit-learn',
           'numba',
