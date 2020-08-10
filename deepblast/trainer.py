@@ -12,7 +12,8 @@ import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
-from deepblast.dataset.utils import decode, states2edges, collate_f, unpack_sequences
+from deepblast.dataset.utils import (
+    decode, states2edges, collate_f, unpack_sequences, pack_sequences)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
@@ -66,7 +67,7 @@ class LightningAligner(pl.LightningModule):
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=True, num_workers=self.hparams.num_workers,
-            pin_memory=False)
+            pin_memory=True)
         return train_dataloader
 
     def val_dataloader(self):
@@ -76,7 +77,7 @@ class LightningAligner(pl.LightningModule):
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers,
-            pin_memory=False)
+            pin_memory=True)
         return valid_dataloader
 
     def test_dataloader(self):
@@ -86,7 +87,7 @@ class LightningAligner(pl.LightningModule):
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             collate_fn=collate_f, num_workers=self.hparams.num_workers,
-            pin_memory=False)
+            pin_memory=True)
         return test_dataloader
 
     def compute_loss(self, x, y, predA, A, P, theta):
@@ -110,9 +111,10 @@ class LightningAligner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         self.aligner.train()
-        xy, s, A, P = batch
-        predA, theta, gap = self.aligner(*xy)
-        _, xlen, _, ylen = unpack_sequences(*xy)
+        genes, others, s, A, P = batch
+        seq, order = pack_sequences(genes, others)
+        predA, theta, gap = self.aligner(seq, order)
+        _, xlen, _, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
@@ -169,13 +171,14 @@ class LightningAligner(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # TODO: something weird is going on with the lengths
         # Need to make sure that they are being sorted properly
-        xy, s, A, P = batch
-        predA, theta, gap = self.aligner(*xy)
-        x, xlen, y, ylen = unpack_sequences(*xy)
+        genes, others, s, A, P = batch
+        seq, order = pack_sequences(genes, others)
+        predA, theta, gap = self.aligner(seq, order)
+        x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(*xy)
+        gen = self.aligner.traceback(seq, order)
         # TODO; compare the traceback and the forward
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
