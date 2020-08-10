@@ -11,7 +11,11 @@ from deepblast.trainer import LightningAligner
 
 def main(args):
     print('args', args)
-    model = LightningAligner(args)
+    if args.load_from_checkpoint is not None:
+        model = LightningAligner.load_from_checkpoint(
+            args.load_from_checkpoint)
+    else:
+        model = LightningAligner(args)
     # profiler = AdvancedProfiler()
 
     trainer = Trainer(
@@ -60,6 +64,7 @@ if __name__ == '__main__':
     parser.add_argument('--num-workers', type=int, default=1)
     parser.add_argument('--precision', type=int, default=32)
     parser.add_argument('--backend', type=str, default=None)
+    parser.add_argument('--load-from-checkpoint', type=str, default=None)
     # options include ddp_cpu, dp, ddp
 
     parser = LightningAligner.add_model_specific_args(parser)
