@@ -21,7 +21,7 @@ class TestAlignmentModel(unittest.TestCase):
         nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
         self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_alignment(self):
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
@@ -40,7 +40,7 @@ class TestAlignmentModel(unittest.TestCase):
         aln, theta, A = self.aligner(x, y)
         self.assertEqual(aln.shape, (1, N, M))
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_batch_alignment(self):
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
@@ -65,6 +65,7 @@ class TestAlignmentModel(unittest.TestCase):
         self.assertEqual(aln.shape, (2, length, length))
         self.assertEqual(theta.shape, (2, length, length))
 
+    @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_collate_alignment(self):
         N = 4
         M = 5

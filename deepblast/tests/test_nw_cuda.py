@@ -47,20 +47,20 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
             # TODO: Compare against hardmax and sparsemax
             self.operator = 'softmax'
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_grad_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         theta, A = self.theta, self.A
         theta.requires_grad_()
         gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
         inputs = (self.theta, self.A)
         gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_decoding(self):
         theta = torch.tensor(make_data().astype(np.float32),
                              device=self.theta.device).unsqueeze(0)
@@ -75,6 +75,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_decoding2(self):
         X = 'HECDRKTCDESFSTKGNLRVHKLGH'
         Y = 'LKCSGCGKNFKSQYAYKRHEQTH'

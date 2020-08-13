@@ -19,7 +19,7 @@ class TestBiLM(unittest.TestCase):
     def test_bilm(self):
         toks = torch.Tensor(self.tokenizer(b'ABC')).long().unsqueeze(0)
         res = self.embedding(toks)
-        self.assertEqual(res.shape, (1, 5, 21))
+        self.assertEqual(res.shape, (1, 3, 21))
 
     @unittest.skip('something is misbehaving here.')
     def test_bilm_batch(self):

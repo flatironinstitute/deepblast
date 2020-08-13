@@ -27,13 +27,13 @@ class TestDataUtils(unittest.TestCase):
         s = ':1111::::1:'
         # x = 'RGCFH '
         # y = 'YGSVHASERH'
-        s = list(map(tmstate_f, s))
+        s = np.array(list(map(tmstate_f, s)))
         states2matrix(s, sparse=True)
 
     def test_states2matrix_only_matches(self):
         s = ":11::11:"
-        s = list(map(tmstate_f, s))
-        self.assertEqual(s, [1, 0, 0, 1, 1, 0, 0, 1])
+        s = np.array(list(map(tmstate_f, s)))
+        npt.assert_allclose(s, np.array([1, 0, 0, 1, 1, 0, 0, 1]))
         M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 0), (2, 0),
@@ -43,8 +43,8 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2matrix_shifted(self):
         s = ":11::22:"
-        s = list(map(tmstate_f, s))
-        self.assertEqual(s, [1, 0, 0, 1, 1, 2, 2, 1])
+        s = np.array(list(map(tmstate_f, s)))
+        npt.assert_allclose(s, np.array([1, 0, 0, 1, 1, 2, 2, 1]))
         M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 0), (2, 0),
@@ -54,8 +54,8 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2matrix_swap_x(self):
         s = "::2211::"
-        s = list(map(tmstate_f, s))
-        self.assertEqual(s, [1, 1, 2, 2, 0, 0, 1, 1])
+        s = np.array(list(map(tmstate_f, s)))
+        npt.assert_allclose(s, np.array([1, 1, 2, 2, 0, 0, 1, 1]))
         M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 1),
@@ -65,8 +65,8 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2matrix_swap_y(self):
         s = "::1122::"
-        s = list(map(tmstate_f, s))
-        self.assertEqual(s, [1, 1, 0, 0, 2, 2, 1, 1])
+        s = np.array(list(map(tmstate_f, s)))
+        npt.assert_allclose(s, np.array([1, 1, 0, 0, 2, 2, 1, 1]))
         M = states2matrix(s, sparse=True)
         res_coords = list(zip(list(M.row), list(M.col)))
         exp_coords = [(0, 0), (1, 1), (2, 1), (3, 1),
@@ -75,7 +75,7 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2alignment_1(self):
         s = "111:::222"
-        s = list(map(tmstate_f, s))
+        s = np.array(list(map(tmstate_f, s)))
         X = "123456"
         Y = "abcdef"
         exp_x = "123456---"
@@ -86,7 +86,7 @@ class TestDataUtils(unittest.TestCase):
 
     def test_states2alignment_2(self):
         s = "111:::111"
-        s = list(map(tmstate_f, s))
+        s = np.array(list(map(tmstate_f, s)))
         X = "123456789"
         Y = "abc"
         exp_x = "123456789"
@@ -101,7 +101,8 @@ class TestDataUtils(unittest.TestCase):
              'KLKEIAFPKAEELKAELLKRYTKEYTEYNEEKKKEAEELARNMAIQ'
              'QELX')
         y = ('XIDVLRAKAAKERAERRLQSQQDDIDFKRAELALKRAMNRLSVAEMKX')
-        s = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+        s = np.array(
+            [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1,
              0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
@@ -110,6 +111,7 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 1, 1, 1, 0, 1, 1, 0, 0, 1, 0, 0, 0, 0, 0, 0,
              0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
              0, 0, 0, 0, 0, 0, 0, 1]
+        )
         states2alignment(s, x, y)
 
     def test_states2alignment_4(self):
@@ -117,7 +119,8 @@ class TestDataUtils(unittest.TestCase):
         y = ('XGEIRVGNRYQADITDLLKEGEEDGRDQSRLETQVWEAHNPLTDKQIDQFLVVARSVGTF'
              'ARALDSLHMSAAAASRDITLFHAMDTLHKNIYDISKAISALVPQGGPVLCRDEMEEWSAS'
              'EANLFEEALEKYGKDFTDIQQDFLPWKSLTSIIEYYYMWKTTX')
-        s = [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        s = np.array(
+            [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -126,6 +129,7 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
              1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
              1, 1, 1, 1]
+        )
         states2alignment(s, x, y)
 
     def test_states2alignment_5(self):
@@ -133,7 +137,8 @@ class TestDataUtils(unittest.TestCase):
         y = ('XGEIRVGNRYQADITDLLKEGEEDGRDQSRLETQVWEAHNPLTDKQIDQFLVVARSVGTF'
              'ARALDSLHMSAAAASRDITLFHAMDTLHKNIYDISKAISALVPQGGPVLCRDEMEEWSAS'
              'EANLFEEALEKYGKDFTDIQQDFLPWKSLTSIIEYYYMWKTTX')
-        s = [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        s = np.array(
+            [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -142,6 +147,7 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
              1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
              1, 1, 1, 1]
+        )
         states2alignment(s, x, y)
 
     def test_states2alignment_6(self):
@@ -149,7 +155,8 @@ class TestDataUtils(unittest.TestCase):
         y = ('XGEIRVGNRYQADITDLLKEGEEDGRDQSRLETQVWEAHNPLTDKQIDQFLVVARSVGT'
              'FARALDSLHMSAAAASRDITLFHAMDTLHKNIYDISKAISALVPQGGPVLCRDEMEEWS'
              'ASEANLFEEALEKYGKDFTDIQQDFLPWKSLTSIIEYYYMWKTTX')
-        s = [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        s = np.array(
+            [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -158,6 +165,7 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
              1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
              1, 1, 1, 1]
+        )
         states2alignment(s, x, y)
 
     def test_states2alignment_7(self):
@@ -165,7 +173,8 @@ class TestDataUtils(unittest.TestCase):
         y = ('XGEIRVGNRYQADITDLLKEGEEDGRDQSRLETQVWEAHNPLTDKQIDQFLVVARSVGTF'
              'ARALDSLHMSAAAASRDITLFHAMDTLHKNIYDISKAISALVPQGGPVLCRDEMEEWSAS'
              'EANLFEEALEKYGKDFTDIQQDFLPWKSLTSIIEYYYMWKTTX')
-        s = [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+        s = np.array(
+            [1, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
              2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
@@ -174,37 +183,39 @@ class TestDataUtils(unittest.TestCase):
              1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1,
              1, 1, 2, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
              1, 1, 1, 1]
+        )
         states2alignment(s, x, y)
 
     def test_states2alignment_8(self):
         x = 'HECDDCSKQFSRNNHLAKHLRAH'
         y = 'YRCHKVCPYTFVGKSDLDLHQFITAH'
-        print(len(x), len(y))
-        s = [1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
-             1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1]
-        states2alignment(s, x, y)
+        s = np.array([1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1,
+                      1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 1])
+        states2alignment(s, y, x)
 
     def test_states2alignment_9(self):
         x = 'HCH'
         y = 'HCAH'
-        print(len(x), len(y))
-        s = [1, 1, 0, 1]
-        states2alignment(s, x, y)
+        s = np.array([1, 1, 0, 1])
+        states2alignment(s, y, x)
 
     def test_states2alignment_10(self):
         gen = 'YACSGGCGQNFRTMSEFNEHMIRLVH'
-        oth = 'LICPKHTRDCGKVFKRNSSLRVHEKTH'
-        pred = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-                1, 0, 2, 1, 1, 0, 1, 2, 0, 1, 1, 1, 1, 1]
+        oth = 'LICPKHTRDCGKVFKRNSSLRVHEH'
+        pred = np.array(
+            [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+             1, 0, 2, 1, 1, 0, 1, 2, 0, 1, 1, 1, 1]
+        )
         states2alignment(pred, gen, oth)
 
     def test_states2alignment_11(self):
         gen = 'LNCKEIKKYCEMSFRNPDDIRKHRGAIH'
-        oth = 'YTCSSCNESLRTAWCLNKHLRQH'
-        pred = [1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
-                2, 2, 2, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-                0, 0, 0, 1]
+        oth = 'YTCSSCNESLRTAWCLNKHLR'
+        pred = np.array(
+            [2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+             2, 2, 2, 2, 2, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+             0, 0, 0])
         states2alignment(pred, gen, oth)
 
     def test_clip_ends_none(self):
