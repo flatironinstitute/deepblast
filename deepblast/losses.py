@@ -1,5 +1,4 @@
 import torch
-from torch.nn.utils.rnn import pad_packed_sequence
 
 
 class AlignmentAccuracy:

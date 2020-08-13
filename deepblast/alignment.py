@@ -3,7 +3,7 @@ import torch.nn as nn
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
-from deepblast.dataset.utils import unpack_sequences, pack_sequences
+from deepblast.dataset.utils import unpack_sequences
 import torch.nn.functional as F
 
 
