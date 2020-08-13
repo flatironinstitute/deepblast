@@ -1,0 +1,15 @@
+deepblast-train \
+ --train-pairs /home/juermieboop/Documents/research/garfunkel/ipynb/data/train.txt \
+ --test-pairs /home/juermieboop/Documents/research/garfunkel/ipynb/data/test.txt \
+ --valid-pairs /home/juermieboop/Documents/research/garfunkel/ipynb/data/valid.txt \
+ --output-directory simulation_results \
+ --epochs 32 \
+ --batch-size 20 \
+ --num-workers 30 \
+ --learning-rate 1e-4 \
+ --layers 2 \
+ --visualization-fraction 1 \
+ --loss cross_entropy \
+ --scheduler none \
+ --gpus 1 \
+ --load-from-checkpoint lightning_logs/version_5/checkpoints/epoch=29.ckpt
