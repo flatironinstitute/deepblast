@@ -23,6 +23,21 @@ class TestAlignmentModel(unittest.TestCase):
         nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
         self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
 
+    @unittest.skip
+    def test_alignment(self):
+        self.embedding = self.embedding.cuda()
+        self.aligner = self.aligner.cuda()
+        x = torch.Tensor(
+            self.tokenizer(b'ARNDCQEGHILKMFPSTWYVXOUBZ')
+        ).unsqueeze(0).long().cuda()
+        y = torch.Tensor(
+            self.tokenizer(b'ARNDCQEGHILKARNDCQMFPSTWYVXOUBZ')
+        ).unsqueeze(0).long().cuda()
+        N, M = x.shape[1], y.shape[1]
+        seq, order = pack_sequences([x], [y])
+        aln, theta, A = self.aligner(seq, order)
+        self.assertEqual(aln.shape, (1, N, M))
+
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_batch_alignment(self):
         self.embedding = self.embedding.cuda()
