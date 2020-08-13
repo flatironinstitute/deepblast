@@ -1,14 +1,9 @@
 import torch
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset.utils import collate_f
-from deepblast.dataset.utils import unpack_sequences, pack_sequences
-
-import numpy as np
-import numpy.testing as npt
+from deepblast.dataset.utils import pack_sequences
 import unittest
 
 
@@ -58,7 +53,7 @@ class TestAlignmentModel(unittest.TestCase):
 
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_collate_alignment(self):
-        N, M = 4, 5
+        M = 5
         x1 = torch.Tensor(self.tokenizer(b'NDCQ')).long()
         x2 = torch.Tensor(self.tokenizer(b'NDC')).long()
         y1 = torch.Tensor(self.tokenizer(b'ND')).long()

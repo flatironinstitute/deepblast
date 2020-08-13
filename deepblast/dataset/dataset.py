@@ -139,7 +139,6 @@ class TMAlignDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
-        s = np.array(states)
         path_matrix = torch.empty(*alignment_matrix.shape)
         if self.construct_paths:
             pi = states2edges(states)
