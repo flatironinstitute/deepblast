@@ -2,7 +2,8 @@ import unittest
 from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
-    pack_sequences, unpack_sequences)
+    pack_sequences, unpack_sequences,
+    gap_mask, remove_orphans)
 from math import sqrt
 import numpy as np
 import numpy.testing as npt
@@ -271,6 +272,63 @@ class TestDataUtils(unittest.TestCase):
                              [1, 4, 11, 13, 14, 0]])
         tt.assert_allclose(expX, resX)
         tt.assert_allclose(expY, resY)
+
+
+class TestPreprocess(unittest.TestCase):
+
+    def test_gap_mask(self):
+        s = ":11::22:"
+        N, M = 6, 6
+        res = gap_mask(s, N, M)
+        exp = np.array(
+            [
+                [1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0],
+                [0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 1]
+            ]
+        )
+        npt.assert_equal(res, exp)
+
+        s = ":11:.:22:"
+        N, M = 7, 7
+        res = gap_mask(s, N, M)
+        exp = np.array(
+            [
+                [1, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 0],
+                [0, 0, 0, 1, 0, 0, 0],
+                [0, 0, 0, 0, 0, 0, 1]
+            ]
+        )
+        npt.assert_equal(res, exp)
+
+
+    def test_replace_orphans_small(self):
+        s = ":11:11:"
+        e = ":111211:"
+        r = remove_orphans(s, threshold=3)
+        self.assertEqual(r, e)
+
+    def test_replace_orphans(self):
+        s = ":1111111111:11111111111111:"
+        e = ":11111111111211111111111111:"
+        r = remove_orphans(s, threshold=9)
+        self.assertEqual(r, e)
+
+        s = ":2222222222:22222222222222:"
+        e = ":22222222221222222222222222:"
+        r = remove_orphans(s, threshold=9)
+        self.assertEqual(r, e)
+
+        s = ":1111111111:22222222222222:"
+        r = remove_orphans(s, threshold=9)
+        self.assertEqual(r, s)
 
 
 if __name__ == '__main__':

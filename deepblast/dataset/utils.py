@@ -4,6 +4,8 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 from scipy.sparse import coo_matrix
 from scipy.spatial import cKDTree
 from deepblast.constants import x, m, y
+from itertools import islice
+from functools import reduce
 
 
 def state_f(z):
@@ -273,3 +275,92 @@ def path_distance_matrix(pi):
     d, i = model.query(coords)
     Pdist = np.array(coo_matrix((d, (coords[:, 0], coords[:, 1]))).todense())
     return Pdist
+
+# Preprocessing functions
+def gap_mask(states: np.array, N : int, M : int):
+    """ Builds a mask for all gaps (0s are gaps, 1s are matches)
+
+    Parameters
+    ----------
+    states : np.array
+       List of alignment states
+
+    Returns
+    -------
+    mask : np.array
+       Masked array.
+    """
+    i, j = 0, 0
+    res = []
+    mask = np.zeros((N, M))
+    for k in range(len(states)):
+        if states[k] == '1':
+            mask[i, j] = 0
+            i += 1
+        elif states[k] == '2':
+            mask[i, j] = 0
+            j += 1
+        elif states[k] == ':':
+            mask[i, j] = 1
+            i += 1
+            j += 1
+        elif states[k] == '.':
+            mask[i, j] = 0
+            i += 1
+            j += 1
+        else:
+            raise ValueError(f'{states[k]} is not recognized')
+    return mask
+
+
+def window(seq, n=2):
+    "Returns a sliding window (of width n) over data from the iterable"
+    "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+    it = iter(seq)
+    result = tuple(islice(it, n))
+    if len(result) == n:
+        yield result
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
+
+
+def replace_orphan(w, s=5):
+    i = len(w) // 2
+    # identify orphans and replace with gaps
+    sw = ''.join(w)
+    if (w[i] == ':') and((('1' * s) in sw[:i] and ('1' * s) in sw[i:]) or
+                         (('2' * s) in sw[:i] and ('2' * s) in sw[i:])):
+        return ['1', '2']
+    else:
+        return [w[i]]
+
+
+def remove_orphans(states, threshold : int=11):
+    """ Removes singletons and doubletons that are orphaned.
+
+    A match is considered orphaned if it exceeds the `threshold` gap.
+
+    Parameters
+    ----------
+    states : np.array
+       List of alignment states
+    threshold : int
+       Number of consecutive gaps surrounding a matched required for it
+       to be considered an orphan.
+
+    Returns
+    -------
+    new_states : np.array
+       States string with orphans removed.
+
+    Notes
+    -----
+    The threshold *must* be an odd number. This determines the window size.
+    """
+    wins = list(window(states, threshold))
+    rwins = list(map(lambda x: replace_orphan(x, threshold // 2), list(wins)))
+    new_states = list(reduce(lambda x, y: x + y, rwins))
+    new_states = list(states[:threshold//2]) + new_states + \
+                 list(states[-threshold//2 + 1:])
+    return ''.join(new_states)
