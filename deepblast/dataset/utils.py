@@ -27,7 +27,7 @@ def tmstate_f(z):
         return m
 
 
-def clip_boundaries(X, Y, A):
+def clip_boundaries(X, Y, A, st):
     """ Remove xs and ys from ends. """
     if A[0] == m:
         first = 0
@@ -42,7 +42,8 @@ def clip_boundaries(X, Y, A):
     X_ = X[first:last].replace('-', '')
     Y_ = Y[first:last].replace('-', '')
     A_ = A[first:last]
-    return X_, Y_, A_
+    st_ = st[first:last]
+    return X_, Y_, A_, st_
 
 
 def state_diff_f(X):
@@ -238,16 +239,20 @@ def collate_f(batch):
     states = [x[2] for x in batch]
     alignments = [x[3] for x in batch]
     paths = [x[4] for x in batch]
+    masks = [x[5] for x in batch]
     max_x = max(map(len, genes))
     max_y = max(map(len, others))
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
+    G = torch.zeros((B, max_x, max_y)).bool()
+    G.requires_grad = False
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-    return genes, others, states, dm, p
+        G[b, :n, :m] = masks[b].bool()
+    return genes, others, states, dm, p, G
 
 
 def path_distance_matrix(pi):
@@ -277,40 +282,73 @@ def path_distance_matrix(pi):
     return Pdist
 
 # Preprocessing functions
-def gap_mask(states: np.array, N : int, M : int):
-    """ Builds a mask for all gaps (0s are gaps, 1s are matches)
+# def gap_mask(states: np.array):
+#     """ Builds a mask for all gaps (0s are gaps, 1s are matches)
+#
+#     Parameters
+#     ----------
+#     states : np.array
+#        List of alignment states
+#
+#     Returns
+#     -------
+#     mask : np.array
+#        Masked array.
+#
+#     Notes
+#     -----
+#     Gaps and mismatches (denoted by `.`) are all masked here.
+#     """x
+#     i, j = 0, 0
+#     res = []
+#     coords = []
+#     data = []
+#     for k in range(len(states)):
+#         # print(i, j, k, states[k])
+#         if states[k] == '1':
+#             coords.append((i, j))
+#             data.append(0)
+#             i += 1
+#         elif states[k] == '2':
+#             coords.append((i, j))
+#             data.append(0)
+#             j += 1
+#         elif states[k] == ':':
+#             coords.append((i, j))
+#             data.append(1)
+#             i += 1
+#             j += 1
+#         elif states[k] == '.':
+#             coords.append((i, j))
+#             data.append(0)
+#             i += 1
+#             j += 1
+#         else:
+#             raise ValueError(f'{states[k]} is not recognized')
+#     rows, cols = zip(*coords)
+#     rows = np.array(rows)
+#     cols = np.array(cols)
+#     data = np.array(data)
+#     mask = coo_matrix((data, (rows, cols))).todense()
+#     return mask
 
-    Parameters
-    ----------
-    states : np.array
-       List of alignment states
-
-    Returns
-    -------
-    mask : np.array
-       Masked array.
-    """
-    i, j = 0, 0
-    res = []
-    mask = np.zeros((N, M))
-    for k in range(len(states)):
-        if states[k] == '1':
-            mask[i, j] = 0
-            i += 1
-        elif states[k] == '2':
-            mask[i, j] = 0
-            j += 1
-        elif states[k] == ':':
-            mask[i, j] = 1
-            i += 1
-            j += 1
-        elif states[k] == '.':
-            mask[i, j] = 0
-            i += 1
-            j += 1
-        else:
-            raise ValueError(f'{states[k]} is not recognized')
-    return mask
+def gap_mask(states : str, sparse=False):
+    st = np.array(list(map(tmstate_f, list(states))))
+    coords = states2edges(st)
+    data = np.ones(len(coords))
+    row, col = list(zip(*coords))
+    row, col = np.array(row), np.array(col)
+    N, M = max(row) + 1, max(col) + 1
+    idx = np.array(list(states)) == ':'
+    idx[0] = 1
+    data = data[idx]
+    row = row[idx]
+    col = col[idx]
+    mat = coo_matrix((data, (row, col)), shape=(N, M))
+    if sparse:
+        return mat
+    else:
+        return mat.toarray().astype(np.bool)
 
 
 def window(seq, n=2):

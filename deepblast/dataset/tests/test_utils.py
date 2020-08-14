@@ -279,7 +279,7 @@ class TestPreprocess(unittest.TestCase):
     def test_gap_mask(self):
         s = ":11::22:"
         N, M = 6, 6
-        res = gap_mask(s, N, M)
+        res = gap_mask(s)
         exp = np.array(
             [
                 [1, 0, 0, 0, 0, 0],
@@ -294,7 +294,7 @@ class TestPreprocess(unittest.TestCase):
 
         s = ":11:.:22:"
         N, M = 7, 7
-        res = gap_mask(s, N, M)
+        res = gap_mask(s)
         exp = np.array(
             [
                 [1, 0, 0, 0, 0, 0, 0],
@@ -307,6 +307,19 @@ class TestPreprocess(unittest.TestCase):
             ]
         )
         npt.assert_equal(res, exp)
+
+    def test_gap_mask2(self):
+        s = (
+            '222222222222222222.11112222222222222222222222222'
+            '222222222222222222222222222222222222222222222222'
+            '22222222...::::::..:2:22::2:::::::..11.111...::.'
+            '::::::::::.::::......:::::::::::222:.::::::::.11'
+            '.:::::::::.:22.::::::::::::2:::::::::::::::1::..'
+            '.::::::::::::::::::::::22:2:2::::::::::1::::::::'
+            '::::22222::::::::::1::::::.'
+        )
+        # N, M = 197, 283
+        res = gap_mask(s)
 
 
     def test_replace_orphans_small(self):
