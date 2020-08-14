@@ -11,9 +11,9 @@ from torch.optim.lr_scheduler import (
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset import TMAlignDataset
+from deepblast.dataset import TMAlignDataset, MaliAlignmentDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, unpack_sequences, pack_sequences)
+    decode, states2edges, collate_f, unpack_sequences, pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
@@ -49,7 +49,25 @@ class LightningAligner(pl.LightningModule):
                 f'Aligner {self.hparams.aligner_type} not implemented.')
 
     def forward(self, x, y):
-        return self.aligner.forward(x, y)
+        x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
+        y_code = torch.Tensor(self.tokenizer(str.encode(y))).long()
+        x_code = x_code.to(self.device)
+        y_code = y_code.to(self.device)
+        seq, order = pack_sequences([x_code], [y_code])
+        A, theta, gap = self.aligner(seq, order)
+        return A, theta, gap
+
+    def align(self, x, y):
+        x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
+        y_code = torch.Tensor(self.tokenizer(str.encode(y))).long()
+        x_code = x_code.to(self.device)
+        y_code = y_code.to(self.device)
+        seq, order = pack_sequences([x_code], [y_code])
+        gen = self.aligner.traceback(seq, order)
+        decoded, _ = next(gen)
+        pred_x, pred_y, pred_states = list(zip(*decoded))
+        s = ''.join(list(map(revstate_f, pred_states)))
+        return s
 
     def initialize_logging(self, root_dir='./', logging_path=None):
         if logging_path is None:
@@ -81,6 +99,7 @@ class LightningAligner(pl.LightningModule):
         return valid_dataloader
 
     def test_dataloader(self):
+        # Held-out TM-align dataset
         test_dataset = TMAlignDataset(
             self.hparams.test_pairs,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
@@ -194,9 +213,6 @@ class LightningAligner(pl.LightningModule):
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
-    def test_step(self, batch, batch_idx):
-        pass
-
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
@@ -216,6 +232,9 @@ class LightningAligner(pl.LightningModule):
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
         return {'val_loss': loss, 'log': tensorboard_logs}
+
+    def test_step(self, batch, batch_idx):
+        pass
 
     def test_epoch_end(self, outputs):
         pass

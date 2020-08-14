@@ -37,6 +37,11 @@ class AlignmentDataset(Dataset):
             for i in range(iter_start, iter_end):
                 yield self.__getitem__(i)
 
+class FastaDataset(AlignmentDataset):
+    """ Dataset for searching. """
+    def __init__(self, query_path, db_path, tokenizer=UniprotTokenizer()):
+        pass
+
 
 class TMAlignDataset(AlignmentDataset):
     """ Dataset for training and testing.

@@ -24,6 +24,13 @@ def tmstate_f(z):
     else:
         return m
 
+def revstate_f(z):
+    if z == x:
+        return '1'
+    if z == y:
+        return '2'
+    if z == m:
+        return ':'
 
 def clip_boundaries(X, Y, A):
     """ Remove xs and ys from ends. """
@@ -138,7 +145,6 @@ def states2alignment(states: np.array, X: str, Y: str):
             f'The state string length {sy} does not match '
             f'the length of sequence {len(X)}.\n'
             f'SequenceX: {X}\nSequenceY: {Y}\nStates: {states}\n'
-
         )
 
     i, j = 0, 0
