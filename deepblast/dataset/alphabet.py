@@ -64,16 +64,20 @@ class Uniprot21(Alphabet):
 
 class UniprotTokenizer:
 
-    def __init__(self):
+    def __init__(self, pad_ends=False):
         self.alphabet = Uniprot21()
+        self.pad_ends = pad_ends
 
     def __call__(self, x):
         # encode sequence
         s = np.array(x.upper())
         x = self.alphabet.encode(s)
         # pad with start/stop token
-        z = np.zeros(len(x) + 2, dtype=x.dtype)
-        z[1:-1] = x
-        z[0] = 20   # pad start
-        z[-1] = 20  # pad end
-        return z
+        if self.pad_ends:
+            z = np.zeros(len(x) + 2, dtype=x.dtype)
+            z[1:-1] = x
+            z[0] = 20   # pad start
+            z[-1] = 20  # pad end
+            return z
+        else:
+            return x
