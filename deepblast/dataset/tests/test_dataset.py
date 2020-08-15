@@ -18,8 +18,8 @@ class TestTMAlignDataset(unittest.TestCase):
         x = TMAlignDataset(self.data_path, tm_threshold=0,
                            pad_ends=False, clip_ends=False)
         res = x[0]
-        self.assertEqual(len(res), 5)
-        gene, pos, states, alignment_matrix, _ = res
+        self.assertEqual(len(res), 6)
+        gene, pos, states, alignment_matrix, _, _ = res
         # test the lengths
         self.assertEqual(len(gene), 103)
         self.assertEqual(len(pos), 21)
