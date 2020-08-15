@@ -63,6 +63,7 @@ class LightningAligner(pl.LightningModule):
     def train_dataloader(self):
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs,
+            mask_gaps=args.mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -73,6 +74,7 @@ class LightningAligner(pl.LightningModule):
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(
             self.hparams.valid_pairs,
+            mask_gaps=args.mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -83,6 +85,7 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
             self.hparams.test_pairs,
+            mask_gaps=mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
@@ -297,7 +300,7 @@ class LightningAligner(pl.LightningModule):
             '--finetune', help='Perform finetuning',
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--clip-ends', help='Clip ends of training alignments.',
+            '--mask-gaps', help='Mask gaps from the loss calculation.',
             default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',
