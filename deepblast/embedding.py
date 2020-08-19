@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 
@@ -5,18 +6,30 @@ from torch.nn.utils.rnn import PackedSequence
 class MultiLinear(nn.Module):
     """ Multiple linear layers concatenated together"""
     def __init__(self, n_input, n_output, n_heads=16):
-        super(M, self).__init__()
-        self.multi_output = torch.nn.ModuleList(
+        super(MultiLinear, self).__init__()
+        self.multi_output = nn.ModuleList(
             [nn.Linear(n_input, n_output)
-             for i in range(num_heads)]
+             for i in range(n_heads)]
         )
-        self.mixture = nn.Linear(num_heads, 1)
 
     def forward(self, x):
-        attn_outputs = torch.stack(
+        outputs = torch.stack(
             [head(x) for head in self.multi_output], dim=-1)
-        outputs = self.mixture(attn_outputs)
         return outputs
+
+
+class MultiheadProduct(nn.Module):
+    def __init__(self, n_input, n_output, n_heads=16):
+        super(MultiheadProduct, self).__init__()
+        self.multilinear = MultiLinear(n_input, n_output, n_heads)
+        self.linear = nn.Linear(n_heads, 1)
+
+    def forward(self, x, y):
+        zx = self.multilinear(x)
+        zy = self.multilinear(y)
+        dists = torch.einsum('bidh,bjdh->bijh', zx, zy)
+        output = self.linear(dists)
+        return output.squeeze()
 
 
 class LMEmbed(nn.Module):

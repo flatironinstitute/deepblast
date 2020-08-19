@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
-from deepblast.embedding import StackedRNN, EmbedLinear, MultiLinear
+from deepblast.embedding import StackedRNN, EmbedLinear, MultiheadProduct
 from deepblast.dataset.utils import unpack_sequences
 import torch.nn.functional as F
 import math
@@ -54,8 +54,8 @@ class NeedlemanWunschAligner(nn.Module):
                 n_alpha, n_input, n_embed, lm=lm)
             self.gap_embedding = EmbedLinear(
                 n_alpha, n_input, n_embed, lm=lm)
-        self.match_mixture = MultiLinear(n_input, n_input, n_heads)
-        self.gap_mixture = MultiLinear(n_input, n_input, n_heads)
+        self.match_mixture = MultiheadProduct(n_input, n_input, n_heads)
+        self.gap_mixture = MultiheadProduct(n_input, n_input, n_heads)
         # TODO: make cpu compatible version
         # if device == 'cpu':
         #     self.nw = NWDecoderCPU(operator='softmax')
@@ -78,27 +78,22 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx_, _, zy_, _ = unpack_sequences(self.match_embedding(x), order)
-            gx_, _, gy_, _ = unpack_sequences(self.gap_embedding(x), order)
-            zx, zy = match_mixture(zx_), match_mixture(zy_)
-            gx, gy = gap_mixture(zx_), gap_mixture(zy_)
-
+            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
+            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
             # Obtain theta through an inner product across latent dimensions
-            theta = torch.einsum('bid,bjd->bij', zx, zy)
-            A = torch.einsum('bid,bjd->bij', gx, gy)
+            theta = self.match_mixture(zx, zy)
+            A = self.gap_mixture(gx, gy)
+
             aln = self.nw.decode(theta, A)
             return aln, theta, A
 
     def traceback(self, x, order):
         # dim B x N x D
         with torch.enable_grad():
-            zx_, _, zy_, _ = unpack_sequences(self.match_embedding(x), order)
-            gx_, xlen, gy_, ylen = unpack_sequences(self.gap_embedding(x), order)
-            zx, zy = match_mixture(zx_), match_mixture(zy_)
-            gx, gy = gap_mixture(zx_), gap_mixture(zy_)
-
-            match = torch.einsum('bid,bjd->bij', zx, zy)
-            gap = torch.einsum('bid,bjd->bij', gx, gy)
+            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
+            gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
+            match = self.match_mixture(zx, zy)
+            gap = self.gap_mixture(gx, gy)
             B, _, _ = match.shape
 
             for b in range(B):
