@@ -167,8 +167,8 @@ class TMAlignDataset(AlignmentDataset):
         if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
             alignment_matrix = alignment_matrix.t()
 
-        gene_mask = torch.Tensor(gene_mask)
-        pos_mask = torch.Tensor(pos_mask)
+        # gene_mask = torch.Tensor(gene_mask).long()
+        # pos_mask = torch.Tensor(pos_mask).long()
 
         return (gene, pos, states, alignment_matrix, path_matrix,
                 gene_mask, pos_mask)

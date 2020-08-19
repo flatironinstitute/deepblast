@@ -45,12 +45,10 @@ class LightningAligner(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        if self.hparams.aligner == 'nw':
-            self.aligner = NeedlemanWunschAligner(
-                n_alpha, n_input, n_units, n_embed, n_layers)
-        else:
-            raise NotImplementedError(
-                f'Aligner {self.hparams.aligner_type} not implemented.')
+        n_heads = self.hparams.heads
+        self.aligner = NeedlemanWunschAligner(
+            n_alpha, n_input, n_units, n_embed, n_layers, n_heads)
+
 
     def forward(self, x, y):
         x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
@@ -286,10 +284,6 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--valid-pairs', help='Validation pairs file', required=True)
         parser.add_argument(
-            '-a', '--aligner',
-            help='Aligner type. Choices include (nw, hmm).',
-            required=False, type=str, default='nw')
-        parser.add_argument(
             '--embedding-dim', help='Embedding dimension (default 512).',
             required=False, type=int, default=512)
         parser.add_argument(
@@ -301,6 +295,9 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--layers', help='Number of RNN layers (default 2).',
             required=False, type=int, default=2)
+        parser.add_argument(
+            '--heads', help='Number heads in attention layer (default 8).',
+            required=False, type=int, default=8)
         parser.add_argument(
             '--loss',
             help=('Loss function. Options include '

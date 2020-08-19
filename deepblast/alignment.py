@@ -113,5 +113,4 @@ class NeedlemanWunschAligner(nn.Module):
                     G[0, :, 0] = val
                 aln = self.nw.decode(M, G)
                 decoded = self.nw.traceback(aln.squeeze())
-                del G, aln
-                yield decoded
+                yield decoded, aln

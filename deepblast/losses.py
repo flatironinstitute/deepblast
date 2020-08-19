@@ -3,6 +3,10 @@ from torch.distributions import Normal
 from deepblast.constants import match_mean, match_std, gap_mean, gap_std
 
 
+def mask_tensor(A, x_mask, y_mask):
+    return A[x_mask][:, y_mask]
+
+
 class AlignmentAccuracy:
     def __call__(self, true_edges, pred_edges):
         pass
@@ -34,12 +38,12 @@ class L2MatrixCrossEntropy:
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
         for b in range(len(x_mask)):
             pos = torch.mean(
-                Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
-                    Ypred[b, x_mask[b], y_mask[b]])
+                mask_tensor(Ytrue[b], x_mask[b], y_mask[b]) * torch.log(
+                    mask_tensor(Ypred[b], x_mask[b], y_mask[b]))
             )
             neg = torch.mean(
-                (1 - Ytrue[b, x_mask[b], y_mask[b]]) * torch.log(
-                    1 - Ypred[b, x_mask[b], y_mask[b]])
+                (1 - mask_tensor(Ytrue[b], x_mask[b], y_mask[b])) * torch.log(
+                    1 - mask_tensor(Ypred[b], x_mask[b], y_mask[b]))
             )
             score += -(pos + neg)
 
@@ -74,13 +78,21 @@ class MatrixCrossEntropy:
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
         for b in range(len(x_mask)):
             pos = torch.mean(
-                Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
-                    Ypred[b, x_mask[b], y_mask[b]])
+                mask_tensor(Ytrue[b], x_mask[b], y_mask[b]) * torch.log(
+                    mask_tensor(Ypred[b], x_mask[b], y_mask[b]))
             )
             neg = torch.mean(
-                (1 - Ytrue[b, x_mask[b], y_mask[b]]) * torch.log(
-                    1 - Ypred[b, x_mask[b], y_mask[b]])
+                (1 - mask_tensor(Ytrue[b], x_mask[b], y_mask[b])) * torch.log(
+                    1 - mask_tensor(Ypred[b], x_mask[b], y_mask[b]))
             )
+            # pos = torch.mean(
+            #     Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
+            #         Ypred[b, x_mask[b], y_mask[b]])
+            # )
+            # neg = torch.mean(
+            #     (1 - Ytrue[b, x_mask[b], y_mask[b]]) * torch.log(
+            #         1 - Ypred[b, x_mask[b], y_mask[b]])
+            # f)
             score += -(pos + neg)
         return score / len(x_mask)
 
