@@ -1,4 +1,6 @@
 import torch
+from torch.distributions import Normal
+from deepblast.constants import match_mean, match_std, gap_mean, gap_std
 
 
 class AlignmentAccuracy:
@@ -6,9 +8,8 @@ class AlignmentAccuracy:
         pass
 
 
-class PenalizedMatrixCrossEntropy:
-    def __call__(self, Ytrue, Ypred, M, G,
-                 match_prior, gap_prior, x_mask, y_mask):
+class L2MatrixCrossEntropy:
+    def __call__(self, Ytrue, Ypred, M, G, x_mask, y_mask):
         """ Computes binary cross entropy on the matrix with regularizers.
 
         The matrix cross entropy loss is given by
@@ -23,7 +24,10 @@ class PenalizedMatrixCrossEntropy:
             All entries are marked by 0 and 1.
         Ypred : torch.Tensor
             Predicted alignment matrix of dimension N x M.
-
+        M : torch.Tensor
+            Match score matrix
+        G : torch.Tensor
+            Gap score matrix
         """
         score = 0
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
@@ -38,6 +42,9 @@ class PenalizedMatrixCrossEntropy:
                     1 - Ypred[b, x_mask[b], y_mask[b]])
             )
             score += -(pos + neg)
+
+        match_prior = Normal(match_mean, match_prior)
+        gap_prior = Normal(gap_mean, gap_prior)
         log_like = score / len(x_len)
         match_log = match_prior.log_prob(M).mean()
         gap_log = gap_prior.log_prob(G).mean()
