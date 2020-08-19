@@ -307,7 +307,7 @@ def path_distance_matrix(pi):
 
 def merge_mask(idx, length, mask_length):
     pads = torch.Tensor(list(range(length, mask_length)))
-    idx = torch.stack(idx, pads)
+    idx = torch.cat((idx, pads))
     return idx
 
 

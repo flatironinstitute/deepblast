@@ -80,10 +80,11 @@ class NeedlemanWunschAligner(nn.Module):
             gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
             # Obtain theta through an inner product across latent dimensions
             theta = self.match_mixture(zx, zy)
+            A = self.gap_mixture(gx, gy)
             # zero out first row and first column for local alignments
-            L = gx.shape[1]
-            A = torch.zeros((L, L))
-            A[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
+            # L = gx.shape[1]
+            # A = torch.zeros((L, L))
+            # A[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
 
             aln = self.nw.decode(theta, A)
             return aln, theta, A
@@ -94,11 +95,12 @@ class NeedlemanWunschAligner(nn.Module):
             zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
             gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
             match = self.match_mixture(zx, zy)
+            gap = self.gap_mixture(gx, gy)
 
             # zero out first row and first column for local alignments
-            L = gx.shape[1]
-            gap = torch.zeros((L, L))
-            gap[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
+            # L = gx.shape[1]
+            # gap = torch.zeros((L, L))
+            # gap[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
 
             B, _, _ = match.shape
 

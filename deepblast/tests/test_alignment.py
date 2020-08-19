@@ -18,20 +18,20 @@ class TestAlignmentModel(unittest.TestCase):
         nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
         self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
 
-    @unittest.skip
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_alignment(self):
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
         x = torch.Tensor(
             self.tokenizer(b'ARNDCQEGHILKMFPSTWYVXOUBZ')
-        ).unsqueeze(0).long().cuda()
+        ).long().cuda()
         y = torch.Tensor(
             self.tokenizer(b'ARNDCQEGHILKARNDCQMFPSTWYVXOUBZ')
-        ).unsqueeze(0).long().cuda()
-        N, M = x.shape[1], y.shape[1]
-        seq, order = pack_sequences([x], [y])
+        ).long().cuda()
+        M = max(x.shape[0], y.shape[0])
+        seq, order = pack_sequences([x, x], [y, y])
         aln, theta, A = self.aligner(seq, order)
-        self.assertEqual(aln.shape, (1, N, M))
+        self.assertEqual(aln.shape, (2, M, M))
 
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_batch_alignment(self):
@@ -64,8 +64,10 @@ class TestAlignmentModel(unittest.TestCase):
         A2 = torch.ones((len(x2), len(y2))).long()
         P1 = torch.ones((len(x1), len(y1))).long()
         P2 = torch.ones((len(x2), len(y2))).long()
-        batch = [(x1, y1, s1, A1, P1), (x2, y2, s2, A2, P2)]
-        gene_codes, other_codes, states, dm, p = collate_f(batch)
+        mask = [torch.Tensor([0, 1]), torch.Tensor([0, 1])]
+        batch = [(x1, y1, s1, A1, P1, mask[0], mask[1]),
+                 (x2, y2, s2, A2, P2, mask[0], mask[1])]
+        gene_codes, other_codes, states, dm, p, mask = collate_f(batch)
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
         seq, order = pack_sequences(gene_codes, other_codes)
