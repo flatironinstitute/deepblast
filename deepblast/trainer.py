@@ -113,22 +113,23 @@ class LightningAligner(pl.LightningModule):
             pin_memory=True)
         return test_dataloader
 
-    def compute_loss(self, x, y, predA, A, P, theta, gap):
-
+    def compute_loss(self, mask, predA, A, P, theta, gap):
+        x_mask, y_mask = mask
         if isinstance(self.loss_func, SoftAlignmentLoss):
-            loss = self.loss_func(A, predA, x, y)
+            loss = self.loss_func(A, predA, x_mask, y_mask)
         elif isinstance(self.loss_func, MatrixCrossEntropy):
-            loss = self.loss_func(A, predA, x, y)
+            loss = self.loss_func(A, predA, x_mask, y_mask)
         elif isinstance(self.loss_func, L2MatrixCrossEntropy):
-            loss = self.loss_func(A, predA, theta, gap, x, y)
+            loss = self.loss_func(A, predA, theta, gap, x_mask, y_mask)
         elif isinstance(self.loss_func, SoftPathLoss):
-            loss = self.loss_func(P, predA, x, y)
+            loss = self.loss_func(P, predA, x_mask, y_mask)
         if self.hparams.multitask:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
             current_lr = current_lr.get_last_lr()[0]
             max_lr = self.hparams.learning_rate
             lam = current_lr / max_lr
-            match_loss = self.loss_func(torch.sigmoid(theta), predA, x, y)
+            match_loss = self.loss_func(torch.sigmoid(theta), predA,
+                                        x_mask, y_mask)
             # when learning rate is large, weight match loss
             # otherwise, weight towards DP
             loss = lam * match_loss + (1 - lam) * loss
@@ -136,11 +137,11 @@ class LightningAligner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         self.aligner.train()
-        genes, others, s, A, P = batch
+        genes, others, s, A, P, mask = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
-        _, xlen, _, ylen = unpack_sequences(seq, order)
-        loss = self.compute_loss(xlen, ylen, predA, A, P, theta, gap)
+        x_mask, y_mask = mask
+        loss = self.compute_loss(mask, predA, A, P, theta, gap)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
@@ -194,17 +195,14 @@ class LightningAligner(pl.LightningModule):
         return statistics
 
     def validation_step(self, batch, batch_idx):
-        # TODO: something weird is going on with the lengths
-        # Need to make sure that they are being sorted properly
-        genes, others, s, A, P = batch
+        genes, others, s, A, P, mask = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
-        loss = self.compute_loss(xlen, ylen, predA, A, P, theta, gap)
+        loss = self.compute_loss(mask, predA, A, P, theta, gap)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(seq, order)
-        # TODO; compare the traceback and the forward
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(

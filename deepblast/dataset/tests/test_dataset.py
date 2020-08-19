@@ -19,7 +19,7 @@ class TestTMAlignDataset(unittest.TestCase):
                            pad_ends=False, clip_ends=False)
         res = x[0]
         self.assertEqual(len(res), 5)
-        gene, pos, states, alignment_matrix, _ = res
+        gene, pos, states, alignment_matrix, _, _, _ = res
         # test the lengths
         self.assertEqual(len(gene), 103)
         self.assertEqual(len(pos), 21)

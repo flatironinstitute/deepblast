@@ -2,7 +2,7 @@ import unittest
 from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
-    pack_sequences, unpack_sequences, gap_mask,
+    collate_f, pack_sequences, unpack_sequences, gap_mask,
     remove_orphans)
 from math import sqrt
 import numpy as np
@@ -279,13 +279,11 @@ class TestDataUtils(unittest.TestCase):
         tt.assert_allclose(expY, resY)
 
 
-
 class TestPreprocess(unittest.TestCase):
 
     def test_gap_mask(self):
         s = ":11::22:"
-        N, M = 6, 6
-        res = gap_mask(s, N, M)
+        res = gap_mask(s)
         exp_x = np.array([3, 4])
         exp_y = np.array([1, 2])
 
@@ -293,8 +291,7 @@ class TestPreprocess(unittest.TestCase):
         npt.assert_equal(res[1], exp_y)
 
         s = ":11:.:22:"
-        N, M = 7, 7
-        res = gap_mask(s, N, M)
+        res = gap_mask(s)
         exp_x = np.array([2, 4, 5])
         exp_y = np.array([1, 2, 4])
         npt.assert_equal(res[0], exp_x)

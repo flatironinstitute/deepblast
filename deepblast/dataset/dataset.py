@@ -163,7 +163,13 @@ class TMAlignDataset(AlignmentDataset):
             path_matrix = path_matrix.t()
         if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
             alignment_matrix = alignment_matrix.t()
-        return gene, pos, states, alignment_matrix, path_matrix
+
+        gene_mask, pos_mask = gap_mask(states)
+        gene_mask = torch.Tensor(gene_mask)
+        pos_mask = torch.Tensor(pos_mask)
+
+        return (gene, pos, states, alignment_matrix, path_matrix,
+                gene_mask, pos_mask)
 
 
 class MaliAlignmentDataset(AlignmentDataset):
