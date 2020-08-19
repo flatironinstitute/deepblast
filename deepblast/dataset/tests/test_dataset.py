@@ -18,14 +18,13 @@ class TestTMAlignDataset(unittest.TestCase):
         x = TMAlignDataset(self.data_path, tm_threshold=0,
                            pad_ends=False, clip_ends=False)
         res = x[0]
-        self.assertEqual(len(res), 5)
+        self.assertEqual(len(res), 7)
         gene, pos, states, alignment_matrix, _, _, _ = res
         # test the lengths
         self.assertEqual(len(gene), 103)
         self.assertEqual(len(pos), 21)
         self.assertEqual(len(states), 103)
-        # wtf is going on here??
-        self.assertEqual(alignment_matrix.shape, (22, 103))
+        self.assertEqual(alignment_matrix.shape, (103, 21))
 
 
 class TestMaliDataset(unittest.TestCase):
@@ -47,7 +46,7 @@ class TestMaliDataset(unittest.TestCase):
         self.assertEqual(len(gene), 81)
         self.assertEqual(len(pos), 81)
         self.assertEqual(len(states), 100)
-        self.assertEqual(alignment_matrix.shape, (81, 82))
+        self.assertEqual(alignment_matrix.shape, (81, 81))
 
 
 if __name__ == '__main__':
