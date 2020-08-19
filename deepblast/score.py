@@ -3,7 +3,6 @@ import matplotlib.pyplot as plt
 from deepblast.dataset.utils import states2alignment, states2edges, tmstate_f
 
 
-
 def roc_edges(true_edges, pred_edges):
     truth = set(true_edges)
     pred = set(pred_edges)
@@ -17,7 +16,7 @@ def roc_edges(true_edges, pred_edges):
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
 
-def alignment_score(true_states : str, pred_states : str):
+def alignment_score(true_states: str, pred_states: str):
     """
     Computes ROC statistics on alignment
 

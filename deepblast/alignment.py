@@ -4,7 +4,6 @@ from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear, MultiheadProduct
 from deepblast.dataset.utils import unpack_sequences
-import torch.nn.functional as F
 import math
 
 
@@ -62,7 +61,6 @@ class NeedlemanWunschAligner(nn.Module):
         # else:
         self.nw = NWDecoderCUDA(operator='softmax')
         self.local = local
-
 
     def forward(self, x, order):
         """ Generate alignment matrix.

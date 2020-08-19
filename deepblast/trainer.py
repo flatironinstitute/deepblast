@@ -11,7 +11,7 @@ from torch.optim.lr_scheduler import (
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset import TMAlignDataset, MaliAlignmentDataset
+from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     decode, states2edges, collate_f, unpack_sequences,
     pack_sequences, revstate_f)

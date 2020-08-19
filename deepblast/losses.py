@@ -32,7 +32,7 @@ class L2MatrixCrossEntropy:
         score = 0
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
-        for b in range(len(x_len)):
+        for b in range(len(x_mask)):
             pos = torch.mean(
                 Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
                     Ypred[b, x_mask[b], y_mask[b]])
@@ -43,16 +43,17 @@ class L2MatrixCrossEntropy:
             )
             score += -(pos + neg)
 
-        match_prior = Normal(match_mean, match_prior)
-        gap_prior = Normal(gap_mean, gap_prior)
-        log_like = score / len(x_len)
+        match_prior = Normal(match_mean, match_std)
+        gap_prior = Normal(gap_mean, gap_std)
+        log_like = score / len(x_mask)
         match_log = match_prior.log_prob(M).mean()
         gap_log = gap_prior.log_prob(G).mean()
         score = log_like + match_log + gap_log
         return score
 
+
 class MatrixCrossEntropy:
-    def __call__(self, Ytrue, Ypred, x_len, y_len):
+    def __call__(self, Ytrue, Ypred, x_mask, y_mask):
         """ Computes binary cross entropy on the matrix
 
         The matrix cross entropy loss is given by
@@ -71,21 +72,21 @@ class MatrixCrossEntropy:
         score = 0
         eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
-        for b in range(len(x_len)):
+        for b in range(len(x_mask)):
             pos = torch.mean(
-                Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
-                    Ypred[b, :x_len[b], :y_len[b]])
+                Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
+                    Ypred[b, x_mask[b], y_mask[b]])
             )
             neg = torch.mean(
-                (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
-                    1 - Ypred[b, :x_len[b], :y_len[b]])
+                (1 - Ytrue[b, x_mask[b], y_mask[b]]) * torch.log(
+                    1 - Ypred[b, x_mask[b], y_mask[b]])
             )
             score += -(pos + neg)
-        return score / len(x_len)
+        return score / len(x_mask)
 
 
 class SoftPathLoss:
-    def __call__(self, Pdist, Ypred, x_len, y_len):
+    def __call__(self, Pdist, Ypred, x_mask, y_mask):
         """ Computes a soft path loss
 
         The soft path loss is given by
@@ -105,15 +106,15 @@ class SoftPathLoss:
             Predicted alignment matrix of dimension N x M.
         """
         score = 0
-        for b in range(len(x_len)):
+        for b in range(len(x_mask)):
             score += torch.norm(
-                Pdist[b, :x_len[b], :y_len[b]] * Ypred[b, :x_len[b], :y_len[b]]
+                Pdist[b, x_mask[b], y_mask[b]] * Ypred[b, x_mask[b], y_mask[b]]
             )
-        return score / len(x_len)
+        return score / len(x_mask)
 
 
 class SoftAlignmentLoss:
-    def __call__(self, Ytrue, Ypred, x_len, y_len):
+    def __call__(self, Ytrue, Ypred, x_mask, y_mask):
         """ Computes soft alignment loss as proposed in Mensch et al.
 
         The soft alignment loss is given by
@@ -141,8 +142,8 @@ class SoftAlignmentLoss:
         since it is possible to leave out important parts of the alignment.
         """
         score = 0
-        for b in range(len(x_len)):
+        for b in range(len(x_mask)):
             score += torch.norm(
-                Ytrue[b, :x_len[b], :y_len[b]] - Ypred[b, :x_len[b], :y_len[b]]
+                Ytrue[b, x_mask[b], y_mask[b]] - Ypred[b, x_mask[b], y_mask[b]]
             )
-        return score / len(x_len)
+        return score / len(x_mask)
