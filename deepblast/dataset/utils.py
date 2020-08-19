@@ -26,6 +26,7 @@ def tmstate_f(z):
     else:
         return m
 
+
 def revstate_f(z):
     if z == x:
         return '1'
@@ -33,6 +34,7 @@ def revstate_f(z):
         return '2'
     if z == m:
         return ':'
+
 
 def clip_boundaries(X, Y, A):
     """ Remove xs and ys from ends. """
@@ -119,6 +121,7 @@ def states2edges(states):
     else:
         raise ValueError(f'Unrecognized state {states[0]}')
     return coords
+
 
 def states2matrix(states, sparse=False):
     """ Converts state string to alignment matrix.
@@ -361,14 +364,14 @@ def replace_orphan(w, s=5):
     i = len(w) // 2
     # identify orphans and replace with gaps
     sw = ''.join(w)
-    if (w[i] == ':') and((('1' * s) in sw[:i] and ('1' * s) in sw[i:]) or
-                         (('2' * s) in sw[:i] and ('2' * s) in sw[i:])):
+    if (w[i] == ':') and ((('1' * s) in sw[:i] and ('1' * s) in sw[i:]) or
+                          (('2' * s) in sw[:i] and ('2' * s) in sw[i:])):
         return ['1', '2']
     else:
         return [w[i]]
 
 
-def remove_orphans(states, threshold : int=11):
+def remove_orphans(states, threshold: int = 11):
     """ Removes singletons and doubletons that are orphaned.
     A match is considered orphaned if it exceeds the `threshold` gap.
     Parameters
@@ -389,6 +392,6 @@ def remove_orphans(states, threshold : int=11):
     wins = list(window(states, threshold))
     rwins = list(map(lambda x: replace_orphan(x, threshold // 2), list(wins)))
     new_states = list(reduce(lambda x, y: x + y, rwins))
-    new_states = list(states[:threshold//2]) + new_states + \
-                 list(states[-threshold//2 + 1:])
+    new_states = list(states[:threshold // 2]) + new_states
+    new_states += list(states[-threshold // 2 + 1:])
     return ''.join(new_states)

@@ -2,7 +2,7 @@ import unittest
 from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
-    collate_f, pack_sequences, unpack_sequences, gap_mask,
+    pack_sequences, unpack_sequences, gap_mask,
     remove_orphans)
 from math import sqrt
 import numpy as np
@@ -308,7 +308,7 @@ class TestPreprocess(unittest.TestCase):
             '::::22222::::::::::1::::::.'
         )
         # N, M = 197, 283
-        res = gap_mask(s)
+        gap_mask(s)
 
     def test_replace_orphans_small(self):
         s = ":11:11:"
@@ -330,6 +330,7 @@ class TestPreprocess(unittest.TestCase):
         s = ":1111111111:22222222222222:"
         r = remove_orphans(s, threshold=9)
         self.assertEqual(r, s)
+
 
 if __name__ == '__main__':
     unittest.main()

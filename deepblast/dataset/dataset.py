@@ -8,7 +8,7 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix, remove_orphans, gap_mask
+    path_distance_matrix, gap_mask
 )
 
 
@@ -46,6 +46,7 @@ class AlignmentDataset(Dataset):
             iter_end = min(iter_start + per_worker, end)
             for i in range(iter_start, iter_end):
                 yield self.__getitem__(i)
+
 
 class FastaDataset(AlignmentDataset):
     """ Dataset for searching. """
