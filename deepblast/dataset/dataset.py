@@ -8,8 +8,18 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix
+    path_distance_matrix, remove_orphans, gap_mask
 )
+
+
+def reshape(x, N, M):
+    if x.shape != (N, M) and x.shape != (M, N):
+        raise ValueError(f'The shape of `x` {x.shape} '
+                         f'does not agree with ({N}, {M})')
+    if tuple(x.shape) != (N, M):
+        return x.t()
+    else:
+        return x
 
 
 class AlignmentDataset(Dataset):
