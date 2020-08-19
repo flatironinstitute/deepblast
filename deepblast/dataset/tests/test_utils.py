@@ -30,6 +30,11 @@ class TestDataUtils(unittest.TestCase):
         s = np.array(list(map(tmstate_f, s)))
         states2matrix(s, sparse=True)
 
+    def test_states2matrix_insert(self):
+        # Test how this is constructed if there are
+        # gaps in the beginning of the alignment
+        pass
+
     def test_states2matrix_only_matches(self):
         s = ":11::11:"
         s = np.array(list(map(tmstate_f, s)))

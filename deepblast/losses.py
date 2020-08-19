@@ -6,6 +6,44 @@ class AlignmentAccuracy:
         pass
 
 
+class PenalizedMatrixCrossEntropy:
+    def __call__(self, Ytrue, Ypred, M, G,
+                 match_prior, gap_prior, x_mask, y_mask):
+        """ Computes binary cross entropy on the matrix with regularizers.
+
+        The matrix cross entropy loss is given by
+
+        d(ypred, ytrue) = - (mean(ytrue x log(ypred))
+             + mean((1 - ytrue) x log(1 - ypred)))
+
+        Parameters
+        ----------
+        Ytrue : torch.Tensor
+            Ground truth alignment matrix of dimension N x M.
+            All entries are marked by 0 and 1.
+        Ypred : torch.Tensor
+            Predicted alignment matrix of dimension N x M.
+
+        """
+        score = 0
+        eps = 3e-8   # unfortunately, this is the smallest eps we can have :(
+        Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
+        for b in range(len(x_len)):
+            pos = torch.mean(
+                Ytrue[b, x_mask[b], y_mask[b]] * torch.log(
+                    Ypred[b, x_mask[b], y_mask[b]])
+            )
+            neg = torch.mean(
+                (1 - Ytrue[b, x_mask[b], y_mask[b]]) * torch.log(
+                    1 - Ypred[b, x_mask[b], y_mask[b]])
+            )
+            score += -(pos + neg)
+        log_like = score / len(x_len)
+        match_log = match_prior.log_prob(M).mean()
+        gap_log = gap_prior.log_prob(G).mean()
+        score = log_like + match_log + gap_log
+        return score
+
 class MatrixCrossEntropy:
     def __call__(self, Ytrue, Ypred, x_len, y_len):
         """ Computes binary cross entropy on the matrix

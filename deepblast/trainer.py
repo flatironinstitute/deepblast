@@ -64,7 +64,7 @@ class LightningAligner(pl.LightningModule):
         y_code = y_code.to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
         gen = self.aligner.traceback(seq, order)
-        decoded, _ = next(gen)
+        decoded = next(gen)
         pred_x, pred_y, pred_states = list(zip(*decoded))
         s = ''.join(list(map(revstate_f, pred_states)))
         return s

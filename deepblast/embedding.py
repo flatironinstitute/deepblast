@@ -2,6 +2,23 @@ import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 
 
+class MultiLinear(nn.Module):
+    """ Multiple linear layers concatenated together"""
+    def __init__(self, n_input, n_output, n_heads=16):
+        super(M, self).__init__()
+        self.multi_output = torch.nn.ModuleList(
+            [nn.Linear(n_input, n_output)
+             for i in range(num_heads)]
+        )
+        self.mixture = nn.Linear(num_heads, 1)
+
+    def forward(self, x):
+        attn_outputs = torch.stack(
+            [head(x) for head in self.multi_output], dim=-1)
+        outputs = self.mixture(attn_outputs)
+        return outputs
+
+
 class LMEmbed(nn.Module):
     def __init__(self, nin, nout, lm, padding_idx=-1, transform=nn.ReLU(),
                  sparse=False):

@@ -106,18 +106,17 @@ def states2edges(states):
     transitions = list(zip(prev_s, next_s))
     state_diffs = np.array(list(map(state_diff_f, transitions)))
     coords = np.cumsum(state_diffs, axis=0)
-    if states[0] == 1:
+    if states[0] == m:
         coords = [(0, 0)] + list(map(tuple, coords.tolist()))
-    elif states[0] == 2:
-        coords[:, 0] = coords[:, 0] - 1
+    elif states[0] == y:
+        coords[:, 0] = np.maximum(coords[:, 0] - 1, 0)
         coords = [(0, 0)] + list(map(tuple, coords.tolist()))
-    elif states[0] == 0:
-        coords[:, 1] = coords[:, 1] - 1
+    elif states[0] == x:
+        coords[:, 1] = np.maximum(coords[:, 1] - 1, 0)
         coords = [(0, 0)] + list(map(tuple, coords.tolist()))
     else:
-        raise ValueError('Unrecognized state: `{states[2]}`')
+        raise ValueError(f'Unrecognized state {states[0]}')
     return coords
-
 
 def states2matrix(states, sparse=False):
     """ Converts state string to alignment matrix.
