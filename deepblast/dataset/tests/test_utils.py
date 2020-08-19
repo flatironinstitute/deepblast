@@ -2,7 +2,8 @@ import unittest
 from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
-    pack_sequences, unpack_sequences, gap_mask,
+    pack_sequences, unpack_sequences,
+    gap_mask, merge_mask,
     remove_orphans)
 from math import sqrt
 import numpy as np
@@ -309,6 +310,24 @@ class TestPreprocess(unittest.TestCase):
         )
         # N, M = 197, 283
         gap_mask(s)
+
+    def test_gap_mask3(self):
+        seq = ('TSKINKELITTANDKKYTIATVVKVDGIAWFDRRDGVDQFKADTGNDVWVGPSQA'
+               'DAAAQVQIVENLIAQGVDAIAIVPFSVEAVEPVLKKARERGIVVISHEASNIQNV'
+               'DYDIEAFDNKAYGANLKELGKSGGKGKYVTTVGSLTSKSQEWIDGAVEYQKANFP'
+               'ESEATGRLETYDDANTDYNKLKEATAYPDITGILGAPPTSAGAGRLIAEGGLKGK'
+               'VFFAGTGLVSVAGEYIKNDDVQYIQFWDPAVAGYANLAVAALEKKNDQIKAGLNL'
+               'GLPGYESLLAPDAAKPNLLYGAGWVGVTKEND')
+        st = ('222222222222222:::::::::::2::::::1:::::::::::1::::::::.:'
+              ':::::::::::::::::::::::::::::::::::::::::::::::::::1.:::'
+              ':::::::2:::::::::1:::::::1:::::::::::::::::1::::::::::::'
+              ':::::::::2:::::::::::::::::1:::::::::::::1::::::::::::::'
+              ':::::::::::1:::11:::::::::::::::::::2::.:::1:::::::::22:'
+              '::222222222222222222222::::::::::::11::11:11.11111111111'
+              '1111111')
+        xmask, ymask = gap_mask(st)
+        xidx = merge_mask(xmask, len(seq), len(seq))
+        yidx = merge_mask(ymask, len(seq), len(seq))
 
     def test_replace_orphans_small(self):
         s = ":11:11:"

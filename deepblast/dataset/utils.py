@@ -273,8 +273,12 @@ def collate_f(batch):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-        x_mask.append(merge_mask(g_mask[b], n, max_x))
-        y_mask.append(merge_mask(p_mask[b], m, max_y))
+        gm = merge_mask(g_mask[b], n, max_x)
+        pm = merge_mask(p_mask[b], m, max_y)
+        assert len(gm) > 0
+        assert len(pm) > 0
+        x_mask.append(gm)
+        y_mask.append(pm)
     return genes, others, states, dm, p, (x_mask, y_mask)
 
 
@@ -307,21 +311,21 @@ def path_distance_matrix(pi):
 
 def merge_mask(idx, length, mask_length):
     pads = set(list(range(length, mask_length)))
-    idx = set(idx) | pads
+    idx = set(idx.tolist()) | pads
     allx = set(list(range(0, mask_length)))
     idx = torch.Tensor(list(allx - idx)).long()
     return idx
 
 
 # Preprocessing functions
-def gap_mask(states: np.array):
+def gap_mask(states: str):
     """ Builds a mask for all gaps.
 
     Reports rows and columns that should be completely masked.
 
     Parameters
     ----------
-    states : np.array
+    states : str
        List of alignment states
     Returns
     -------
@@ -331,20 +335,20 @@ def gap_mask(states: np.array):
     i, j = 0, 0
     rows, cols = [], []
     for k in range(len(states)):
-        if states[k] == '1':
+        if states[k] == x:
             cols.append(i)
             i += 1
-        elif states[k] == '2':
+        elif states[k] == y:
             rows.append(j)
             j += 1
-        elif states[k] == ':':
+        elif states[k] == m:
             i += 1
             j += 1
-        elif states[k] == '.':
-            cols.append(i)
-            rows.append(j)
-            i += 1
-            j += 1
+        # elif states[k] == '.':
+        #     cols.append(i)
+        #     rows.append(j)
+        #     i += 1
+        #     j += 1
         else:
             raise ValueError(f'{states[k]} is not recognized')
     return np.array(rows), np.array(cols)

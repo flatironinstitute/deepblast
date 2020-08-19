@@ -142,14 +142,14 @@ class TMAlignDataset(AlignmentDataset):
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
 
-        gene_mask, pos_mask = gap_mask(states)
         states = list(map(tmstate_f, states))
         if self.clip_ends:
             gene, pos, states = clip_boundaries(gene, pos, states)
 
+        gene_mask, pos_mask = gap_mask(states)
+
         if self.pad_ends:
             states = [m] + states + [m]
-
         states = torch.Tensor(states).long()
         gene = self.tokenizer(str.encode(gene))
         pos = self.tokenizer(str.encode(pos))

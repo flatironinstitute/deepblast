@@ -52,7 +52,7 @@ class L2MatrixCrossEntropy:
         log_like = score / len(x_mask)
         match_log = match_prior.log_prob(M).mean()
         gap_log = gap_prior.log_prob(G).mean()
-        score = log_like + match_log + gap_log
+        score = log_like - match_log - gap_log
         return score
 
 
