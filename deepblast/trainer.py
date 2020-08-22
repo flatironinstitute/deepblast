@@ -225,7 +225,7 @@ class LightningAligner(pl.LightningModule):
         scores = []
         for i, m in enumerate(metrics):
             loss_f = lambda x: x['log'][m]
-            losses = list(map(loss_f, outputs))
+            losses = np.array(list(map(loss_f, outputs)))
             losses = losses[np.logical_not(np.isnan(losses))]            
             # scalar = sum(losses) / len(losses)
             scalar = np.asscalar(np.mean(losses))            
