@@ -107,10 +107,10 @@ class NeedlemanWunschAligner(nn.Module):
             for b in range(B):
                 M = match[b, :xlen[b], :ylen[b]].unsqueeze(0)
                 G = gap[b, :xlen[b], :ylen[b]].unsqueeze(0)
-                val = math.log(1 - (1/50))  # based on average insertion length
-                if self.local:
-                    G[0, 0, :] = val
-                    G[0, :, 0] = val
+                # val = math.log(1 - (1/50))  # based on average insertion length
+                # if self.local:
+                #     G[0, 0, :] = val
+                #     G[0, :, 0] = val
                 aln = self.nw.decode(M, G)
                 decoded = self.nw.traceback(aln.squeeze())
                 yield decoded, aln

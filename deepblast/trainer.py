@@ -82,7 +82,7 @@ class LightningAligner(pl.LightningModule):
 
     def train_dataloader(self):
         train_dataset = TMAlignDataset(
-            self.hparams.train_pairs,
+            self.hparams.train_pairs, clip_ends=self.hparams.clip_ends,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -92,7 +92,7 @@ class LightningAligner(pl.LightningModule):
 
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(
-            self.hparams.valid_pairs,
+            self.hparams.valid_pairs, clip_ends=self.hparams.clip_ends,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -103,7 +103,7 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         # Held-out TM-align dataset
         test_dataset = TMAlignDataset(
-            self.hparams.test_pairs,
+            self.hparams.test_pairs, clip_ends=self.hparams.clip_ends,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
@@ -226,7 +226,9 @@ class LightningAligner(pl.LightningModule):
         for i, m in enumerate(metrics):
             loss_f = lambda x: x['log'][m]
             losses = list(map(loss_f, outputs))
-            scalar = sum(losses) / len(losses)
+            losses = losses[np.logical_not(np.isnan(losses))]            
+            # scalar = sum(losses) / len(losses)
+            scalar = np.asscalar(np.mean(losses))            
             scores.append(scalar)
             self.logger.experiment.add_scalar(m, scalar, self.global_step)
 
