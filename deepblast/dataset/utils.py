@@ -36,17 +36,20 @@ def revstate_f(z):
         return ':'
 
 
-def clip_boundaries(X, Y, A):
+def remove_gaps(X, Y, A, clip_ends=True):
     """ Remove xs and ys from ends. """
-    if A[0] == m:
-        first = 0
-    else:
-        first = A.index(m)
+    first = 0
+    last = len(A)
+    if clip_ends:
+        if A[0] == m:
+            first = 0
+        else:
+            first = A.index(m)
 
-    if A[-1] == m:
-        last = len(A)
-    else:
-        last = len(A) - A[::-1].index(m)
+        if A[-1] == m:
+            last = len(A)
+        else:
+            last = len(A) - A[::-1].index(m)
     X, Y = states2alignment(np.array(A), X, Y)
     X_ = X[first:last].replace('-', '')
     Y_ = Y[first:last].replace('-', '')
@@ -260,23 +263,22 @@ def collate_f(batch):
 
     x_len = list(map(len, genes))
     y_len = list(map(len, others))
-
     max_x = max(x_len)
     max_y = max(y_len)
+    max_l = max(max_x, max_y)
     x_mask = []
     y_mask = []
-
     B = len(genes)
-    dm = torch.zeros((B, max_x, max_y))
-    p = torch.zeros((B, max_x, max_y))
+    dm = torch.zeros((B, max_l, max_l))
+    p = torch.zeros((B, max_l, max_l))
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-        gm = merge_mask(g_mask[b], n, max_x)
-        pm = merge_mask(p_mask[b], m, max_y)
-        assert len(gm) > 0
-        assert len(pm) > 0
+        gm = merge_mask(g_mask[b], n, max_l)
+        pm = merge_mask(p_mask[b], m, max_l)
+        assert len(gm) > 0, (len(g_mask[b]), max(g_mask[b]), n, max_l)
+        assert len(pm) > 0, (len(p_mask[b]), max(p_mask[b]), m, max_l)
         x_mask.append(gm)
         y_mask.append(pm)
     return genes, others, states, dm, p, (x_mask, y_mask)
@@ -309,16 +311,16 @@ def path_distance_matrix(pi):
     return Pdist
 
 
-def merge_mask(idx, length, mask_length):
-    pads = set(list(range(length, mask_length)))
+def merge_mask(idx, length, max_len):
+    pads = set(list(range(length, max_len)))
     idx = set(idx.tolist()) | pads
-    allx = set(list(range(0, mask_length)))
+    allx = set(list(range(0, max_len)))
     idx = torch.Tensor(list(allx - idx)).long()
     return idx
 
 
 # Preprocessing functions
-def gap_mask(states: str):
+def gap_mask(states):
     """ Builds a mask for all gaps.
 
     Reports rows and columns that should be completely masked.
@@ -327,6 +329,7 @@ def gap_mask(states: str):
     ----------
     states : str
        List of alignment states
+
     Returns
     -------
     mask : np.array
@@ -344,14 +347,9 @@ def gap_mask(states: str):
         elif states[k] == m:
             i += 1
             j += 1
-        # elif states[k] == '.':
-        #     cols.append(i)
-        #     rows.append(j)
-        #     i += 1
-        #     j += 1
         else:
             raise ValueError(f'{states[k]} is not recognized')
-    return np.array(rows), np.array(cols)
+    return np.array(cols), np.array(rows)
 
 
 def window(seq, n=2):

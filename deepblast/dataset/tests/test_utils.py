@@ -1,7 +1,7 @@
 import unittest
 from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
-    path_distance_matrix, clip_boundaries,
+    path_distance_matrix, remove_gaps,
     pack_sequences, unpack_sequences,
     gap_mask, merge_mask,
     remove_orphans)
@@ -230,7 +230,7 @@ class TestDataUtils(unittest.TestCase):
         s_ = [m, m, m, m]
         x_ = 'GSSG'
         y_ = 'GEIR'
-        rx, ry, rs = clip_boundaries(x_, y_, s_)
+        rx, ry, rs = remove_gaps(x_, y_, s_)
         self.assertEqual(x_, rx)
         self.assertEqual(y_, ry)
         self.assertEqual(s_, rs)
@@ -240,7 +240,7 @@ class TestDataUtils(unittest.TestCase):
         s = [x, m, m, m, y]
         x = 'GSSG'
         y = 'GEIR'
-        rx, ry, rs = clip_boundaries(x, y, s)
+        rx, ry, rs = remove_gaps(x, y, s)
         ex, ey, es = 'SSG', 'GEI', [m, m, m]
         self.assertEqual(ex, rx)
         self.assertEqual(ey, ry)
@@ -252,7 +252,7 @@ class TestDataUtils(unittest.TestCase):
         st = np.array([1, 1, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1,
                        1, 2, 2, 2, 2, 1, 1, 1, 0, 1, 1, 1,
                        1, 1, 1, 1, 1, 1, 1, 1, 2, 1])
-        rx, ry, rs = clip_boundaries(gen, oth, st)
+        rx, ry, rs = remove_gaps(gen, oth, st)
         self.assertTrue(1)
 
     def test_pack_sequences(self):
@@ -328,6 +328,46 @@ class TestPreprocess(unittest.TestCase):
         xmask, ymask = gap_mask(st)
         xidx = merge_mask(xmask, len(seq), len(seq))
         yidx = merge_mask(ymask, len(seq), len(seq))
+
+
+    def test_gap_mask4(self):
+
+        st1 = ('2222222222222222222222222222222222222222222222222222222222222.'
+               '22222222222222222222222222222222222222222222222222222222222222'
+               '22222222222222222222222222222222222222222222222222222222222222'
+               '2::.:.22222222222222222222222222222..2..:.::::::::::::11...::.'
+               '..:::.111111111..:..::::::1:.11.111.::::::.:::::::::::::::::2:'
+               ':..11111111111111122222222222222222222...:::::::::::::::::::2:'
+               '::..:::::::::::::::::::::::::2.:.:::::::::::::::2:::::::::::::'
+               '1::::::::::1:......:::::::::::::::1111.1.11:11:11111111.111111'
+               '1111111111111111111111111111.:1:::::::.2222.22.:...:..::..::.:'
+               '::.::::::.11.....::::::::222.22222222222222222222222222 ')
+        st1 = list(map(tmstate_f, st1))
+        L = 205
+        xmask, ymask = gap_mask(st1)
+        xidx = merge_mask(xmask, L, L)
+        yidx = merge_mask(ymask, L, L)
+        self.assertGreater(len(xidx), 0)
+        self.assertGreater(len(yidx), 0)
+
+        seq = ('PKYQIIDAAVEVIAENGYHQSQVSKIAKQAGVADGTIYLYFKNKEDILISLFKEKGQFI'
+               'EREEDIKEKATAKEKLALVISKHFSLLAGDHNLAIVTQLELRQSNLELRQKINEILKGY'
+               'LNILDGILTEGIQSGEIKEGLDVRLARQIFGTIDETVTTWVNDQKYDLVALSNSVLELL'
+               'VSGIHNK')
+        states = [2, 2, 2, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1, 1, 1, 1,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                  1, 1, 1, 1, 2, 2, 2, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 1, 1, 1,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 2, 1, 1, 1,
+                  2, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1, 1, 1,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                  1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                  1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+                  1, 1, 1, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1,
+                  1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 2, 2, 1]
+        xmask, ymask = gap_mask(states)
+
+        self.assertLess(max(xmask), len(seq))
 
     def test_replace_orphans_small(self):
         s = ":11:11:"

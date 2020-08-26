@@ -7,7 +7,7 @@ from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
-    clip_boundaries, states2matrix, states2edges,
+    remove_gaps, states2matrix, states2edges,
     path_distance_matrix, gap_mask
 )
 
@@ -141,11 +141,8 @@ class TMAlignDataset(AlignmentDataset):
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
         states = self.pairs.iloc[i]['alignment']
-
         states = list(map(tmstate_f, states))
-        if self.clip_ends:
-            gene, pos, states = clip_boundaries(gene, pos, states)
-
+        gene, pos, states = remove_gaps(gene, pos, states, self.clip_ends)
         gene_mask, pos_mask = gap_mask(states)
 
         if self.pad_ends:
@@ -169,7 +166,6 @@ class TMAlignDataset(AlignmentDataset):
 
         # gene_mask = torch.Tensor(gene_mask).long()
         # pos_mask = torch.Tensor(pos_mask).long()
-
         return (gene, pos, states, alignment_matrix, path_matrix,
                 gene_mask, pos_mask)
 
