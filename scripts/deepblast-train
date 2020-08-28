@@ -28,7 +28,7 @@ def main(args):
         distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,
-        val_check_interval=0.25,
+        val_check_interval=3000,
         fast_dev_run=False,
         # auto_scale_batch_size='power',
         # profiler=profiler,

@@ -21,6 +21,7 @@ from deepblast.losses import (
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
 
 
+
 class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
@@ -167,7 +168,12 @@ class LightningAligner(pl.LightningModule):
             truth_states = states[b].cpu().detach().numpy()
             pred_edges = states2edges(pred_states)
             true_edges = states2edges(truth_states)
-            stats = roc_edges(true_edges, pred_edges)
+            if len(pred_edges) == 0:
+                raise ValueError('No predicted edges', pred_states)
+            if len(true_edges) == 0:
+                raise ValueError('No truth edges', truth_states)
+
+            stats = roc_edges(true_edges, pred_edges)            
             if random.random() < self.hparams.visualization_fraction:
                 Av = A[b].cpu().detach().numpy().squeeze()
                 pv = predA[b].cpu().detach().numpy().squeeze()
@@ -215,6 +221,15 @@ class LightningAligner(pl.LightningModule):
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
+    def custom_parameter_histogram(self):    
+      # iterating through all parameters
+      for name, params in self.named_parameters():         
+          self.logger.experiment.add_histogram(
+              f'{name}/value', params, self.global_step)
+          self.logger.experiment.add_histogram(
+              f'{name}/grad', parm.grad.data.cpu().numpy(), 
+              self.global_step)
+
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
@@ -228,10 +243,11 @@ class LightningAligner(pl.LightningModule):
             losses = np.array(list(map(loss_f, outputs)))
             losses = losses[np.logical_not(np.isnan(losses))]            
             # scalar = sum(losses) / len(losses)
-            scalar = np.asscalar(np.mean(losses))            
+            scalar = sum(losses) / len(losses)
             scores.append(scalar)
             self.logger.experiment.add_scalar(m, scalar, self.global_step)
-
+        
+        self.custom_parameter_histogram()
         tensorboard_logs = dict(
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
