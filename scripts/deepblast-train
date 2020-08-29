@@ -24,12 +24,14 @@ def main(args):
         num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         gradient_clip_val=args.grad_clip,
-
+        track_grad_norm=2,
         distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,
-        val_check_interval=3000,
+        val_check_interval=0.25,
         fast_dev_run=False,
+        # overfit the data
+        overfit_pct=0.01, 
         # auto_scale_batch_size='power',
         # profiler=profiler,
     )

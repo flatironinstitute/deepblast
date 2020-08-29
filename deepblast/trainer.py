@@ -19,7 +19,7 @@ from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy,
     L2MatrixCrossEntropy)
 from deepblast.score import roc_edges, alignment_visualization, alignment_text
-
+import warnings
 
 
 class LightningAligner(pl.LightningModule):
@@ -224,15 +224,17 @@ class LightningAligner(pl.LightningModule):
     def custom_parameter_histogram(self):    
       # iterating through all parameters
       for name, params in self.named_parameters():         
-          self.logger.experiment.add_histogram(
-              f'{name}/value', params, self.global_step)
-          self.logger.experiment.add_histogram(
-              f'{name}/grad', parm.grad.data.cpu().numpy(), 
-              self.global_step)
+          if params.requires_grad and (params.grad is not None):
+              self.logger.experiment.add_histogram(
+                  f'{name}/value', params, self.global_step)
+              self.logger.experiment.add_histogram(
+                  f'{name}/grad', params.grad, self.global_step)
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
+        if len(losses) == 0:
+            raise ValueError('No losses reported', output)
         loss = sum(losses) / len(losses)
         self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
         metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
@@ -241,11 +243,14 @@ class LightningAligner(pl.LightningModule):
         for i, m in enumerate(metrics):
             loss_f = lambda x: x['log'][m]
             losses = np.array(list(map(loss_f, outputs)))
-            losses = losses[np.logical_not(np.isnan(losses))]            
-            # scalar = sum(losses) / len(losses)
-            scalar = sum(losses) / len(losses)
-            scores.append(scalar)
-            self.logger.experiment.add_scalar(m, scalar, self.global_step)
+            losses = losses[np.logical_not(np.isnan(losses))]
+            if len(losses) > 0:
+                # scalar = sum(losses) / len(losses)
+                scalar = sum(losses) / len(losses)
+                scores.append(scalar)
+                self.logger.experiment.add_scalar(m, scalar, self.global_step)
+            else:
+                warnings.warn(f'No losses reported for {m}.', RuntimeWarning)
         
         self.custom_parameter_histogram()
         tensorboard_logs = dict(
@@ -283,6 +288,13 @@ class LightningAligner(pl.LightningModule):
         elif self.hparams.scheduler == 'steplr':
             m = 1e-6  # minimum learning rate
             steps = int(np.log2(self.hparams.learning_rate / m))
+            steps = self.hparams.epochs // steps
+            scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
+        elif self.hparams.scheduler == 'inv_steplr':
+            m = 1e-3  # maximum learning rate
+            optimizer = torch.optim.Adam(
+                self.model.parameters(), lr=m)
+            steps = int(np.log2(m / self.hparams.learning_rate))
             steps = self.hparams.epochs // steps
             scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
         elif self.hparams.scheduler == 'none':
