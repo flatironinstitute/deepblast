@@ -27,6 +27,15 @@ def tmstate_f(z):
         return m
 
 
+def revstate_f(z):
+    if z == x:
+        return '1'
+    if z == y:
+        return '2'
+    if z == m:
+        return ':'
+
+
 def clip_boundaries(X, Y, A, st):
     """ Remove xs and ys from ends. """
     if A[0] == m:
