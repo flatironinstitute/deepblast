@@ -10,25 +10,13 @@ def init_weights(m):
         m.bias.data.fill_(0.01)
 
 
-class BatchNorm(nn.Module):
-    """ Batch normalization for RNN outputs. """
-    def __init__(self, num_features):
-        super(BatchNorm, self).__init__()
-        self.bn = nn.BatchNorm1d(num_features=num_features)
-    def forward(self, x):
-        return self.bn(x.permute(0, 2, 1)).permute(0, 2, 1)
-
-
 class MultiLinear(nn.Module):
     """ Multiple linear layers concatenated together"""
     def __init__(self, n_input, n_output, n_heads=16):
         super(MultiLinear, self).__init__()
         self.multi_output = nn.ModuleList(
             [
-                nn.Sequential(
-                    # BatchNorm(n_input),
-                    nn.Linear(n_input, n_output)
-                )
+                nn.Linear(n_input, n_output)
                 for i in range(n_heads)
             ]
         )
