@@ -148,9 +148,6 @@ class LightningAligner(pl.LightningModule):
         else:
             current_lr = self.hparams.learning_rate
 
-        if batch_idx % 100 == 0:
-            self.custom_parameter_histogram()
-
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
@@ -232,13 +229,13 @@ class LightningAligner(pl.LightningModule):
               self.logger.experiment.add_histogram(
                   f'{name}/value', params, self.global_step)
 
-    def on_after_backward(self):
-        # example to inspect gradient information in tensorboard
-        if self.trainer.global_step % 20 == 0:  # don't make the tf file huge
-            for name, params in self.named_parameters():
-                if params.requires_grad and (params.grad is not None):
-                    self.logger.experiment.add_histogram(
-                        f'{name}/grad', params.grad, self.global_step)
+    # def on_after_backward(self):
+    #     # example to inspect gradient information in tensorboard
+    #     if self.trainer.global_step % 200 == 0:  # don't make the tf file huge
+    #         for name, params in self.named_parameters():
+    #             if params.requires_grad and (params.grad is not None):
+    #                 self.logger.experiment.add_histogram(
+    #                     f'{name}/grad', params.grad, self.global_step)
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
@@ -255,13 +252,13 @@ class LightningAligner(pl.LightningModule):
             losses = np.array(list(map(loss_f, outputs)))
             losses = losses[np.logical_not(np.isnan(losses))]
             if len(losses) > 0:
-                # scalar = sum(losses) / len(losses)
                 scalar = sum(losses) / len(losses)
                 scores.append(scalar)
                 self.logger.experiment.add_scalar(m, scalar, self.global_step)
             else:
                 warnings.warn(f'No losses reported for {m}.', RuntimeWarning)
 
+        self.custom_parameter_histogram()
         tensorboard_logs = dict(
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
