@@ -1,10 +1,15 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear, MultiheadProduct
 from deepblast.dataset.utils import unpack_sequences
 import math
+
+
+def swish(x):
+    return x * F.sigmoid(x)
 
 
 class NeedlemanWunschAligner(nn.Module):
@@ -43,16 +48,22 @@ class NeedlemanWunschAligner(nn.Module):
             self.lm = BiLM()
             self.lm.load_state_dict(torch.load(path))
             self.lm.eval()
+        transform = swish
         if n_layers > 1:
             self.match_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm,
+                transform=swish, rnn_type='gru')
             self.gap_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm,
+                transform=swish, rnn_type='gru')
         else:
             self.match_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
+                n_alpha, n_input, n_embed, lm=lm,
+                transform=swish)
             self.gap_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
+                n_alpha, n_input, n_embed, lm=lm,
+                transform=swish)
+
         self.match_mixture = MultiheadProduct(n_embed, n_embed, n_heads)
         self.gap_mixture = MultiheadProduct(n_embed, n_embed, n_heads)
         # TODO: make cpu compatible version

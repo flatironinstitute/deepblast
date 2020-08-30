@@ -3,14 +3,36 @@ import torch.nn as nn
 from torch.nn.utils.rnn import PackedSequence
 
 
+def init_weights(m):
+    # https://stackoverflow.com/a/49433937/1167475
+    if type(m) == nn.Linear:
+        nn.init.xavier_uniform(m.weight)
+        m.bias.data.fill_(0.01)
+
+
+class BatchNorm(nn.Module):
+    """ Batch normalization for RNN outputs. """
+    def __init__(self, num_features):
+        super(BatchNorm, self).__init__()
+        self.bn = nn.BatchNorm1d(num_features=num_features)
+    def forward(self, x):
+        return self.bn(x.permute(0, 2, 1)).permute(0, 2, 1)
+
+
 class MultiLinear(nn.Module):
     """ Multiple linear layers concatenated together"""
     def __init__(self, n_input, n_output, n_heads=16):
         super(MultiLinear, self).__init__()
         self.multi_output = nn.ModuleList(
-            [nn.Linear(n_input, n_output)
-             for i in range(n_heads)]
+            [
+                nn.Sequential(
+                    BatchNorm(n_input),
+                    nn.Linear(n_input, n_output)
+                )
+                for i in range(n_heads)
+            ]
         )
+        # self.multi_output.apply(init_weights)
 
     def forward(self, x):
         outputs = torch.stack(
@@ -23,6 +45,7 @@ class MultiheadProduct(nn.Module):
         super(MultiheadProduct, self).__init__()
         self.multilinear = MultiLinear(n_input, n_output, n_heads)
         self.linear = nn.Linear(n_heads, 1)
+        nn.init.xavier_uniform(self.linear.weight)
 
     def forward(self, x, y):
         zx = self.multilinear(x)
@@ -71,7 +94,7 @@ class LMEmbed(nn.Module):
 
 class EmbedLinear(nn.Module):
     def __init__(self, nin, nhidden, nout, padding_idx=-1,
-                 sparse=False, lm=None):
+                 sparse=False, lm=None, transform=nn.ReLU()):
         super(EmbedLinear, self).__init__()
 
         if padding_idx == -1:
@@ -79,7 +102,8 @@ class EmbedLinear(nn.Module):
 
         if lm is not None:
             self.embed = LMEmbed(
-                nin, nhidden, lm, padding_idx=padding_idx, sparse=sparse)
+                nin, nhidden, lm, padding_idx=padding_idx, sparse=sparse,
+                transform=transform)
             self.proj = nn.Linear(self.embed.nout, nout)
             self.lm = True
         else:
@@ -88,6 +112,7 @@ class EmbedLinear(nn.Module):
             self.proj = nn.Linear(nout, nout)
             self.lm = False
 
+        init_weights(self.proj)
         self.nout = nout
 
     def forward(self, x):
@@ -115,7 +140,7 @@ class EmbedLinear(nn.Module):
 class StackedRNN(nn.Module):
     def __init__(self, nin, nembed, nunits, nout, nlayers=2,
                  padding_idx=-1, dropout=0, rnn_type='lstm',
-                 sparse=False, lm=None):
+                 sparse=False, lm=None, transform=nn.ReLU()):
         super(StackedRNN, self).__init__()
 
         if padding_idx == -1:
@@ -123,7 +148,8 @@ class StackedRNN(nn.Module):
 
         if lm is not None:
             self.embed = LMEmbed(
-                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
+                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse,
+                transform=transform)
             nembed = self.embed.nout
             self.lm = True
         else:

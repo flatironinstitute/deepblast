@@ -147,6 +147,10 @@ class LightningAligner(pl.LightningModule):
             current_lr = current_lr.get_last_lr()[0]
         else:
             current_lr = self.hparams.learning_rate
+
+        if batch_idx % 100 == 0:
+            self.custom_parameter_histogram()
+
         tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
@@ -173,7 +177,7 @@ class LightningAligner(pl.LightningModule):
             if len(true_edges) == 0:
                 raise ValueError('No truth edges', truth_states)
 
-            stats = roc_edges(true_edges, pred_edges)            
+            stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
                 Av = A[b].cpu().detach().numpy().squeeze()
                 pv = predA[b].cpu().detach().numpy().squeeze()
@@ -221,14 +225,20 @@ class LightningAligner(pl.LightningModule):
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
-    def custom_parameter_histogram(self):    
+    def custom_parameter_histogram(self):
       # iterating through all parameters
-      for name, params in self.named_parameters():         
+      for name, params in self.named_parameters():
           if params.requires_grad and (params.grad is not None):
               self.logger.experiment.add_histogram(
                   f'{name}/value', params, self.global_step)
-              self.logger.experiment.add_histogram(
-                  f'{name}/grad', params.grad, self.global_step)
+
+    def on_after_backward(self):
+        # example to inspect gradient information in tensorboard
+        if self.trainer.global_step % 20 == 0:  # don't make the tf file huge
+            for name, params in self.named_parameters():
+                if params.requires_grad and (params.grad is not None):
+                    self.logger.experiment.add_histogram(
+                        f'{name}/grad', params.grad, self.global_step)
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
@@ -251,8 +261,7 @@ class LightningAligner(pl.LightningModule):
                 self.logger.experiment.add_scalar(m, scalar, self.global_step)
             else:
                 warnings.warn(f'No losses reported for {m}.', RuntimeWarning)
-        
-        self.custom_parameter_histogram()
+
         tensorboard_logs = dict(
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
@@ -273,7 +282,7 @@ class LightningAligner(pl.LightningModule):
             grad_params, lr=self.hparams.learning_rate)
         if self.hparams.scheduler == 'cosine_restarts':
             scheduler = CosineAnnealingWarmRestarts(
-                optimizer, T_0=1, T_mult=2)
+                optimizer, T_0=1, T_mult=1)
         elif self.hparams.scheduler == 'cosine':
             scheduler = CosineAnnealingLR(optimizer, T_max=self.hparams.epochs)
         elif self.hparams.scheduler == 'triangular':
@@ -293,7 +302,7 @@ class LightningAligner(pl.LightningModule):
         elif self.hparams.scheduler == 'inv_steplr':
             m = 1e-3  # maximum learning rate
             optimizer = torch.optim.Adam(
-                self.model.parameters(), lr=m)
+                grad_params, lr=m)
             steps = int(np.log2(m / self.hparams.learning_rate))
             steps = self.hparams.epochs // steps
             scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
