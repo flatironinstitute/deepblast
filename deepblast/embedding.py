@@ -26,7 +26,7 @@ class MultiLinear(nn.Module):
         self.multi_output = nn.ModuleList(
             [
                 nn.Sequential(
-                    BatchNorm(n_input),
+                    # BatchNorm(n_input),
                     nn.Linear(n_input, n_output)
                 )
                 for i in range(n_heads)
