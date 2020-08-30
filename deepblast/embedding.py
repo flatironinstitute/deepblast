@@ -32,7 +32,7 @@ class MultiLinear(nn.Module):
                 for i in range(n_heads)
             ]
         )
-        # self.multi_output.apply(init_weights)
+        self.multi_output.apply(init_weights)
 
     def forward(self, x):
         outputs = torch.stack(
