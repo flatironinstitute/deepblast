@@ -26,8 +26,8 @@ def main(args):
         gradient_clip_val=args.grad_clip,
         distributed_backend=args.backend,
         precision=args.precision,
-        # check_val_every_n_epoch=1,
-        val_check_interval=0.25,
+        check_val_every_n_epoch=1,
+        #val_check_interval=0.25,
         fast_dev_run=False,
         # overfit the data
         # overfit_pct=0.01,
