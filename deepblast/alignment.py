@@ -91,11 +91,11 @@ class NeedlemanWunschAligner(nn.Module):
             gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
             # Obtain theta through an inner product across latent dimensions
             theta = self.match_mixture(zx, zy)
-            A = self.gap_mixture(gx, gy)
+            # A = self.gap_mixture(gx, gy)
             # zero out first row and first column for local alignments
-            # L = gx.shape[1]
-            # A = torch.zeros((L, L))
-            # A[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
+            L = gx.shape[1]
+            A = torch.zeros((L, L))
+            A[1:, 1:] = self.gap_mixture(gx[:, 1:, :], gy[:, 1:, :])
 
             aln = self.nw.decode(theta, A)
             return aln, theta, A
