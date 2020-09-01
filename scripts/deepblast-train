@@ -26,8 +26,11 @@ def main(args):
         gradient_clip_val=args.grad_clip,
         distributed_backend=args.backend,
         precision=args.precision,
-        check_val_every_n_epoch=1,
-        #val_check_interval=0.25,
+        #check_val_every_n_epoch=1,
+        limit_train_batches=0.1,
+        limit_val_batches=0.2,
+        limit_test_batches=0.2,
+        val_check_interval=0.25,
         fast_dev_run=False,
         # overfit the data
         # overfit_pct=0.01,
@@ -45,7 +48,7 @@ def main(args):
     # initialize Model Checkpoint Saver
     checkpoint_callback = ModelCheckpoint(
         filepath=ckpt_path,
-        period=1,
+        save_top_k=1,
         monitor='validation_loss',
         mode='min',
         verbose=True

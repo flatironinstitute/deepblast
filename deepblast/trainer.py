@@ -97,7 +97,7 @@ class LightningAligner(pl.LightningModule):
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=False, num_workers=self.hparams.num_workers,
+            shuffle=True, num_workers=self.hparams.num_workers,
             pin_memory=True)
         return valid_dataloader
 
@@ -107,7 +107,7 @@ class LightningAligner(pl.LightningModule):
             self.hparams.test_pairs, clip_ends=self.hparams.clip_ends,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
-            test_dataset, self.hparams.batch_size, shuffle=False,
+            test_dataset, self.hparams.batch_size, shuffle=True,
             collate_fn=collate_f, num_workers=self.hparams.num_workers,
             pin_memory=True)
         return test_dataloader
@@ -297,7 +297,7 @@ class LightningAligner(pl.LightningModule):
             steps = self.hparams.epochs // steps
             scheduler = StepLR(optimizer, step_size=steps, gamma=0.5)
         elif self.hparams.scheduler == 'inv_steplr':
-            m = 1e-3  # maximum learning rate
+            m = 1e-4  # maximum learning rate
             optimizer = torch.optim.Adam(
                 grad_params, lr=m)
             steps = int(np.log2(m / self.hparams.learning_rate))
