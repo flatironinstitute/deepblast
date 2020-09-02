@@ -13,10 +13,13 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, unpack_sequences, pack_sequences)
+    decode, states2edges, collate_f, unpack_sequences,
+    pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
-from deepblast.score import roc_edges, alignment_visualization, alignment_text
+from deepblast.score import (roc_edges, alignment_visualization,
+                             alignment_text, alignment_score)
+
 
 
 class LightningAligner(pl.LightningModule):
@@ -47,6 +50,18 @@ class LightningAligner(pl.LightningModule):
         else:
             raise NotImplementedError(
                 f'Aligner {self.hparams.aligner_type} not implemented.')
+
+    def align(self, x, y):
+        x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
+        y_code = torch.Tensor(self.tokenizer(str.encode(y))).long()
+        x_code = x_code.to(self.device)
+        y_code = y_code.to(self.device)
+        seq, order = pack_sequences([x_code], [y_code])
+        gen = self.aligner.traceback(seq, order)
+        decoded, _ = next(gen)
+        pred_x, pred_y, pred_states = zip(*decoded)
+        s = ''.join(list(map(revstate_f, pred_states)))
+        return s
 
     def forward(self, x, y):
         return self.aligner.forward(x, y)
