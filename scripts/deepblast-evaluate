@@ -4,6 +4,7 @@ import argparse
 import os
 
 import torch
+from pytorch_lightning import Trainer
 from deepblast.trainer import LightningAligner
 
 
@@ -16,9 +17,6 @@ def main(args):
         max_epochs=args.epochs,
         gpus=args.gpus,
         num_nodes=args.nodes,
-        accumulate_grad_batches=args.grad_accum,
-        gradient_clip_val=args.grad_clip,
-
         distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,
@@ -27,14 +25,21 @@ def main(args):
         # auto_scale_batch_size='power',
         # profiler=profiler,
     )
-    trainer.test()
+    test_res = trainer.test(model)
+    fname = os.path.basename(args.test_pairs)
+    pd.Series(test_res).to_csv(
+        f'{args.output_directory}/{fname}-results.csv'
+    )
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--gpus', type=int, default=None)
     parser.add_argument('--num-workers', type=int, default=1)
+    parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
+    parser.add_argument('--precision', type=int, default=32)
+    parser.add_argument('--backend', type=str, default=None)
     # options include ddp_cpu, dp, ddp
 
     parser = LightningAligner.add_model_specific_args(parser)

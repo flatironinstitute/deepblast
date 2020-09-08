@@ -21,7 +21,6 @@ from deepblast.score import (roc_edges, alignment_visualization,
                              alignment_text, alignment_score)
 
 
-
 class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
@@ -78,7 +77,6 @@ class LightningAligner(pl.LightningModule):
     def train_dataloader(self):
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs,
-            mask_gaps=args.mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -89,7 +87,6 @@ class LightningAligner(pl.LightningModule):
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(
             self.hparams.valid_pairs,
-            mask_gaps=args.mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -100,7 +97,6 @@ class LightningAligner(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
             self.hparams.test_pairs,
-            mask_gaps=mask_gaps,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
@@ -213,7 +209,31 @@ class LightningAligner(pl.LightningModule):
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        pass
+        result = self.validation_step(batch, batch_idx)
+        val_cols=[
+            'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+            'val_ppv', 'val_fnr', 'val_fdr', 'valid_loss'
+        ]
+        test_cols=[
+            'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
+            'test_ppv', 'test_fnr', 'test_fdr', 'test_loss'
+        ]
+        test_vals = [result['log'][k] for k in val_cols]
+        return dict(zip(test_cols, test_vals))
+        
+    def test_epoch_end(self, outputs):
+        loss_f = lambda x: x['validation_loss']
+        losses = list(map(loss_f, outputs))
+        loss = sum(losses) / len(losses)
+        metrics = ['test_tp', 'test_fp', 'test_fn', 'test_perc_id',
+                   'test_ppv', 'test_fnr', 'test_fdr', 'test_loss']
+        scores = []
+        for i, m in enumerate(metrics):
+            loss_f = lambda x: x['log'][m]
+            losses = list(map(loss_f, outputs))
+            scalar = sum(losses) / len(losses)
+            scores.append(scalar)
+        return dict(zip(metrics, scores))
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
