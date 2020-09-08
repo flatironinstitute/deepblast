@@ -2,7 +2,7 @@
 
 import argparse
 import os
-
+import pandas as pd
 import torch
 from pytorch_lightning import Trainer
 from deepblast.trainer import LightningAligner
@@ -25,8 +25,19 @@ def main(args):
         # auto_scale_batch_size='power',
         # profiler=profiler,
     )
-    test_res = trainer.test(model)
-    fname = os.path.basename(args.test_pairs)
+    # something weird is going on with the test function
+    #test_res = trainer.test(model)
+    #fname = os.path.basename(args.test_pairs)
+    #pd.Series(test_res).to_csv(
+    #    f'{args.output_directory}/{fname}-results.csv'
+    #)
+    test_dataloader = model.test_dataloader()
+    results = []
+    for batch_idx, batch in enumerate(test_dataloader):
+        print(batch_idx)
+        res = model.test_step(batch, batch_idx)
+        results.append(res)
+    test_res = model.test_epoch_end(results)
     pd.Series(test_res).to_csv(
         f'{args.output_directory}/{fname}-results.csv'
     )

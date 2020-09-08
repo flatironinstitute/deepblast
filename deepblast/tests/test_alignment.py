@@ -18,7 +18,7 @@ class TestAlignmentModel(unittest.TestCase):
         nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
         self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
 
-    @unittest.skip
+    @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_alignment(self):
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()

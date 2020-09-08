@@ -183,8 +183,6 @@ class LightningAligner(pl.LightningModule):
         return statistics
 
     def validation_step(self, batch, batch_idx):
-        # TODO: something weird is going on with the lengths
-        # Need to make sure that they are being sorted properly
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
@@ -209,27 +207,33 @@ class LightningAligner(pl.LightningModule):
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        result = self.validation_step(batch, batch_idx)
-        val_cols=[
-            'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-            'val_ppv', 'val_fnr', 'val_fdr', 'valid_loss'
-        ]
-        test_cols=[
-            'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
-            'test_ppv', 'test_fnr', 'test_fdr', 'test_loss'
-        ]
-        test_vals = [result['log'][k] for k in val_cols]
-        return dict(zip(test_cols, test_vals))
+        genes, others, s, A, P, G = batch
+        seq, order = pack_sequences(genes, others)
+        print(type(seq), type(order))
+        predA, theta, gap = self.aligner(seq, order)
+        x, xlen, y, ylen = unpack_sequences(seq, order)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
+        assert torch.isnan(loss).item() is False
+        # Obtain alignment statistics + visualizations
+        gen = self.aligner.traceback(seq, order)
+        # TODO; compare the traceback and the forward
+        statistics = self.validation_stats(
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+        statistics = pd.DataFrame(
+            statistics, columns=[
+                'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
+                'test_ppv', 'test_fnr', 'test_fdr'
+            ]
+        )
+        statistics = statistics.mean(axis=0).to_dict()
+        return statistics
         
     def test_epoch_end(self, outputs):
-        loss_f = lambda x: x['validation_loss']
-        losses = list(map(loss_f, outputs))
-        loss = sum(losses) / len(losses)
         metrics = ['test_tp', 'test_fp', 'test_fn', 'test_perc_id',
-                   'test_ppv', 'test_fnr', 'test_fdr', 'test_loss']
+                   'test_ppv', 'test_fnr', 'test_fdr']
         scores = []
         for i, m in enumerate(metrics):
-            loss_f = lambda x: x['log'][m]
+            loss_f = lambda x: x[m]
             losses = list(map(loss_f, outputs))
             scalar = sum(losses) / len(losses)
             scores.append(scalar)
@@ -254,9 +258,6 @@ class LightningAligner(pl.LightningModule):
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
         return {'val_loss': loss, 'log': tensorboard_logs}
-
-    def test_epoch_end(self, outputs):
-        pass
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
