@@ -248,6 +248,15 @@ def collate_f(batch):
     return genes, others, states, dm, p
 
 
+def collate_fasta_f(batch):
+    gene_ids = [x[0] for x in batch]
+    other_ids = [x[1] for x in batch]
+    genes = [x[2] for x in batch]
+    others = [x[3] for x in batch]
+    seqs, order = pack_sequences(genes, others)
+    return gene_ids, other_ids, seqs, order
+
+
 def path_distance_matrix(pi):
     """ Builds a min path distance matrix.
 
