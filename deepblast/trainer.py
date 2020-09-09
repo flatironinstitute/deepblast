@@ -209,7 +209,6 @@ class LightningAligner(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
-        print(type(seq), type(order))
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
@@ -225,7 +224,6 @@ class LightningAligner(pl.LightningModule):
                 'test_ppv', 'test_fnr', 'test_fdr'
             ]
         )
-        statistics = statistics.mean(axis=0).to_dict()
         return statistics
         
     def test_epoch_end(self, outputs):
