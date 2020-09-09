@@ -179,7 +179,7 @@ class LightningAligner(pl.LightningModule):
                     print(theta[b])
                     print(xlen[b], ylen[b])
                     raise e
-                statistics.append(stats)
+            statistics.append(stats)
         return statistics
 
     def validation_step(self, batch, batch_idx):
@@ -218,6 +218,7 @@ class LightningAligner(pl.LightningModule):
         # TODO; compare the traceback and the forward
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+        assert len(statistics) > 0, (x, y, batch_idx, xlen, ylen, s, predA, theta, gap)
         statistics = pd.DataFrame(
             statistics, columns=[
                 'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
