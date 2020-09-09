@@ -35,12 +35,12 @@ def main(args):
             qids, dids, seqs, order = batch
             if args.gpu:
                 seqs = seqs.cuda()
-            A, M, G = model(seqs, order)
+            A = model.align.score(seqs, order)
             _, qlen, _, dlen = unpack_sequences(seqs, order)
             lens = zip(qlen, dlen)
             for i, ln in enumerate(lens):
                 ql, dl = ln
-                aln_score = np.asscalar(A[i, ql - 1, dl - 1].detach().cpu().numpy())
+                aln_score = np.asscalar(A[i].detach().cpu().numpy())
                 norm_score = aln_score / (float(ql) * float(dl))
                 q_id, d_id = qids[i], dids[i]
                 res = [q_id, d_id, np.round(aln_score, decimals=4),
