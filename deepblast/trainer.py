@@ -225,17 +225,6 @@ class LightningAligner(pl.LightningModule):
             ]
         )
         return statistics
-        
-    def test_epoch_end(self, outputs):
-        metrics = ['test_tp', 'test_fp', 'test_fn', 'test_perc_id',
-                   'test_ppv', 'test_fnr', 'test_fdr']
-        scores = []
-        for i, m in enumerate(metrics):
-            loss_f = lambda x: x[m]
-            losses = list(map(loss_f, outputs))
-            scalar = sum(losses) / len(losses)
-            scores.append(scalar)
-        return dict(zip(metrics, scores))
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
