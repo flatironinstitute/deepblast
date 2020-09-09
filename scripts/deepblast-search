@@ -43,8 +43,8 @@ def main(args):
                 aln_score = np.asscalar(A[i, ql - 1, dl - 1].detach().cpu().numpy())
                 norm_score = aln_score / (float(ql) * float(dl))
                 q_id, d_id = qids[i], dids[i]
-                res = [q_id, d_id, np.round(aln_score, decimals=2),
-                       np.round(norm_score, decimals=2)]
+                res = [q_id, d_id, np.round(aln_score, decimals=4),
+                       np.round(norm_score, decimals=4)]
                 res = list(map(str, res))
                 out_handle.write('\t'.join(res) + '\n')
 
