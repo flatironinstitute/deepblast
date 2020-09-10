@@ -215,16 +215,24 @@ class LightningAligner(pl.LightningModule):
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(seq, order)
-        # TODO; compare the traceback and the forward
+        # TODO: compare the traceback and the forward
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         assert len(statistics) > 0, (x, y, batch_idx, xlen, ylen, s, predA, theta, gap)
+        genes = list(map(
+            lambda x: self.tokenizer.alphabet.decode(x.detach().cpu().numpy()).decode("utf-8"),
+            genes))
+        others = list(map(
+            lambda x: self.tokenizer.alphabet.decode(x.detach().cpu().numpy()).decode("utf-8"), 
+            others))
         statistics = pd.DataFrame(
             statistics, columns=[
                 'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
                 'test_ppv', 'test_fnr', 'test_fdr'
             ]
         )
+        statistics['query'] = genes
+        statistics['key'] = others
         return statistics
 
     def validation_epoch_end(self, outputs):
