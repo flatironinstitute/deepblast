@@ -13,8 +13,8 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, unpack_sequences,
-    pack_sequences, revstate_f)
+    decode, states2edges, collate_f, test_collate_f,
+    unpack_sequences, pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
@@ -96,11 +96,11 @@ class LightningAligner(pl.LightningModule):
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
-            self.hparams.test_pairs,
+            self.hparams.test_pairs, return_names=True,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
-            collate_fn=collate_f, num_workers=self.hparams.num_workers,
+            collate_fn=test_collate_f, num_workers=self.hparams.num_workers,
             pin_memory=True)
         return test_dataloader
 
@@ -207,7 +207,7 @@ class LightningAligner(pl.LightningModule):
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        genes, others, s, A, P, G = batch
+        genes, others, s, A, P, G, gene_names, other_names = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
@@ -224,6 +224,8 @@ class LightningAligner(pl.LightningModule):
                 'test_ppv', 'test_fnr', 'test_fdr'
             ]
         )
+        statistics['query_name'] = gene_names
+        statistics['key_name'] = other_names
         return statistics
 
     def validation_epoch_end(self, outputs):

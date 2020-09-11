@@ -263,6 +263,29 @@ def collate_f(batch):
         G[b, :n, :m] = masks[b].bool()
     return genes, others, states, dm, p, G
 
+def test_collate_f(batch):
+    genes = [x[0] for x in batch]
+    others = [x[1] for x in batch]
+    states = [x[2] for x in batch]
+    alignments = [x[3] for x in batch]
+    paths = [x[4] for x in batch]
+    masks = [x[5] for x in batch]
+    gene_names = [x[6] for x in batch]
+    other_names = [x[7] for x in batch]
+    max_x = max(map(len, genes))
+    max_y = max(map(len, others))
+    B = len(genes)
+    dm = torch.zeros((B, max_x, max_y))
+    p = torch.zeros((B, max_x, max_y))
+    G = torch.zeros((B, max_x, max_y)).bool()
+    G.requires_grad = False
+    for b in range(B):
+        n, m = len(genes[b]), len(others[b])
+        dm[b, :n, :m] = alignments[b]
+        p[b, :n, :m] = paths[b]
+        G[b, :n, :m] = masks[b].bool()
+    return genes, others, states, dm, p, G, gene_names, other_names
+
 
 def path_distance_matrix(pi):
     """ Builds a min path distance matrix.
