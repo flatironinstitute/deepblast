@@ -28,16 +28,16 @@ class MatrixCrossEntropy:
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
         for b in range(len(x_len)):
             pos = torch.masked_select(
-                    Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
-                        Ypred[b, :x_len[b], :y_len[b]]),
-                    G[b, :x_len[b], :y_len[b]].bool()
-                )
+                Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
+                    Ypred[b, :x_len[b], :y_len[b]]),
+                G[b, :x_len[b], :y_len[b]].bool()
+            )
 
             neg = torch.masked_select(
-                    (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
-                        1 - Ypred[b, :x_len[b], :y_len[b]]),
-                    G[b, :x_len[b], :y_len[b]].bool()
-                )
+                (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
+                    1 - Ypred[b, :x_len[b], :y_len[b]]),
+                G[b, :x_len[b], :y_len[b]].bool()
+            )
             # pos = Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
             #     Ypred[b, :x_len[b], :y_len[b]])
             # neg = (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
