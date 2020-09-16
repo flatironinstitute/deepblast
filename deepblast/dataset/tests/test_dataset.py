@@ -16,17 +16,21 @@ class TestTMAlignDataset(unittest.TestCase):
 
     def test_getitem(self):
         x = TMAlignDataset(self.data_path, tm_threshold=0,
-                           pad_ends=False, clip_ends=False)
+                           pad_ends=False, clip_ends=True)
         res = x[0]
         self.assertEqual(len(res), 6)
         gene, pos, states, alignment_matrix, _, _ = res
         # test the lengths
-        self.assertEqual(len(gene), 103)
+        self.assertEqual(len(gene), 21)
         self.assertEqual(len(pos), 21)
-        self.assertEqual(len(states), 103)
+        self.assertEqual(len(states), 21)
         # wtf is going on here??
-        self.assertEqual(alignment_matrix.shape, (22, 103))
+        self.assertEqual(alignment_matrix.shape, (21, 21))
 
+    def test_gappy_getitem(self):
+        TMAlignDataset(self.data_path, tm_threshold=0,
+                       pad_ends=False, clip_ends=False)
+        # TODO: we need to make sure that the ends can be appropriately handled
 
 class TestMaliDataset(unittest.TestCase):
 

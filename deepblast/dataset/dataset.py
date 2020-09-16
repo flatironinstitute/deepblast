@@ -13,6 +13,7 @@ from deepblast.dataset.utils import (
 
 
 def reshape(x, N, M):
+    # Motherfucker ...
     if x.shape != (N, M) and x.shape != (M, N):
         raise ValueError(f'The shape of `x` {x.shape} '
                          f'does not agree with ({N}, {M})')

@@ -43,12 +43,8 @@ class LightningAligner(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        if self.hparams.aligner == 'nw':
-            self.aligner = NeedlemanWunschAligner(
-                n_alpha, n_input, n_units, n_embed, n_layers)
-        else:
-            raise NotImplementedError(
-                f'Aligner {self.hparams.aligner_type} not implemented.')
+        self.aligner = NeedlemanWunschAligner(
+            n_alpha, n_input, n_units, n_embed, n_layers)
 
     def align(self, x, y):
         x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
@@ -337,7 +333,9 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--loss',
             help=('Loss function. Options include {sse, path, cross_entropy} '
-                  '(default cross_entropy)'),
+                  '(default cross_entropy). '
+                  'WARNING: this `path` loss is deprecated, '
+                  'use at your own risk.'),
             default='cross_entropy', required=False, type=str)
         parser.add_argument(
             '--learning-rate', help='Learning rate',
@@ -347,14 +345,21 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=32)
         parser.add_argument(
             '--multitask', default=False, required=False, type=bool,
-            help='Compute multitask loss between DP and matchings'
+            help=(
+                'Compute multitask loss between DP and matchings. '
+                'WARNING: this option is deprecated, use at your own risk.'
+            )
         )
         parser.add_argument(
-            '--finetune', help='Perform finetuning',
+            '--finetune',
+            help=('Perform finetuning. '
+                  'WARNING: this option is not tested, use at your own risk.'),
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--mask-gaps', help='Mask gaps from the loss calculation.',
-            default=False, required=False, type=bool)
+            '--mask-gaps',
+            help=('Mask gaps from the loss calculation.'
+                  'WARNING: this option is deprecated, use at your own risk.'
+            ), default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',
             help=('Learning rate scheduler '
