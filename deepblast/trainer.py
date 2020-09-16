@@ -18,7 +18,7 @@ from deepblast.dataset.utils import (
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
-                             alignment_text, alignment_score)
+                             alignment_text)
 
 
 class LightningAligner(pl.LightningModule):
@@ -43,12 +43,8 @@ class LightningAligner(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        if self.hparams.aligner == 'nw':
-            self.aligner = NeedlemanWunschAligner(
-                n_alpha, n_input, n_units, n_embed, n_layers)
-        else:
-            raise NotImplementedError(
-                f'Aligner {self.hparams.aligner_type} not implemented.')
+        self.aligner = NeedlemanWunschAligner(
+            n_alpha, n_input, n_units, n_embed, n_layers)
 
     def align(self, x, y):
         x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
@@ -62,8 +58,26 @@ class LightningAligner(pl.LightningModule):
         s = ''.join(list(map(revstate_f, pred_states)))
         return s
 
-    def forward(self, x, y):
-        return self.aligner.forward(x, y)
+    def forward(self, x, order):
+        """
+        Parameters
+        ----------
+        x : PackedSequence
+            Packed sequence object of proteins to align.
+        order : np.array
+            The origin order of the sequences
+
+        Returns
+        -------
+        aln : torch.Tensor
+            Alignment Matrix (dim B x N x M)
+        mu : torch.Tensor
+            Match scoring matrix
+        g : torch.Tensor
+            Gap scoring matrix
+        """
+        aln, mu, g = self.aligner.forward(x, order)
+        return aln, mu, g
 
     def initialize_logging(self, root_dir='./', logging_path=None):
         if logging_path is None:
@@ -316,7 +330,9 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--loss',
             help=('Loss function. Options include {sse, path, cross_entropy} '
-                  '(default cross_entropy)'),
+                  '(default cross_entropy). '
+                  'WARNING: this `path` loss is deprecated, '
+                  'use at your own risk.'),
             default='cross_entropy', required=False, type=str)
         parser.add_argument(
             '--learning-rate', help='Learning rate',
@@ -326,13 +342,20 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=32)
         parser.add_argument(
             '--multitask', default=False, required=False, type=bool,
-            help='Compute multitask loss between DP and matchings'
+            help=(
+                'Compute multitask loss between DP and matchings. '
+                'WARNING: this option is deprecated, use at your own risk.'
+            )
         )
         parser.add_argument(
-            '--finetune', help='Perform finetuning',
+            '--finetune',
+            help=('Perform finetuning. '
+                  'WARNING: this option is not tested, use at your own risk.'),
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--mask-gaps', help='Mask gaps from the loss calculation.',
+            '--mask-gaps',
+            help=('Mask gaps from the loss calculation.'
+                  'WARNING: this option is deprecated, use at your own risk.'),
             default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',

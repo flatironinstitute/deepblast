@@ -8,11 +8,12 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix, remove_orphans, gap_mask
+    path_distance_matrix, gap_mask
 )
 
 
 def reshape(x, N, M):
+    # Motherfucker ...
     if x.shape != (N, M) and x.shape != (M, N):
         raise ValueError(f'The shape of `x` {x.shape} '
                          f'does not agree with ({N}, {M})')
@@ -162,10 +163,10 @@ class TMAlignDataset(AlignmentDataset):
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
+            path_matrix = reshape(path_matrix, len(gene), len(pos))
         if self.mask_gaps:
             g_mask = torch.from_numpy(gap_mask(st)).bool()
 
-        path_matrix = reshape(path_matrix, len(gene), len(pos))
         alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
         g_mask = reshape(g_mask, len(gene), len(pos))
         if not self.return_names:

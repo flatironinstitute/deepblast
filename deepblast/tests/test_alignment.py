@@ -24,14 +24,15 @@ class TestAlignmentModel(unittest.TestCase):
         self.aligner = self.aligner.cuda()
         x = torch.Tensor(
             self.tokenizer(b'ARNDCQEGHILKMFPSTWYVXOUBZ')
-        ).unsqueeze(0).long().cuda()
+        ).long().cuda()
         y = torch.Tensor(
             self.tokenizer(b'ARNDCQEGHILKARNDCQMFPSTWYVXOUBZ')
-        ).unsqueeze(0).long().cuda()
-        N, M = x.shape[1], y.shape[1]
+        ).long().cuda()
+        N, M = x.shape[0], y.shape[0]
+        M = max(N, M)
         seq, order = pack_sequences([x], [y])
         aln, theta, A = self.aligner(seq, order)
-        self.assertEqual(aln.shape, (1, N, M))
+        self.assertEqual(aln.shape, (1, M, M))
 
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_batch_alignment(self):
@@ -64,14 +65,16 @@ class TestAlignmentModel(unittest.TestCase):
         A2 = torch.ones((len(x2), len(y2))).long()
         P1 = torch.ones((len(x1), len(y1))).long()
         P2 = torch.ones((len(x2), len(y2))).long()
-        batch = [(x1, y1, s1, A1, P1), (x2, y2, s2, A2, P2)]
-        gene_codes, other_codes, states, dm, p = collate_f(batch)
+        G1 = torch.ones((len(x1), len(y1))).long()
+        G2 = torch.ones((len(x2), len(y2))).long()
+
+        batch = [(x1, y1, s1, A1, P1, G1), (x2, y2, s2, A2, P2, G2)]
+        gene_codes, other_codes, states, dm, p, g = collate_f(batch)
         self.embedding = self.embedding.cuda()
         self.aligner = self.aligner.cuda()
         seq, order = pack_sequences(gene_codes, other_codes)
         seq = seq.cuda()
         aln, theta, A = self.aligner(seq, order)
-        # TODO: wtf is going on here??
         self.assertEqual(aln.shape, (2, M, M))
         self.assertEqual(theta.shape, (2, M, M))
 

@@ -28,16 +28,16 @@ class MatrixCrossEntropy:
         Ypred = torch.clamp(Ypred, min=eps, max=1 - eps)
         for b in range(len(x_len)):
             pos = torch.masked_select(
-                    Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
-                        Ypred[b, :x_len[b], :y_len[b]]),
-                    G[b, :x_len[b], :y_len[b]].bool()
-                )
+                Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
+                    Ypred[b, :x_len[b], :y_len[b]]),
+                G[b, :x_len[b], :y_len[b]].bool()
+            )
 
             neg = torch.masked_select(
-                    (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
-                        1 - Ypred[b, :x_len[b], :y_len[b]]),
-                    G[b, :x_len[b], :y_len[b]].bool()
-                )
+                (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
+                    1 - Ypred[b, :x_len[b], :y_len[b]]),
+                G[b, :x_len[b], :y_len[b]].bool()
+            )
             # pos = Ytrue[b, :x_len[b], :y_len[b]] * torch.log(
             #     Ypred[b, :x_len[b], :y_len[b]])
             # neg = (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
@@ -49,7 +49,7 @@ class MatrixCrossEntropy:
 
 
 class SoftPathLoss:
-    def __call__(self, Pdist, Ypred, x_len, y_len, G):
+    def __call__(self, P, Y, x_len, y_len, G):
         """ Computes a soft path loss
 
         The soft path loss is given by
@@ -63,16 +63,16 @@ class SoftPathLoss:
 
         Parameters
         ----------
-        Pdist : torch.Tensor
+        P : torch.Tensor
             Pairwise path distances.
-        Ypred : torch.Tensor
+        Y : torch.Tensor
             Predicted alignment matrix of dimension N x M.
         """
         score = 0
         for b in range(len(x_len)):
             score += torch.norm(
                 torch.masked_select(
-                    Pdist[b, :x_len[b], :y_len[b]] * Ypred[b, :x_len[b], :y_len[b]],
+                    P[b, :x_len[b], :y_len[b]] * Y[b, :x_len[b], :y_len[b]],
                     G[b, :x_len[b], :y_len[b]].bool()
                 )
             )
@@ -80,7 +80,7 @@ class SoftPathLoss:
 
 
 class SoftAlignmentLoss:
-    def __call__(self, Ytrue, Ypred, x_len, y_len, G):
+    def __call__(self, Yt, Yp, x_len, y_len, G):
         """ Computes soft alignment loss as proposed in Mensch et al.
 
         The soft alignment loss is given by
@@ -91,10 +91,10 @@ class SoftAlignmentLoss:
 
         Parameters
         ----------
-        Ytrue : torch.Tensor
+        Yt : torch.Tensor
             Ground truth alignment matrix of dimension N x M.
             All entries are marked by 0 and 1.
-        Ypred : torch.Tensor
+        Yp : torch.Tensor
             Predicted alignment matrix of dimension N x M.
 
         Returns
@@ -111,7 +111,7 @@ class SoftAlignmentLoss:
         for b in range(len(x_len)):
             score += torch.norm(
                 torch.masked_select(
-                    Ytrue[b, :x_len[b], :y_len[b]] - Ypred[b, :x_len[b], :y_len[b]],
+                    Yt[b, :x_len[b], :y_len[b]] - Yp[b, :x_len[b], :y_len[b]],
                     G[b, :x_len[b], :y_len[b]].bool()
                 )
             )

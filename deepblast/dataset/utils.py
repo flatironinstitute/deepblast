@@ -57,16 +57,13 @@ def clip_boundaries(X, Y, A, st):
 
 def state_diff_f(X):
     """ Constructs a state transition element.
-
     Notes
     -----
     There is a bit of a paradox regarding beginning / ending gaps.
     To see this, try to derive an alignment matrix for the
     following alignments
-
     XXXMMMXXX
     MMYYXXMM
-
     It turns out it isn't possible to derive traversal rules
     that are consistent between these two alignments
     without explicitly handling start / end states as separate
@@ -364,7 +361,8 @@ def path_distance_matrix(pi):
 #     mask = coo_matrix((data, (rows, cols))).todense()
 #     return mask
 
-def gap_mask(states : str, sparse=False):
+
+def gap_mask(states: str, sparse=False):
     st = np.array(list(map(tmstate_f, list(states))))
     coords = states2edges(st)
     data = np.ones(len(coords))
@@ -399,14 +397,14 @@ def replace_orphan(w, s=5):
     i = len(w) // 2
     # identify orphans and replace with gaps
     sw = ''.join(w)
-    if (w[i] == ':') and((('1' * s) in sw[:i] and ('1' * s) in sw[i:]) or
-                         (('2' * s) in sw[:i] and ('2' * s) in sw[i:])):
+    if ((w[i] == ':') and ((('1' * s) in sw[:i] and ('1' * s) in sw[i:])
+                           or (('2' * s) in sw[:i] and ('2' * s) in sw[i:]))):
         return ['1', '2']
     else:
         return [w[i]]
 
 
-def remove_orphans(states, threshold : int=11):
+def remove_orphans(states, threshold: int = 11):
     """ Removes singletons and doubletons that are orphaned.
 
     A match is considered orphaned if it exceeds the `threshold` gap.
@@ -431,6 +429,6 @@ def remove_orphans(states, threshold : int=11):
     wins = list(window(states, threshold))
     rwins = list(map(lambda x: replace_orphan(x, threshold // 2), list(wins)))
     new_states = list(reduce(lambda x, y: x + y, rwins))
-    new_states = list(states[:threshold//2]) + new_states + \
-                 list(states[-threshold//2 + 1:])
+    new_states += list(states[:threshold // 2])
+    new_states += list(states[-threshold // 2 + 1:])
     return ''.join(new_states)
