@@ -374,8 +374,8 @@ def replace_orphan(w, s=5):
     i = len(w) // 2
     # identify orphans and replace with gaps
     sw = ''.join(w)
-    if ((w[i] == ':') and ((('1' * s) in sw[:i] and ('1' * s) in sw[i:]) or
-                           (('2' * s) in sw[:i] and ('2' * s) in sw[i:]))):
+    if ((w[i] == ':') and ((('1' * s) in sw[:i] and ('1' * s) in sw[i:])
+                           or (('2' * s) in sw[:i] and ('2' * s) in sw[i:]))):
         return ['1', '2']
     else:
         return [w[i]]
