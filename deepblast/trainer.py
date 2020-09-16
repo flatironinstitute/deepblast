@@ -18,7 +18,7 @@ from deepblast.dataset.utils import (
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
-                             alignment_text, alignment_score)
+                             alignment_text)
 
 
 class LightningAligner(pl.LightningModule):
@@ -76,7 +76,7 @@ class LightningAligner(pl.LightningModule):
         g : torch.Tensor
             Gap scoring matrix
         """
-        aln, mu, g = self.aligner.forward(x, y)
+        aln, mu, g = self.aligner.forward(x, order)
         return aln, mu, g
 
     def initialize_logging(self, root_dir='./', logging_path=None):
@@ -224,11 +224,11 @@ class LightningAligner(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         result = self.validation_step(batch, batch_idx)
-        val_cols=[
+        val_cols = [
             'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
             'val_ppv', 'val_fnr', 'val_fdr', 'valid_loss'
         ]
-        test_cols=[
+        test_cols = [
             'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
             'test_ppv', 'test_fnr', 'test_fdr', 'test_loss'
         ]
@@ -238,7 +238,6 @@ class LightningAligner(pl.LightningModule):
     def test_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))
-        loss = sum(losses) / len(losses)
         metrics = ['test_tp', 'test_fp', 'test_fn', 'test_perc_id',
                    'test_ppv', 'test_fnr', 'test_fdr', 'test_loss']
         scores = []
@@ -268,9 +267,6 @@ class LightningAligner(pl.LightningModule):
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
         return {'val_loss': loss, 'log': tensorboard_logs}
-
-    def test_epoch_end(self, outputs):
-        pass
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
@@ -358,8 +354,8 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--mask-gaps',
             help=('Mask gaps from the loss calculation.'
-                  'WARNING: this option is deprecated, use at your own risk.'
-            ), default=False, required=False, type=bool)
+                  'WARNING: this option is deprecated, use at your own risk.'),
+            default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',
             help=('Learning rate scheduler '

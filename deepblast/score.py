@@ -16,7 +16,6 @@ def roc_edges(true_edges, pred_edges):
     return tp, fp, fn, perc_id, ppv, fnr, fdr
 
 
-
 def roc_edges_kernel_identity(true_edges, pred_edges, kernel_width):
     pe_ = pred_edges
     pe = np.array(pred_edges)
@@ -33,8 +32,9 @@ def roc_edges_kernel_identity(true_edges, pred_edges, kernel_width):
     return perc_id
 
 
-def alignment_score_kernel(true_states: str, pred_states: str, kernel_widths : list,
-                           query_offset : int = 0, hit_offset : int = 0):
+def alignment_score_kernel(true_states: str, pred_states: str,
+                           kernel_widths: list,
+                           query_offset: int = 0, hit_offset: int = 0):
     """
     Computes ROC statistics on alignment
 
