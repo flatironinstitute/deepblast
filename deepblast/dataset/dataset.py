@@ -8,7 +8,7 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix, remove_orphans, gap_mask
+    path_distance_matrix, gap_mask
 )
 
 

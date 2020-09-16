@@ -113,7 +113,6 @@ def get_mali_structure_stats(root):
         beta residues
     """
     from Bio.PDB import PDBParser
-    from Bio.PDB.PDBIO import PDBIO
     from Bio.PDB.DSSP import DSSP
 
     res = []
@@ -124,7 +123,7 @@ def get_mali_structure_stats(root):
 
                 fname = os.path.join(path, f)
                 parser = PDBParser()
-                ids = os.path.basename(fname).split('_')
+                # ids = os.path.basename(fname).split('_')
                 structs = parser.get_structure('', fname)
                 dssp1 = DSSP(structs[0], fname, dssp='mkdssp')
                 classes1 = list(map(lambda x: x[2], dssp1))

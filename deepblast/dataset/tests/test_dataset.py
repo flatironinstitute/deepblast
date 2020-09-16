@@ -32,6 +32,7 @@ class TestTMAlignDataset(unittest.TestCase):
                        pad_ends=False, clip_ends=False)
         # TODO: we need to make sure that the ends can be appropriately handled
 
+
 class TestMaliDataset(unittest.TestCase):
 
     def setUp(self):

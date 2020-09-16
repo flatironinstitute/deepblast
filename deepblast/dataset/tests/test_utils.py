@@ -250,7 +250,7 @@ class TestDataUtils(unittest.TestCase):
                        1, 1, 1, 1, 1, 1, 1, 1, 2, 1])
         a = ''.join(list(map(revstate_f, list(st))))
         rx, ry, rs, _ = clip_boundaries(gen, oth, st, a)
-        self.assertTrue(1) # just make sure it runs
+        self.assertTrue(1)  # just make sure it runs
 
     def test_pack_sequences(self):
         X = [torch.Tensor([6, 4, 5]),
@@ -281,7 +281,6 @@ class TestPreprocess(unittest.TestCase):
 
     def test_gap_mask(self):
         s = ":11::22:"
-        N, M = 6, 6
         res = gap_mask(s)
         exp = np.array(
             [
@@ -296,7 +295,6 @@ class TestPreprocess(unittest.TestCase):
         npt.assert_equal(res, exp)
 
         s = ":11:.:22:"
-        N, M = 7, 7
         res = gap_mask(s)
         exp = np.array(
             [
@@ -322,8 +320,7 @@ class TestPreprocess(unittest.TestCase):
             '::::22222::::::::::1::::::.'
         )
         # N, M = 197, 283
-        res = gap_mask(s)
-
+        gap_mask(s)
 
     def test_replace_orphans_small(self):
         s = ":11:11:"
