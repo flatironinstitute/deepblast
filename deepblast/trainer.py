@@ -13,8 +13,8 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, unpack_sequences,
-    pack_sequences, revstate_f)
+    decode, states2edges, collate_f, test_collate_f,
+    unpack_sequences, pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
@@ -110,11 +110,11 @@ class LightningAligner(pl.LightningModule):
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
-            self.hparams.test_pairs,
+            self.hparams.test_pairs, return_names=True,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
-            collate_fn=collate_f, num_workers=self.hparams.num_workers,
+            collate_fn=test_collate_f, num_workers=self.hparams.num_workers,
             pin_memory=True)
         return test_dataloader
 
@@ -193,12 +193,10 @@ class LightningAligner(pl.LightningModule):
                     print(theta[b])
                     print(xlen[b], ylen[b])
                     raise e
-                statistics.append(stats)
+            statistics.append(stats)
         return statistics
 
     def validation_step(self, batch, batch_idx):
-        # TODO: something weird is going on with the lengths
-        # Need to make sure that they are being sorted properly
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
@@ -223,30 +221,35 @@ class LightningAligner(pl.LightningModule):
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        result = self.validation_step(batch, batch_idx)
-        val_cols = [
-            'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-            'val_ppv', 'val_fnr', 'val_fdr', 'valid_loss'
-        ]
-        test_cols = [
-            'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
-            'test_ppv', 'test_fnr', 'test_fdr', 'test_loss'
-        ]
-        test_vals = [result['log'][k] for k in val_cols]
-        return dict(zip(test_cols, test_vals))
-
-    def test_epoch_end(self, outputs):
-        loss_f = lambda x: x['validation_loss']
-        losses = list(map(loss_f, outputs))
-        metrics = ['test_tp', 'test_fp', 'test_fn', 'test_perc_id',
-                   'test_ppv', 'test_fnr', 'test_fdr', 'test_loss']
-        scores = []
-        for i, m in enumerate(metrics):
-            loss_f = lambda x: x['log'][m]
-            losses = list(map(loss_f, outputs))
-            scalar = sum(losses) / len(losses)
-            scores.append(scalar)
-        return dict(zip(metrics, scores))
+        genes, others, s, A, P, G, gene_names, other_names = batch
+        seq, order = pack_sequences(genes, others)
+        predA, theta, gap = self.aligner(seq, order)
+        x, xlen, y, ylen = unpack_sequences(seq, order)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
+        assert torch.isnan(loss).item() is False
+        # Obtain alignment statistics + visualizations
+        gen = self.aligner.traceback(seq, order)
+        # TODO: compare the traceback and the forward
+        statistics = self.validation_stats(
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+        assert len(statistics) > 0, (batch_idx, s)
+        genes = list(map(
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
+            genes))
+        others = list(map(
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
+            others))
+        statistics = pd.DataFrame(
+            statistics, columns=[
+                'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
+                'test_ppv', 'test_fnr', 'test_fdr'
+            ]
+        )
+        statistics['query_name'] = gene_names
+        statistics['key_name'] = other_names
+        return statistics
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']

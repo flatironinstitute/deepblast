@@ -56,7 +56,8 @@ class TMAlignDataset(AlignmentDataset):
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
                  tm_threshold=0.4, max_len=1024, pad_ends=False,
-                 clip_ends=True, mask_gaps=True, construct_paths=False):
+                 clip_ends=True, mask_gaps=True, return_names=False,
+                 construct_paths=False):
         """ Read in pairs of proteins.
 
 
@@ -81,6 +82,8 @@ class TMAlignDataset(AlignmentDataset):
             Specifies if the ends of the alignments should be clipped or not.
         mask_gaps : bool
             Specifies if the mask for the gaps should be constructed.
+        return_names : bool
+            Specifies if the names of the proteins should be returned.
         construct_paths : bool
             Specifies if path distances should be calculated.
 
@@ -110,6 +113,7 @@ class TMAlignDataset(AlignmentDataset):
         self.pad_ends = pad_ends
         self.clip_ends = clip_ends
         self.mask_gaps = mask_gaps
+        self.return_names = return_names
 
     def __len__(self):
         return self.pairs.shape[0]
@@ -165,7 +169,13 @@ class TMAlignDataset(AlignmentDataset):
 
         alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
         g_mask = reshape(g_mask, len(gene), len(pos))
-        return gene, pos, states, alignment_matrix, path_matrix, g_mask
+        if not self.return_names:
+            return gene, pos, states, alignment_matrix, path_matrix, g_mask
+        else:
+            gene_name = self.pairs.iloc[i]['chain1_name']
+            pos_name = self.pairs.iloc[i]['chain2_name']
+            return (gene, pos, states, alignment_matrix,
+                    path_matrix, g_mask, gene_name, pos_name)
 
 
 class MaliAlignmentDataset(AlignmentDataset):
