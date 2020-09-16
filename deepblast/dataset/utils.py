@@ -4,6 +4,8 @@ from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 from scipy.sparse import coo_matrix
 from scipy.spatial import cKDTree
 from deepblast.constants import x, m, y
+from itertools import islice
+from functools import reduce
 
 
 def state_f(z):
@@ -25,7 +27,16 @@ def tmstate_f(z):
         return m
 
 
-def clip_boundaries(X, Y, A):
+def revstate_f(z):
+    if z == x:
+        return '1'
+    if z == y:
+        return '2'
+    if z == m:
+        return ':'
+
+
+def clip_boundaries(X, Y, A, st):
     """ Remove xs and ys from ends. """
     if A[0] == m:
         first = 0
@@ -40,21 +51,19 @@ def clip_boundaries(X, Y, A):
     X_ = X[first:last].replace('-', '')
     Y_ = Y[first:last].replace('-', '')
     A_ = A[first:last]
-    return X_, Y_, A_
+    st_ = st[first:last]
+    return X_, Y_, A_, st_
 
 
 def state_diff_f(X):
     """ Constructs a state transition element.
-
     Notes
     -----
     There is a bit of a paradox regarding beginning / ending gaps.
     To see this, try to derive an alignment matrix for the
     following alignments
-
     XXXMMMXXX
     MMYYXXMM
-
     It turns out it isn't possible to derive traversal rules
     that are consistent between these two alignments
     without explicitly handling start / end states as separate
@@ -236,16 +245,20 @@ def collate_f(batch):
     states = [x[2] for x in batch]
     alignments = [x[3] for x in batch]
     paths = [x[4] for x in batch]
+    masks = [x[5] for x in batch]
     max_x = max(map(len, genes))
     max_y = max(map(len, others))
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
+    G = torch.zeros((B, max_x, max_y)).bool()
+    G.requires_grad = False
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
-    return genes, others, states, dm, p
+        G[b, :n, :m] = masks[b].bool()
+    return genes, others, states, dm, p, G
 
 
 def path_distance_matrix(pi):
@@ -273,3 +286,126 @@ def path_distance_matrix(pi):
     d, i = model.query(coords)
     Pdist = np.array(coo_matrix((d, (coords[:, 0], coords[:, 1]))).todense())
     return Pdist
+
+# Preprocessing functions
+# def gap_mask(states: np.array):
+#     """ Builds a mask for all gaps (0s are gaps, 1s are matches)
+#
+#     Parameters
+#     ----------
+#     states : np.array
+#        List of alignment states
+#
+#     Returns
+#     -------
+#     mask : np.array
+#        Masked array.
+#
+#     Notes
+#     -----
+#     Gaps and mismatches (denoted by `.`) are all masked here.
+#     """x
+#     i, j = 0, 0
+#     res = []
+#     coords = []
+#     data = []
+#     for k in range(len(states)):
+#         # print(i, j, k, states[k])
+#         if states[k] == '1':
+#             coords.append((i, j))
+#             data.append(0)
+#             i += 1
+#         elif states[k] == '2':
+#             coords.append((i, j))
+#             data.append(0)
+#             j += 1
+#         elif states[k] == ':':
+#             coords.append((i, j))
+#             data.append(1)
+#             i += 1
+#             j += 1
+#         elif states[k] == '.':
+#             coords.append((i, j))
+#             data.append(0)
+#             i += 1
+#             j += 1
+#         else:
+#             raise ValueError(f'{states[k]} is not recognized')
+#     rows, cols = zip(*coords)
+#     rows = np.array(rows)
+#     cols = np.array(cols)
+#     data = np.array(data)
+#     mask = coo_matrix((data, (rows, cols))).todense()
+#     return mask
+
+
+def gap_mask(states: str, sparse=False):
+    st = np.array(list(map(tmstate_f, list(states))))
+    coords = states2edges(st)
+    data = np.ones(len(coords))
+    row, col = list(zip(*coords))
+    row, col = np.array(row), np.array(col)
+    N, M = max(row) + 1, max(col) + 1
+    idx = np.array(list(states)) == ':'
+    idx[0] = 1
+    data = data[idx]
+    row = row[idx]
+    col = col[idx]
+    mat = coo_matrix((data, (row, col)), shape=(N, M))
+    if sparse:
+        return mat
+    else:
+        return mat.toarray().astype(np.bool)
+
+
+def window(seq, n=2):
+    "Returns a sliding window (of width n) over data from the iterable"
+    "   s -> (s0,s1,...s[n-1]), (s1,s2,...,sn), ...                   "
+    it = iter(seq)
+    result = tuple(islice(it, n))
+    if len(result) == n:
+        yield result
+    for elem in it:
+        result = result[1:] + (elem,)
+        yield result
+
+
+def replace_orphan(w, s=5):
+    i = len(w) // 2
+    # identify orphans and replace with gaps
+    sw = ''.join(w)
+    if ((w[i] == ':') and ((('1' * s) in sw[:i] and ('1' * s) in sw[i:])
+                           or (('2' * s) in sw[:i] and ('2' * s) in sw[i:]))):
+        return ['1', '2']
+    else:
+        return [w[i]]
+
+
+def remove_orphans(states, threshold: int = 11):
+    """ Removes singletons and doubletons that are orphaned.
+
+    A match is considered orphaned if it exceeds the `threshold` gap.
+
+    Parameters
+    ----------
+    states : np.array
+       List of alignment states
+    threshold : int
+       Number of consecutive gaps surrounding a matched required for it
+       to be considered an orphan.
+
+    Returns
+    -------
+    new_states : np.array
+       States string with orphans removed.
+
+    Notes
+    -----
+    The threshold *must* be an odd number. This determines the window size.
+    """
+    wins = list(window(states, threshold))
+    rwins = list(map(lambda x: replace_orphan(x, threshold // 2), list(wins)))
+    new_states = list(reduce(lambda x, y: x + y, rwins))
+    new_states += list(states[:threshold // 2])
+    new_states += list(states[-threshold // 2 + 1:])
+    return ''.join(new_states)

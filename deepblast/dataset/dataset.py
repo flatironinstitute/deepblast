@@ -8,8 +8,19 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix
+    path_distance_matrix, gap_mask
 )
+
+
+def reshape(x, N, M):
+    # Motherfucker ...
+    if x.shape != (N, M) and x.shape != (M, N):
+        raise ValueError(f'The shape of `x` {x.shape} '
+                         f'does not agree with ({N}, {M})')
+    if tuple(x.shape) != (N, M):
+        return x.t()
+    else:
+        return x
 
 
 class AlignmentDataset(Dataset):
@@ -45,7 +56,7 @@ class TMAlignDataset(AlignmentDataset):
     """
     def __init__(self, path, tokenizer=UniprotTokenizer(),
                  tm_threshold=0.4, max_len=1024, pad_ends=False,
-                 clip_ends=True, construct_paths=False):
+                 clip_ends=True, mask_gaps=True, construct_paths=False):
         """ Read in pairs of proteins.
 
 
@@ -68,6 +79,8 @@ class TMAlignDataset(AlignmentDataset):
             Specifies if the ends of the sequences should be padded or not.
         clip_ends : bool
             Specifies if the ends of the alignments should be clipped or not.
+        mask_gaps : bool
+            Specifies if the mask for the gaps should be constructed.
         construct_paths : bool
             Specifies if path distances should be calculated.
 
@@ -96,6 +109,7 @@ class TMAlignDataset(AlignmentDataset):
         # TODO: pad_ends needs to be documented properly
         self.pad_ends = pad_ends
         self.clip_ends = clip_ends
+        self.mask_gaps = mask_gaps
 
     def __len__(self):
         return self.pairs.shape[0]
@@ -124,10 +138,11 @@ class TMAlignDataset(AlignmentDataset):
         """
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
-        states = self.pairs.iloc[i]['alignment']
-        states = list(map(tmstate_f, states))
+        st = self.pairs.iloc[i]['alignment']
+
+        states = list(map(tmstate_f, st))
         if self.clip_ends:
-            gene, pos, states = clip_boundaries(gene, pos, states)
+            gene, pos, states, st = clip_boundaries(gene, pos, states, st)
 
         if self.pad_ends:
             states = [m] + states + [m]
@@ -140,15 +155,17 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         path_matrix = torch.empty(*alignment_matrix.shape)
+        g_mask = torch.ones(*alignment_matrix.shape)
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
+            path_matrix = reshape(path_matrix, len(gene), len(pos))
+        if self.mask_gaps:
+            g_mask = torch.from_numpy(gap_mask(st)).bool()
 
-        if tuple(path_matrix.shape) != (len(gene), len(pos)):
-            path_matrix = path_matrix.t()
-        if tuple(alignment_matrix.shape) != (len(gene), len(pos)):
-            alignment_matrix = alignment_matrix.t()
-        return gene, pos, states, alignment_matrix, path_matrix
+        alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
+        g_mask = reshape(g_mask, len(gene), len(pos))
+        return gene, pos, states, alignment_matrix, path_matrix, g_mask
 
 
 class MaliAlignmentDataset(AlignmentDataset):
