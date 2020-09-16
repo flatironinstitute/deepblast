@@ -260,6 +260,7 @@ def collate_f(batch):
         G[b, :n, :m] = masks[b].bool()
     return genes, others, states, dm, p, G
 
+
 def test_collate_f(batch):
     genes = [x[0] for x in batch]
     others = [x[1] for x in batch]

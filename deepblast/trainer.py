@@ -232,12 +232,14 @@ class LightningAligner(pl.LightningModule):
         # TODO: compare the traceback and the forward
         statistics = self.validation_stats(
             x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
-        assert len(statistics) > 0, (x, y, batch_idx, xlen, ylen, s, predA, theta, gap)
+        assert len(statistics) > 0, (batch_idx, s)
         genes = list(map(
-            lambda x: self.tokenizer.alphabet.decode(x.detach().cpu().numpy()).decode("utf-8"),
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
             genes))
         others = list(map(
-            lambda x: self.tokenizer.alphabet.decode(x.detach().cpu().numpy()).decode("utf-8"),
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
             others))
         statistics = pd.DataFrame(
             statistics, columns=[
