@@ -57,16 +57,13 @@ def clip_boundaries(X, Y, A, st):
 
 def state_diff_f(X):
     """ Constructs a state transition element.
-
     Notes
     -----
     There is a bit of a paradox regarding beginning / ending gaps.
     To see this, try to derive an alignment matrix for the
     following alignments
-
     XXXMMMXXX
     MMYYXXMM
-
     It turns out it isn't possible to derive traversal rules
     that are consistent between these two alignments
     without explicitly handling start / end states as separate

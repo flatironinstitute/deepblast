@@ -158,10 +158,10 @@ class TMAlignDataset(AlignmentDataset):
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
+            path_matrix = reshape(path_matrix, len(gene), len(pos))
         if self.mask_gaps:
             g_mask = torch.from_numpy(gap_mask(st)).bool()
 
-        path_matrix = reshape(path_matrix, len(gene), len(pos))
         alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
         g_mask = reshape(g_mask, len(gene), len(pos))
         return gene, pos, states, alignment_matrix, path_matrix, g_mask

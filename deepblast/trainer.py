@@ -62,8 +62,26 @@ class LightningAligner(pl.LightningModule):
         s = ''.join(list(map(revstate_f, pred_states)))
         return s
 
-    def forward(self, x, y):
-        return self.aligner.forward(x, y)
+    def forward(self, x, order):
+        """
+        Parameters
+        ----------
+        x : PackedSequence
+            Packed sequence object of proteins to align.
+        order : np.array
+            The origin order of the sequences
+
+        Returns
+        -------
+        aln : torch.Tensor
+            Alignment Matrix (dim B x N x M)
+        mu : torch.Tensor
+            Match scoring matrix
+        g : torch.Tensor
+            Gap scoring matrix
+        """
+        aln, mu, g = self.aligner.forward(x, y)
+        return aln, mu, g
 
     def initialize_logging(self, root_dir='./', logging_path=None):
         if logging_path is None:
@@ -220,7 +238,7 @@ class LightningAligner(pl.LightningModule):
         ]
         test_vals = [result['log'][k] for k in val_cols]
         return dict(zip(test_cols, test_vals))
-        
+
     def test_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
         losses = list(map(loss_f, outputs))

@@ -24,6 +24,7 @@ def read_mali(root, tool='manual', report_ids=False):
     """
     res = []
     pdbs = []
+    dirs = []
     for path, directories, files in os.walk(root):
         for f in files:
             if '.ali' in f and tool in f:
@@ -35,11 +36,14 @@ def read_mali(root, tool='manual', report_ids=False):
                     list(map(revstate_f, map(state_f, list(zip(X, Y))))))
                 res.append((X.replace('-', ''), Y.replace('-', ''), S))
                 pdbs.append(os.path.basename(f).split('.')[0])
+                dirs.append(os.path.basename(path))
     res = pd.DataFrame(res)
     if report_ids:
         res['query_id'] = np.arange(len(res)).astype(np.str)
         res['hit_id'] = (np.arange(len(res)) + len(res)).astype(np.str)
         res['pdb'] = pdbs
+        res['dir'] = dirs
+
     return res
 
 
