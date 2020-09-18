@@ -314,10 +314,6 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--valid-pairs', help='Validation pairs file', required=True)
         parser.add_argument(
-            '-a', '--aligner',
-            help='Aligner type. Choices include (nw, hmm).',
-            required=False, type=str, default='nw')
-        parser.add_argument(
             '--embedding-dim', help='Embedding dimension (default 512).',
             required=False, type=int, default=512)
         parser.add_argument(

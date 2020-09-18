@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from glob import glob
 
 classes = """
-    Development Status :: 4 - Beta
+    Development Status :: 3 - Alpha
     License :: OSI Approved :: BSD License
     Topic :: Software Development :: Libraries
     Topic :: Scientific/Engineering
@@ -19,11 +19,11 @@ classes = """
 """
 classifiers = [s.strip() for s in classes.split('\n') if s]
 
-description = ('Deep Local Sequence Alignments.')
+description = ('Deep Sequence Alignments.')
 
 
 setup(name='deepblast',
-      version='0.0.1',
+      version='0.1.0',
       license='BSD-3-Clause',
       description=description,
       author_email="jamietmorton@gmail.com",
