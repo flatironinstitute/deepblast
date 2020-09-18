@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import math
 import torch
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, IterableDataset
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import m
 from deepblast.dataset.utils import (
@@ -10,6 +10,7 @@ from deepblast.dataset.utils import (
     clip_boundaries, states2matrix, states2edges,
     path_distance_matrix, gap_mask
 )
+from Bio import SeqIO
 
 
 def reshape(x, N, M):
@@ -228,3 +229,36 @@ class MaliAlignmentDataset(AlignmentDataset):
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(states2matrix(states))
         return gene, pos, states, alignment_matrix
+
+
+class FastaDataset(IterableDataset):
+    """ Dataset for fasta files
+
+    This is appropriate when searching fasta files with pretrained models.
+    """
+    def __init__(self, query_file, db_file, tokenizer=UniprotTokenizer()):
+        """ Read in pairs of proteins
+
+        Parameters
+        ----------
+        query_file : path
+            Path to query protein sequences.
+        db_file : path
+            Path to database protein sequences.
+        """
+        self.tokenizer = tokenizer
+
+        self.query_file = query_file
+        self.db_file = db_file
+        self.db_seqs = SeqIO.parse(self.db_file, format='fasta')
+
+    def __iter__(self):
+        # load all of the contents of the query file
+        query_seqs = SeqIO.parse(self.query_file, format='fasta')
+        db = next(self.db_seqs)
+        dbid, dbseq = db.id, str(db.seq)
+        for q in query_seqs:
+            qid, qseq = q.id, str(q.seq)
+            dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()
+            qtoks = torch.Tensor(self.tokenizer(str.encode(qseq))).long()
+            yield qid, dbid, qtoks, dbtoks
