@@ -13,10 +13,12 @@ from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, unpack_sequences, pack_sequences)
+    decode, states2edges, collate_f, test_collate_f,
+    unpack_sequences, pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
-from deepblast.score import roc_edges, alignment_visualization, alignment_text
+from deepblast.score import (roc_edges, alignment_visualization,
+                             alignment_text)
 
 
 class LightningAligner(pl.LightningModule):
@@ -41,15 +43,41 @@ class LightningAligner(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        if self.hparams.aligner == 'nw':
-            self.aligner = NeedlemanWunschAligner(
-                n_alpha, n_input, n_units, n_embed, n_layers)
-        else:
-            raise NotImplementedError(
-                f'Aligner {self.hparams.aligner_type} not implemented.')
+        self.aligner = NeedlemanWunschAligner(
+            n_alpha, n_input, n_units, n_embed, n_layers)
 
-    def forward(self, x, y):
-        return self.aligner.forward(x, y)
+    def align(self, x, y):
+        x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
+        y_code = torch.Tensor(self.tokenizer(str.encode(y))).long()
+        x_code = x_code.to(self.device)
+        y_code = y_code.to(self.device)
+        seq, order = pack_sequences([x_code], [y_code])
+        gen = self.aligner.traceback(seq, order)
+        decoded, _ = next(gen)
+        pred_x, pred_y, pred_states = zip(*decoded)
+        s = ''.join(list(map(revstate_f, pred_states)))
+        return s
+
+    def forward(self, x, order):
+        """
+        Parameters
+        ----------
+        x : PackedSequence
+            Packed sequence object of proteins to align.
+        order : np.array
+            The origin order of the sequences
+
+        Returns
+        -------
+        aln : torch.Tensor
+            Alignment Matrix (dim B x N x M)
+        mu : torch.Tensor
+            Match scoring matrix
+        g : torch.Tensor
+            Gap scoring matrix
+        """
+        aln, mu, g = self.aligner.forward(x, order)
+        return aln, mu, g
 
     def initialize_logging(self, root_dir='./', logging_path=None):
         if logging_path is None:
@@ -82,22 +110,22 @@ class LightningAligner(pl.LightningModule):
 
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
-            self.hparams.test_pairs,
+            self.hparams.test_pairs, return_names=True,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
-            collate_fn=collate_f, num_workers=self.hparams.num_workers,
+            collate_fn=test_collate_f, num_workers=self.hparams.num_workers,
             pin_memory=True)
         return test_dataloader
 
-    def compute_loss(self, x, y, predA, A, P, theta):
+    def compute_loss(self, x, y, predA, A, P, G, theta):
 
         if isinstance(self.loss_func, SoftAlignmentLoss):
-            loss = self.loss_func(A, predA, x, y)
+            loss = self.loss_func(A, predA, x, y, G)
         elif isinstance(self.loss_func, MatrixCrossEntropy):
-            loss = self.loss_func(A, predA, x, y)
+            loss = self.loss_func(A, predA, x, y, G)
         elif isinstance(self.loss_func, SoftPathLoss):
-            loss = self.loss_func(P, predA, x, y)
+            loss = self.loss_func(P, predA, x, y, G)
         if self.hparams.multitask:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
             current_lr = current_lr.get_last_lr()[0]
@@ -111,11 +139,11 @@ class LightningAligner(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         self.aligner.train()
-        genes, others, s, A, P = batch
+        genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         _, xlen, _, ylen = unpack_sequences(seq, order)
-        loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
@@ -165,17 +193,15 @@ class LightningAligner(pl.LightningModule):
                     print(theta[b])
                     print(xlen[b], ylen[b])
                     raise e
-                statistics.append(stats)
+            statistics.append(stats)
         return statistics
 
     def validation_step(self, batch, batch_idx):
-        # TODO: something weird is going on with the lengths
-        # Need to make sure that they are being sorted properly
-        genes, others, s, A, P = batch
+        genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
-        loss = self.compute_loss(xlen, ylen, predA, A, P, theta)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(seq, order)
@@ -195,7 +221,35 @@ class LightningAligner(pl.LightningModule):
                 'log': tensorboard_logs}
 
     def test_step(self, batch, batch_idx):
-        pass
+        genes, others, s, A, P, G, gene_names, other_names = batch
+        seq, order = pack_sequences(genes, others)
+        predA, theta, gap = self.aligner(seq, order)
+        x, xlen, y, ylen = unpack_sequences(seq, order)
+        loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
+        assert torch.isnan(loss).item() is False
+        # Obtain alignment statistics + visualizations
+        gen = self.aligner.traceback(seq, order)
+        # TODO: compare the traceback and the forward
+        statistics = self.validation_stats(
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+        assert len(statistics) > 0, (batch_idx, s)
+        genes = list(map(
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
+            genes))
+        others = list(map(
+            lambda x: self.tokenizer.alphabet.decode(
+                x.detach().cpu().numpy()).decode("utf-8"),
+            others))
+        statistics = pd.DataFrame(
+            statistics, columns=[
+                'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
+                'test_ppv', 'test_fnr', 'test_fdr'
+            ]
+        )
+        statistics['query_name'] = gene_names
+        statistics['key_name'] = other_names
+        return statistics
 
     def validation_epoch_end(self, outputs):
         loss_f = lambda x: x['validation_loss']
@@ -216,9 +270,6 @@ class LightningAligner(pl.LightningModule):
             [('val_loss', loss)] + list(zip(metrics, scores))
         )
         return {'val_loss': loss, 'log': tensorboard_logs}
-
-    def test_epoch_end(self, outputs):
-        pass
 
     def configure_optimizers(self):
         for p in self.aligner.lm.parameters():
@@ -281,7 +332,9 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--loss',
             help=('Loss function. Options include {sse, path, cross_entropy} '
-                  '(default cross_entropy)'),
+                  '(default cross_entropy). '
+                  'WARNING: this `path` loss is deprecated, '
+                  'use at your own risk.'),
             default='cross_entropy', required=False, type=str)
         parser.add_argument(
             '--learning-rate', help='Learning rate',
@@ -291,13 +344,20 @@ class LightningAligner(pl.LightningModule):
             required=False, type=int, default=32)
         parser.add_argument(
             '--multitask', default=False, required=False, type=bool,
-            help='Compute multitask loss between DP and matchings'
+            help=(
+                'Compute multitask loss between DP and matchings. '
+                'WARNING: this option is deprecated, use at your own risk.'
+            )
         )
         parser.add_argument(
-            '--finetune', help='Perform finetuning',
+            '--finetune',
+            help=('Perform finetuning. '
+                  'WARNING: this option is not tested, use at your own risk.'),
             default=False, required=False, type=bool)
         parser.add_argument(
-            '--clip-ends', help='Clip ends of training alignments.',
+            '--mask-gaps',
+            help=('Mask gaps from the loss calculation.'
+                  'WARNING: this option is deprecated, use at your own risk.'),
             default=False, required=False, type=bool)
         parser.add_argument(
             '--scheduler',
