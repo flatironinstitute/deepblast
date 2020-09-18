@@ -14,9 +14,9 @@ pip install git+https://github.com/flatironinstitute/deepblast.git
 
 # Downloading pretrained models and data
 
-The pretrained DeepBLAST model can be downloaded [here](https://users.flatironinstitute.org/mortonjt/public_www/deepblast-public-data/checkpoints/epoch=9.pt).
+The pretrained DeepBLAST model can be downloaded [here](https://users.flatironinstitute.org/jmorton/public_www/deepblast-public-data/checkpoints/epoch=9.pt).
 
-The TM-align structural alignments used to pretrain DeepBLAST can be found [here](https://users.flatironinstitute.org/mortonjt/public_www/deepblast-public-data/tmalign.tar.gz)
+The TM-align structural alignments used to pretrain DeepBLAST can be found [here](https://users.flatironinstitute.org/jmorton/public_www/deepblast-public-data/tmalign.tar.gz)
 
 
 See the [Malisam](http://prodata.swmed.edu/malisam/) and [Malidup](http://prodata.swmed.edu/malidup/) websites to download their datasets.
