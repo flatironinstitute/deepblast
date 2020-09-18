@@ -63,6 +63,8 @@ class NeedlemanWunschAligner(nn.Module):
         ----------
         x : PackedSequence
             Packed sequence object of proteins to align.
+        order : np.array
+            The origin order of the sequences
 
         Returns
         -------

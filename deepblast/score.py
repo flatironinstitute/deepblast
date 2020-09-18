@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from deepblast.dataset.utils import states2alignment
+from deepblast.dataset.utils import states2alignment, tmstate_f, states2edges
 
 
 def roc_edges(true_edges, pred_edges):
@@ -14,6 +14,72 @@ def roc_edges(true_edges, pred_edges):
     fnr = fn / (fn + tp)
     fdr = fp / (fp + tp)
     return tp, fp, fn, perc_id, ppv, fnr, fdr
+
+
+def roc_edges_kernel_identity(true_edges, pred_edges, kernel_width):
+    pe_ = pred_edges
+    pe = np.array(pred_edges)
+    for k in range(kernel_width):
+        pred_edges_k_pos = pe + k
+        pred_edges_k_neg = pe - k
+        pe_ += list(map(tuple, pred_edges_k_pos))
+        pe_ += list(map(tuple, pred_edges_k_neg))
+
+    truth = set(true_edges)
+    pred = set(pe_)
+    tp = len(truth & pred)
+    perc_id = tp / len(true_edges)
+    return perc_id
+
+
+def alignment_score_kernel(true_states: str, pred_states: str,
+                           kernel_widths: list,
+                           query_offset: int = 0, hit_offset: int = 0):
+    """
+    Computes ROC statistics on alignment
+
+    Parameters
+    ----------
+    true_states : str
+        Ground truth state string
+    pred_states : str
+        Predicted state string
+    """
+
+    pred_states = list(map(tmstate_f, pred_states))
+    true_states = list(map(tmstate_f, true_states))
+    pred_edges = states2edges(pred_states)
+    true_edges = states2edges(true_states)
+    # add offset to account for local alignments
+    true_edges = list(map(tuple, np.array(true_edges)))
+    pred_edges = np.array(pred_edges)
+    pred_edges[:, 0] += query_offset
+    pred_edges[:, 1] += hit_offset
+    pred_edges = list(map(tuple, pred_edges))
+
+    res = []
+    for k in kernel_widths:
+        r = roc_edges_kernel_identity(true_edges, pred_edges, k)
+        res.append(r)
+    return res
+
+
+def alignment_score(true_states: str, pred_states: str):
+    """
+    Computes ROC statistics on alignment
+    Parameters
+    ----------
+    true_states : str
+        Ground truth state string
+    pred_states : str
+        Predicted state string
+    """
+    pred_states = list(map(tmstate_f, pred_states))
+    true_states = list(map(tmstate_f, true_states))
+    pred_edges = states2edges(pred_states)
+    true_edges = states2edges(true_states)
+    stats = roc_edges(true_edges, pred_edges)
+    return stats
 
 
 def alignment_visualization(truth, pred, match, gap, xlen, ylen):
