@@ -69,7 +69,7 @@ usage: deepblast-evaluate [-h] [--gpus GPUS] [--num-workers NUM_WORKERS] [--node
 
 ```python
 
-# Load checkpoint
+import torch
 from deepblast.trainer import LightningAligner
 from deepblast.dataset.utils import pack_sequences
 from deepblast.dataset.utils import states2alignment
@@ -85,9 +85,9 @@ model = model.cuda()
 x = 'IGKEEIQQRLAQFVDHWKELKQLAAARGQRLEESLEYQQFVANVEEEEAWINEKMTLVASED'
 y = 'QQNKELNFKLREKQNEIFELKKIAETLRSKLEKYVDITKKLEDQNLNLQIKISDLEKKLSDA'
 pred_alignment = model.align(x, y)
-x_aligned, y_aligned = states2alignment(states, x, y)
+x_aligned, y_aligned = states2alignment(pred_alignment, x, y)
 print(x_aligned)
-print(states)
+print(pred_alignment)
 print(y_aligned)
 
 x_ = torch.Tensor(model.tokenizer(str.encode(x))).long()
