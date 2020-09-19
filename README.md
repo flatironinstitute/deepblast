@@ -29,7 +29,7 @@ See the [Malisam](http://prodata.swmed.edu/malisam/) and [Malidup](http://prodat
 
 # Getting started
 
-We have 3 command line scripts available, namely `deepblast-train`, `deepblast-eval` and `deepblast-search`.
+We have 2 command line scripts available, namely `deepblast-train` and `deepblast-eval`.
 
 ## Pretraining
 
