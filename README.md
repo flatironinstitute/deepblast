@@ -1,3 +1,7 @@
+# DeepBLAST 
+
+Learning protein structural similarity from sequence alone.
+
 # Installation
 
 DeepBLAST can be installed from pip via
