@@ -93,6 +93,22 @@ class NeedlemanWunschAligner(nn.Module):
             return ascore
 
     def traceback(self, x, order):
+        """ Generate alignment matrix.
+
+        Parameters
+        ----------
+        x : PackedSequence
+            Packed sequence object of proteins to align.
+        order : np.array
+            The origin order of the sequences
+
+        Returns
+        -------
+        decoded : list of tuple
+            State string representing alignment coordinates
+        aln : torch.Tensor
+            Alignment Matrix (dim B x N x M)
+        """
         # dim B x N x D
         with torch.enable_grad():
             zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)

@@ -134,6 +134,11 @@ def states2matrix(states, sparse=False):
 
 def states2alignment(states: np.array, X: str, Y: str):
     """ Converts state string to gapped alignments """
+
+    # Convert states to array if it is a string
+    if isinstance(states, str):
+        states = np.array(list(map(tmstate_f, list(states))))
+
     sx = np.sum(states == x) + np.sum(states == m)
     sy = np.sum(states == y) + np.sum(states == m)
     if sx != len(X):
