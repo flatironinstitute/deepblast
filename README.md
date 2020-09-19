@@ -94,10 +94,8 @@ print(x_aligned)
 print(states)
 print(y_aligned)
 
-x = str.encode('IGKEEIQQRLAQFVDHWKELKQLAAARGQRLEESLEYQQFVANVEEEEAWINEKMTLVASED')
-y = str.encode('QQNKELNFKLREKQNEIFELKKIAETLRSKLEKYVDITKKLEDQNLNLQIKISDLEKKLSDA')
-x_ = torch.Tensor(model.tokenizer(x)).long()
-y_ = torch.Tensor(model.tokenizer(y)).long()
+x_ = torch.Tensor(model.tokenizer(str.encode(x))).long()
+y_ = torch.Tensor(model.tokenizer(str.encode(y))).long()
 
 # Pack sequences for easier parallelization
 seq, order = pack_sequences([x_], [y_])
