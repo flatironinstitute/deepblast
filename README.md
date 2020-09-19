@@ -122,11 +122,11 @@ QQNKELNFKLREKQNEIFELKKIAETLRSKLEKYVDITKKLEDQNLNLQIKISDLEKKLSDA
 
 ![](https://raw.githubusercontent.com/flatironinstitute/deepblast/master/imgs/example-alignment.png "example alignment")
 
-**FAQ**
+# FAQ
 
-Q : How do I interpret the alignment string?
+**Q** : How do I interpret the alignment string?
 
-A : The alignment string is used to indicate matches and mismatches between sequences. For example consider the following alignment
+**A** : The alignment string is used to indicate matches and mismatches between sequences. For example consider the following alignment
 
 ```
 ADQSFLWASGVI-S------D-EM--
