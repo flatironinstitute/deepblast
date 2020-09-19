@@ -64,14 +64,6 @@ usage: deepblast-evaluate [-h] [--gpus GPUS] [--num-workers NUM_WORKERS] [--node
                           OUTPUT_DIRECTORY
 ```
 
-## Search
-
-We have enabled a simple fasta search that will enable structural similarity to be evaluated across fasta files.  This will perform a GPU-accelerated Needleman-Wunsch to evaluate all pairwise alignments.  At this moment, we only output tab-delimited file of the alignment scores.  The commandline options are given below (see `deepblast-search --help` for more details)
-
-```
-usage: deepblast-search [-h] --query-fasta QUERY_FASTA --db-fasta DB_FASTA --load-from-checkpoint LOAD_FROM_CHECKPOINT --output-file OUTPUT_FILE [--gpu GPU]
-                        [--num-workers NUM_WORKERS] [--batch-size BATCH_SIZE]
-```
 
 ## Loading the models
 
