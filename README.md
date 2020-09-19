@@ -121,3 +121,13 @@ QQNKELNFKLREKQNEIFELKKIAETLRSKLEKYVDITKKLEDQNLNLQIKISDLEKKLSDA
 ```
 
 ![](https://raw.githubusercontent.com/flatironinstitute/deepblast/master/imgs/example-alignment.png "example alignment")
+
+**FAQ**
+Q : How do I interpret the alignment string?
+A : The alignment string is used to indicate matches and mismatches between sequences. For example consider the following alignment
+```
+ADQSFLWASGVI-S------D-EM--
+::::::::::::2:222222:2:122
+MHHHHHHSSGVDLWSHPQFEKGT-EN
+```
+The first 12 residues in the alignment are matches.  The last 2 characters indicate insertions in the second sequence (hence the 2 in the alignment string), and the 3rd to last character indciates an insertion in the first sequence (hence the 1 in the aligment string).
