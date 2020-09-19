@@ -33,14 +33,15 @@ def main(args):
     with open(args.output_file, 'w') as out_handle:
         for batch in tqdm(dataloader):
             qids, dids, seqs, order = batch
+            print(qids, dids)
             if args.gpu:
                 seqs = seqs.cuda()
-            A = model.align.score(seqs, order)
+            A = model.aligner.score(seqs, order)
             _, qlen, _, dlen = unpack_sequences(seqs, order)
             lens = zip(qlen, dlen)
             for i, ln in enumerate(lens):
                 ql, dl = ln
-                aln_score = np.asscalar(A[i].detach().cpu().numpy())
+                aln_score = A[i].detach().cpu().numpy().item()
                 norm_score = aln_score / (float(ql) * float(dl))
                 q_id, d_id = qids[i], dids[i]
                 res = [q_id, d_id, np.round(aln_score, decimals=4),

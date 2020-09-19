@@ -255,10 +255,11 @@ class FastaDataset(IterableDataset):
     def __iter__(self):
         # load all of the contents of the query file
         query_seqs = SeqIO.parse(self.query_file, format='fasta')
-        db = next(self.db_seqs)
-        dbid, dbseq = db.id, str(db.seq)
-        for q in query_seqs:
-            qid, qseq = q.id, str(q.seq)
-            dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()
-            qtoks = torch.Tensor(self.tokenizer(str.encode(qseq))).long()
-            yield qid, dbid, qtoks, dbtoks
+        #db = next(self.db_seqs)
+        for db in self.db_seqs:
+            dbid, dbseq = db.id, str(db.seq)
+            for q in query_seqs:
+                qid, qseq = q.id, str(q.seq)
+                dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()
+                qtoks = torch.Tensor(self.tokenizer(str.encode(qseq))).long()
+                yield qid, dbid, qtoks, dbtoks
