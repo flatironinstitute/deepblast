@@ -103,9 +103,9 @@ A, match_scores, gap_scores = model.forward(seq, order)
 
 # Display the expected alignment
 fig, ax = plt.subplots(1, 3, figsize=(9, 3))
-sns.heatmap(aln.cpu().detach().numpy().squeeze(), ax=ax[0], cbar=False,  cmap='viridis')
-sns.heatmap(theta.cpu().detach().numpy().squeeze(), ax=ax[1],  cmap='viridis')
-sns.heatmap(g.cpu().detach().numpy().squeeze(), ax=ax[2],  cmap='viridis')
+sns.heatmap(A.cpu().detach().numpy().squeeze(), ax=ax[0], cbar=False,  cmap='viridis')
+sns.heatmap(match_scores.cpu().detach().numpy().squeeze(), ax=ax[1],  cmap='viridis')
+sns.heatmap(gap_scores.cpu().detach().numpy().squeeze(), ax=ax[2],  cmap='viridis')
 ax[0].set_title('Predicted Alignment')
 ax[1].set_title('Match scores ($\mu$)')
 ax[2].set_title('Gap scores ($g$)')
