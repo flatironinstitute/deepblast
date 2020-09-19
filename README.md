@@ -74,6 +74,7 @@ from deepblast.trainer import LightningAligner
 from deepblast.dataset.utils import pack_sequences
 from deepblast.dataset.utils import states2alignment
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # Load the pretrained model
 model = LightningAligner.load_from_checkpoint(your_model_path)
