@@ -14,7 +14,7 @@ from Bio import SeqIO
 
 
 def reshape(x, N, M):
-    # Motherfucker ...
+    # TODO: this may be problematic for local alignments
     if x.shape != (N, M) and x.shape != (M, N):
         raise ValueError(f'The shape of `x` {x.shape} '
                          f'does not agree with ({N}, {M})')
@@ -247,17 +247,18 @@ class FastaDataset(IterableDataset):
             Path to database protein sequences.
         """
         self.tokenizer = tokenizer
-
         self.query_file = query_file
         self.db_file = db_file
-        self.db_seqs = SeqIO.parse(self.db_file, format='fasta')
+
 
     def __iter__(self):
         # load all of the contents of the query file
-        query_seqs = SeqIO.parse(self.query_file, format='fasta')
+        db_seqs = SeqIO.parse(self.db_file, format='fasta')
         #db = next(self.db_seqs)
-        for db in self.db_seqs:
+        for db in db_seqs:
             dbid, dbseq = db.id, str(db.seq)
+            if len(dbseq) > 1000: continue
+            query_seqs = SeqIO.parse(self.query_file, format='fasta')
             for q in query_seqs:
                 qid, qseq = q.id, str(q.seq)
                 dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()

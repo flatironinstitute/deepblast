@@ -295,8 +295,7 @@ def collate_fasta_f(batch):
     other_ids = [x[1] for x in batch]
     genes = [x[2] for x in batch]
     others = [x[3] for x in batch]
-    seqs, order = pack_sequences(genes, others)
-    return gene_ids, other_ids, seqs, order
+    return gene_ids, other_ids, genes, others
 
 
 def path_distance_matrix(pi):

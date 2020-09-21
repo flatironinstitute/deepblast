@@ -58,6 +58,12 @@ class LightningAligner(pl.LightningModule):
         s = ''.join(list(map(revstate_f, pred_states)))
         return s
 
+    def score(self, x_code, y_code):
+        seq, order = pack_sequences(x_code, y_code)
+        seq = seq.to(self.device)
+        A = self.aligner.score(seq, order)
+        return A
+
     def forward(self, x, order):
         """
         Parameters

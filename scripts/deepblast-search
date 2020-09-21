@@ -31,16 +31,12 @@ def main(args):
     if args.gpu:
         model = model.cuda()
     with open(args.output_file, 'w') as out_handle:
-        for batch in tqdm(dataloader):
-            qids, dids, seqs, order = batch
-            print(qids, dids)
-            if args.gpu:
-                seqs = seqs.cuda()
-            A = model.aligner.score(seqs, order)
-            _, qlen, _, dlen = unpack_sequences(seqs, order)
-            lens = zip(qlen, dlen)
-            for i, ln in enumerate(lens):
-                ql, dl = ln
+        for batch in dataloader:
+            qids, dids, qtoks, dbtoks = batch            
+            print(qids, dids)            
+            A = model.score(qtoks, dbtoks)
+            for i in range(A.shape[0]):
+                ql, dl = len(qids[i]), len(dids[i])
                 aln_score = A[i].detach().cpu().numpy().item()
                 norm_score = aln_score / (float(ql) * float(dl))
                 q_id, d_id = qids[i], dids[i]
