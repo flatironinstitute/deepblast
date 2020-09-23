@@ -33,16 +33,17 @@ def main(args):
     with open(args.output_file, 'w') as out_handle:
         for batch in dataloader:
             qids, dids, qtoks, dbtoks = batch            
-            print(qids, dids)            
             A = model.score(qtoks, dbtoks)
+            A = A.detach().cpu().numpy()
             for i in range(A.shape[0]):
                 ql, dl = len(qids[i]), len(dids[i])
-                aln_score = A[i].detach().cpu().numpy().item()
+                aln_score = A[i]
                 norm_score = aln_score / (float(ql) * float(dl))
                 q_id, d_id = qids[i], dids[i]
                 res = [q_id, d_id, np.round(aln_score, decimals=4),
                        np.round(norm_score, decimals=4)]
                 res = list(map(str, res))
+                print(q_id, d_id)
                 out_handle.write('\t'.join(res) + '\n')
 
 

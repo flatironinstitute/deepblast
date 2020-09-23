@@ -257,7 +257,6 @@ class FastaDataset(IterableDataset):
         #db = next(self.db_seqs)
         for db in db_seqs:
             dbid, dbseq = db.id, str(db.seq)
-            if len(dbseq) > 1000: continue
             query_seqs = SeqIO.parse(self.query_file, format='fasta')
             for q in query_seqs:
                 qid, qseq = q.id, str(q.seq)
