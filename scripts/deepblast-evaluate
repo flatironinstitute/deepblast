@@ -1,0 +1,50 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+import pandas as pd
+import torch
+from pytorch_lightning import Trainer
+from deepblast.trainer import LightningAligner
+
+
+def main(args):
+    print('args', args)
+    model = LightningAligner.load_from_checkpoint(
+        args.load_from_checkpoint)
+
+    trainer = Trainer(
+        max_epochs=args.epochs,
+        gpus=args.gpus,
+        num_nodes=args.nodes,
+        distributed_backend=args.backend,
+        precision=args.precision,
+        # check_val_every_n_epoch=1,
+        val_check_interval=0.25,
+        fast_dev_run=False,
+        # auto_scale_batch_size='power',
+        # profiler=profiler,
+    )
+    # something weird is going on with the test function
+    test_res = trainer.test(model)
+    fname = os.path.basename(args.test_pairs)
+    test_res = list(map(pd.DataFrame, test_res))
+    test_res = pd.concat(test_res, axis=0)
+    test_res.to_csv(
+        f'{args.output_directory}/{fname}-results.csv'
+    )
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--gpus', type=int, default=None)
+    parser.add_argument('--num-workers', type=int, default=1)
+    parser.add_argument('--nodes', type=int, default=1)
+    parser.add_argument('--load-from-checkpoint', type=str, default=None)
+    parser.add_argument('--precision', type=int, default=32)
+    parser.add_argument('--backend', type=str, default=None)
+    # options include ddp_cpu, dp, ddp
+
+    parser = LightningAligner.add_model_specific_args(parser)
+    hparams = parser.parse_args()
+    main(hparams)

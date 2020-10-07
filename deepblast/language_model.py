@@ -209,10 +209,10 @@ class BiLM(nn.Module):
         if packed:
             h_flat = h_fwd.data
             logp_fwd = self.linear(h_flat)
-            logp_fwd = PackedSequence(logp_fwd, h_fwd.batch_s)
+            logp_fwd = PackedSequence(logp_fwd, h_fwd.batch_sizes)
             h_flat = h_rvs.data
             logp_rvs = self.linear(h_flat)
-            logp_rvs = PackedSequence(logp_rvs, h_rvs.batch_s)
+            logp_rvs = PackedSequence(logp_rvs, h_rvs.batch_sizes)
             logp_fwd, batch_s = pad_packed_sequence(logp_fwd, batch_first=True)
             logp_rvs, batch_s = pad_packed_sequence(logp_rvs, batch_first=True)
         else:

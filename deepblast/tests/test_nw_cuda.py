@@ -3,6 +3,8 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw_cuda import NeedlemanWunschDecoder
+from deepblast.utils import get_data_path
+from deepblast.dataset.utils import states2alignment
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 
@@ -39,18 +41,32 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
                                      requires_grad=True,
                                      dtype=torch.float32,
                                      device=cuda_device)
-            self.A = torch.ones(
-                B, dtype=torch.float32, device=cuda_device) * -1.0
+            self.A = -1. * torch.ones_like(
+                self.theta, dtype=torch.float32, device=cuda_device)
             self.B, self.S, self.N, self.M = B, S, N, M
             # TODO: Compare against hardmax and sparsemax
             self.operator = 'softmax'
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
+    def test_grad_needlemanwunsch_function(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        theta, A = self.theta, self.A
+        theta.requires_grad_()
+        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
+
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
+    def test_hessian_needlemanwunsch_function(self):
+        needle = NeedlemanWunschDecoder(self.operator)
+        inputs = (self.theta, self.A)
+        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
+
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_decoding(self):
         theta = torch.tensor(make_data().astype(np.float32),
                              device=self.theta.device).unsqueeze(0)
         theta.requires_grad_()
-        A = torch.tensor([0.1], dtype=torch.float32, device=self.theta.device)
+        A = 0.1 * torch.ones_like(
+            theta, dtype=torch.float32, device=self.theta.device)
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
@@ -59,18 +75,16 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
-    @unittest.skip("Can only run with GPU")
-    def test_grad_needlemanwunsch_function(self):
-        needle = NeedlemanWunschDecoder(self.operator)
-        theta, A = self.theta, self.A
-        theta.requires_grad_()
-        gradcheck(needle, (theta, A), eps=1e-1, atol=1e-1, rtol=1e-1)
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
+    def test_decoding2(self):
+        X = 'HECDRKTCDESFSTKGNLRVHKLGH'
+        Y = 'LKCSGCGKNFKSQYAYKRHEQTH'
 
-    @unittest.skip("Can only run with GPU")
-    def test_hessian_needlemanwunsch_function(self):
         needle = NeedlemanWunschDecoder(self.operator)
-        inputs = (self.theta, self.A)
-        gradgradcheck(needle, inputs, eps=1e-1, atol=1e-1, rtol=1e-1)
+        dm = torch.Tensor(np.loadtxt(get_data_path('dm.txt')))
+        decoded = needle.traceback(dm)
+        pred_x, pred_y, pred_states = list(zip(*decoded))
+        states2alignment(np.array(pred_states), X, Y)
 
 
 if __name__ == "__main__":

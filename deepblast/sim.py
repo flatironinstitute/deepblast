@@ -52,7 +52,7 @@ def gen_alignments(msa, n_alignments):
         n2, aj = re.split(r'\s+', msa[j])
         x, y, s = parse_alignment(
             ai.replace('-', '.'), aj.replace('-', '.'))
-        alignments.append((n1, n2, 1, 1, 1, x, y, s))
+        alignments.append((n1, n2, 1, 1, 1, y, x, s))
     return alignments
 
 
