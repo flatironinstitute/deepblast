@@ -18,7 +18,7 @@ from deepblast.dataset.utils import (
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
-                             alignment_text)
+                             alignment_text, filter_gaps)
 
 
 class LightningAligner(pl.LightningModule):
@@ -171,6 +171,8 @@ class LightningAligner(pl.LightningModule):
             truth_states = states[b].cpu().detach().numpy()
             pred_edges = states2edges(pred_states)
             true_edges = states2edges(truth_states)
+            pred_edges = filter_gaps(pred_states, pred_edges)
+            true_edges = filter_gaps(true_states, true_edges)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
                 Av = A[b].cpu().detach().numpy().squeeze()
