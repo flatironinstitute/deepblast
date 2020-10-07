@@ -149,7 +149,7 @@ class StackedCNN(nn.Module):
         self.conv = nn.Sequential(*([nn.Conv1d(in_channels=nembed if layer == 0 else nout,
                                                out_channels=nout,
                                                kernel_size=k_size,
-                                               padding=k_size//2) for layer in range(nlayers)]))
+                                               padding=k_size // 2) for layer in range(nlayers)]))
         self.dropout = nn.Dropout(p=dropout)
 
         if padding_idx == -1:
