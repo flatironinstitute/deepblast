@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 from deepblast.ops import operators
+from deepblast.constants import x, m, y
 
 
 def _forward_pass(theta, A, operator='softmax'):
@@ -35,8 +36,7 @@ def _forward_pass(theta, A, operator='softmax'):
     V = new(N + 1, M + 1, 3).zero_()    # N x M x S
     Q = new(N + 2, M + 2, 3, 3).zero_() # N x M x S x S
 
-    m, x, y = 0, 1, 2 # state numbering
-    neg_inf = -3e8   # very negative number
+    neg_inf = -1e8   # very negative number
     V = V + neg_inf
     V[0, 0, m] = 1
     # Forward pass
@@ -46,6 +46,7 @@ def _forward_pass(theta, A, operator='softmax'):
             V[i, j, x], Q[i, j, x] = operator.max(V[i-1, j] + A[x])
             V[i, j, y], Q[i, j, y] = operator.max(V[i, j-1] + A[y])
             V[i, j, m] += theta[i-1, j-1, m]
+    print(V[1:, 1:])
     Vt, Q[N + 1, M + 1, m] = operator.max(V[N, M])
     return Vt, Q
 
@@ -66,7 +67,6 @@ def _backward_pass(Et, Q):
     n_1, m_1, _, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
-    m, x, y = 0, 1, 2 # state numbering
 
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
@@ -77,7 +77,7 @@ def _backward_pass(Et, Q):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
-            # print(i, j, E[i, j])
+            # print(i, j, E[i, j, m], Q[i + 1, j + 1, m], E[i + 1, j + 1])
     return E
 
 
@@ -102,8 +102,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
-    ie = 3e-8  # a very small number for numerical stability
-    neg_inf = -3e8   # very negative number
+    neg_inf = -1e8   # very negative number
     operator = operators[operator]
     new = Ztheta.new
     N, M, _ = Ztheta.size()
@@ -116,7 +115,6 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Zc = torch.log(1 - 2 * Zdelta - Zt + ie) - torch.log(1 - Zeps - Zt + ie)
     Vd = new(N + 1, M + 1, 3).zero_()
     Qd = new(N + 2, M + 2, 3, 3).zero_()
-    m, x, y = 0, 1, 2 # state numbering
     Vd[0, 0, m] = 2 * Zn
     # Forward pass
     for i in range(1, N + 1):
@@ -161,7 +159,6 @@ def _adjoint_backward_pass(E, Q, Qd):
     N, M = N_1 - 2, M_1 - 2
     new = Qd.new
     Ed = new(N + 2, M + 2, 3).zero_()
-    m, x, y = 0, 1, 2 # state numbering
 
     # Backward pass
     for i in reversed(range(1, N + 1)):

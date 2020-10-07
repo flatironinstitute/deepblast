@@ -9,6 +9,7 @@ from deepblast.viterbi import (
     ViterbiFunction, ViterbiFunctionBackward,
     ViterbiDecoder
 )
+from deepblast.constants import x, m, y
 import unittest
 
 
@@ -19,8 +20,12 @@ class TestViterbiUtils(unittest.TestCase):
         torch.manual_seed(0)
         N, M = 4, 5
         S = 3
-        self.theta = torch.randn(N, M)
-        self.Ztheta = torch.randn(N, M)
+        self.theta = torch.rand(N, M, S,
+                                requires_grad=True,
+                                dtype=torch.float32).squeeze()
+        self.theta[:, :, x] = 0
+        self.theta[:, :, y] = 0
+        self.Ztheta = torch.randn(N, M, S)
         self.A = torch.randn(S, S)
         self.N = N
         self.M = M
@@ -33,11 +38,24 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(len(res), 2)
         resV, resQ = res
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, 3, 3))
-        self.assertAlmostEqual(resV.detach().cpu(), 3,7633)
+        self.assertAlmostEqual(resV.detach().cpu().item(), 9.1165285)
+
+    def test_forward_pass_soft(self):
+        N, M = 2, 2
+        theta = torch.ones(N, M, self.S)
+        theta[:, :, x] = 0
+        theta[:, :, y] = 0
+        A = torch.ones(self.S, self.S)
+        res = _forward_pass(theta, A, 'softmax')
+        self.assertEqual(len(res), 2)
+        resV, resQ = res
+        self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(5)))
 
     def test_forward_pass_hard(self):
         N, M = 2, 2
-        theta = torch.ones(N, M)
+        theta = torch.ones(N, M, self.S)
+        theta[:, :, x] = 0
+        theta[:, :, y] = 0
         A = torch.ones(self.S, self.S)
         res = _forward_pass(theta, A, 'hardmax')
         vt, q = res
@@ -49,6 +67,28 @@ class TestViterbiUtils(unittest.TestCase):
             self.theta, self.A, self.operator)
         resE = _backward_pass(Et, Q)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
+
+    def test_backward_hard(self):
+        N, M = 2, 2
+        theta = torch.ones(N, M, self.S)
+        theta[:, :, x] = 0
+        theta[:, :, y] = 0
+        A = torch.ones(self.S, self.S)
+        vt, Q = _forward_pass(theta, A, 'hardmax')
+        Et = 1
+        resE = _backward_pass(Et, Q)[1:-1, 1:-1]
+        print(resE)
+
+    def test_backward_soft(self):
+        N, M = 2, 2
+        theta = torch.ones(N, M, self.S)
+        theta[:, :, x] = 0
+        theta[:, :, y] = 0
+        A = torch.ones(self.S, self.S)
+        vt, Q = _forward_pass(theta, A, 'softmax')
+        Et = 1
+        resE = _backward_pass(Et, Q)[1:-1, 1:-1]
+        print(resE)
 
     def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
@@ -80,8 +120,8 @@ class TestViterbiDecoderDummy(unittest.TestCase):
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32).squeeze()
-        self.theta[:, :, 1] = 0
-        self.theta[:, :, 2] = 0
+        self.theta[:, :, x] = 0
+        self.theta[:, :, y] = 0
         self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
@@ -107,8 +147,8 @@ class TestViterbiDecoder(unittest.TestCase):
         self.theta = torch.rand(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32).squeeze()
-        self.theta[:, :, 1] = 0
-        self.theta[:, :, 2] = 0
+        self.theta[:, :, x] = 0
+        self.theta[:, :, y] = 0
         self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
@@ -122,6 +162,7 @@ class TestViterbiDecoder(unittest.TestCase):
         needle = ViterbiDecoder(self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
+        # 2 x 2 x 3 matrix is returned
         gradcheck(needle, (theta, A), eps=1e-2)
 
     def test_hessian_needlemanwunsch_function(self):
