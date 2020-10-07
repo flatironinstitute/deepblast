@@ -4,10 +4,9 @@ import torch
 class HardMaxOp:
     @staticmethod
     def max(X):
-        M, _ = torch.max(X)
+        M = torch.max(X)
         A = (M == X).float()
         A = A / torch.sum(A)
-
         return M.squeeze(), A.squeeze()
 
     @staticmethod

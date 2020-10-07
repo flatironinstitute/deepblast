@@ -12,14 +12,8 @@ def _forward_pass(theta, A, operator='softmax'):
     theta : torch.Tensor
         Input Potentials of dimension N x M x S. This represents the
         pairwise residue distance across states.
-    psi : torch.Tensor
-        Input Potentials of dimension N. This represents the
-        gap score for the first sequence X.
-    phi : torch.Tensor
-        Input Potentials of dimension M. This represents the
-        gap score for the second sequence Y.
     A : torch.Tensor
-        Transition probabilities. Contains 4 elements [n, d, e, t].
+        Transition probabilities of dimensions S x S.
         All of these parameters are assumed to be in log units
     operator : str
         The smoothed maximum operator.
@@ -36,11 +30,6 @@ def _forward_pass(theta, A, operator='softmax'):
     operator = operators[operator]
     new = theta.new
     N, M, _ = theta.size()
-    n, d, e, t = A[0], A[1], A[2], A[3]
-    eps = (1 - t) * torch.exp(-e)
-    net = (1 - n) / (1 - e - t)
-    delta = (1 - 2 * torch.exp(-d) * net)  * net * (1 - t) * torch.exp(-d)
-    c = torch.log(1 - 2 * delta - t + ie) - torch.log(1 - eps - t + ie)
 
     # Initialize the matrices of interest. The 3rd axis here represents the
     # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
@@ -48,40 +37,41 @@ def _forward_pass(theta, A, operator='softmax'):
     Q = new(N + 2, M + 2, 3, 3).zero_() # N x M x S x S
 
     m, x, y = 0, 1, 2 # state numbering
-    neg_inf = -1e10   # very negative number
+    neg_inf = -3e8   # very negative number
     V = V + neg_inf
-    V[0, 0, m] = 2 * n
+    V[0, 0, m] = 1
+    # Q[N + 1, M + 1, m] = 1/3
     # Forward pass
-    for i in range(1, N):
-        for j in range(1, M):
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
             V[i, j, m], Q[i, j, m] = operator.max(
                 torch.Tensor([
-                    V[i-1, j-1, m],
-                    V[i-1, j-1, x],
-                    V[i-1, j-1, y]
+                    V[i-1, j-1, m] + A[m, m],
+                    V[i-1, j-1, x] + A[m, x],
+                    V[i-1, j-1, y] + A[m, y],
                 ])
             )
             V[i, j, x], Q[i, j, x] = operator.max(
                 torch.Tensor([
-                    V[i-1, j, m] - d,
-                    V[i-1, j, x] - e,
-                    neg_inf
+                    V[i-1, j, m] + A[x, m],
+                    V[i-1, j, x] + A[x, x],
+                    V[i-1, j, y] + A[x, y],
                 ])
             )
             V[i, j, y], Q[i, j, y] = operator.max(
                 torch.Tensor([
-                    V[i, j-1, m] - d,
-                    neg_inf,
-                    V[i, j-1, y] - e
+                    V[i, j-1, m] + A[y, m],
+                    V[i, j-1, x] + A[y, x],
+                    V[i, j-1, y] + A[y, y]
                 ])
             )
-            V[i, j] += theta[i-1, j-1]
+            V[i, j, m] += theta[i-1, j-1, m]
 
-    Vt, Q[N, M, m] = operator.max(
+    Vt, Q[N + 1, M + 1, m] = operator.max(
         torch.Tensor([
-            V[N - 1, M - 1, m],
-            V[N - 1, M - 1, x] + c,
-            V[N - 1, M - 1, y] + c
+            V[N, M, m],
+            V[N, M, x],
+            V[N, M, y]
         ])
     )
     return Vt, Q
@@ -108,12 +98,14 @@ def _backward_pass(Et, Q):
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
     E[N + 1, M + 1, m] = Et
+    # Q[N + 1, M + 1, m] = 1 / 3
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
+            print(i, j, E[i, j])
     return E
 
 
@@ -138,8 +130,8 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S x S
     """
-    ie = 1e-10  # a very small number for numerical stability
-    neg_inf = -1e10   # very negative number
+    ie = 3e-8  # a very small number for numerical stability
+    neg_inf = -3e8   # very negative number
     operator = operators[operator]
     new = Ztheta.new
     N, M, _ = Ztheta.size()

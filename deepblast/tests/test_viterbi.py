@@ -18,11 +18,13 @@ class TestViterbiUtils(unittest.TestCase):
         # smoke tests
         torch.manual_seed(0)
         N, M = 4, 5
+        S = 3
         self.theta = torch.randn(N, M)
         self.Ztheta = torch.randn(N, M)
-        self.A = torch.Tensor([0.2, 0.1, 0.3, 0.4])
+        self.A = torch.randn(S, S)
         self.N = N
         self.M = M
+        self.S = S
         self.operator = 'softmax'
 
     def test_forward_pass(self):
@@ -31,6 +33,15 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(len(res), 2)
         resV, resQ = res
         self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, 3, 3))
+        self.assertAlmostEqual(resV.detach().cpu(), 3,7633)
+
+    def test_forward_pass_hard(self):
+        N, M = 2, 2
+        theta = torch.ones(N, M)
+        A = torch.ones(self.S, self.S)
+        res = _forward_pass(theta, A, 'hardmax')
+        vt, q = res
+        self.assertEqual(vt, 5)
 
     def test_backward_pass(self):
         Et = 1
@@ -60,24 +71,49 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertEqual(resEd.shape, (self.N + 2, self.M + 2, 3))
 
 
+class TestViterbiDecoderDummy(unittest.TestCase):
+
+    def setUp(self):
+        # smoke tests
+        torch.manual_seed(2)
+        B, S, N, M = 1, 3, 2, 2
+        self.theta = torch.ones(N, M, S,
+                                requires_grad=True,
+                                dtype=torch.float32).squeeze()
+        self.theta[:, :, 1] = 0
+        self.theta[:, :, 2] = 0
+        self.Ztheta = torch.rand(N, M, S,
+                                 requires_grad=True,
+                                 dtype=torch.float32).squeeze()
+        self.Et = torch.Tensor([1.])
+        self.A = torch.ones(S, S)
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+
+    def test_grad_needlemanwunsch_function(self):
+        needle = ViterbiDecoder(self.operator)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        gradcheck(needle, (theta, A), eps=1e-2)
+
+
 class TestViterbiDecoder(unittest.TestCase):
 
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 1, 3, 2, 3
-        self.theta = torch.rand(N,
-                                M,
-                                S,
+        B, S, N, M = 1, 3, 2, 2
+        self.theta = torch.rand(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32).squeeze()
-        self.Ztheta = torch.rand(N,
-                                 M,
-                                 S,
+        self.theta[:, :, 1] = 0
+        self.theta[:, :, 2] = 0
+        self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
         self.Et = torch.Tensor([1.])
-        self.A = torch.Tensor([0.2, 0.3, 0.4, 0.5])
+        self.A = torch.randn(S, S)
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
