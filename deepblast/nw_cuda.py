@@ -6,7 +6,8 @@ from math import log, exp
 
 torch.autograd.set_detect_anomaly(True)
 
-max_cols = 2048
+# max_cols = 2048
+max_cols = 4096
 float_type = numba.float32
 tpb = 32  # threads per block
 

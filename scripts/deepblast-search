@@ -24,6 +24,7 @@ def fasta_dataloader(args):
 
 
 def main(args):
+    torch.cuda.set_device(0)
     print('args', args)
     model = LightningAligner.load_from_checkpoint(
         args.load_from_checkpoint)
