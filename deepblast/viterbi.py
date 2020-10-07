@@ -26,7 +26,6 @@ def _forward_pass(theta, A, operator='softmax'):
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
     """
-    ie = 1e-10  # a very small number for numerical stability
     operator = operators[operator]
     new = theta.new
     N, M, _ = theta.size()
@@ -40,31 +39,12 @@ def _forward_pass(theta, A, operator='softmax'):
     neg_inf = -3e8   # very negative number
     V = V + neg_inf
     V[0, 0, m] = 1
-    # Q[N + 1, M + 1, m] = 1/3
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            V[i, j, m], Q[i, j, m] = operator.max(
-                torch.Tensor([
-                    V[i-1, j-1, m] + A[m, m],
-                    V[i-1, j-1, x] + A[m, x],
-                    V[i-1, j-1, y] + A[m, y],
-                ])
-            )
-            V[i, j, x], Q[i, j, x] = operator.max(
-                torch.Tensor([
-                    V[i-1, j, m] + A[x, m],
-                    V[i-1, j, x] + A[x, x],
-                    V[i-1, j, y] + A[x, y],
-                ])
-            )
-            V[i, j, y], Q[i, j, y] = operator.max(
-                torch.Tensor([
-                    V[i, j-1, m] + A[y, m],
-                    V[i, j-1, x] + A[y, x],
-                    V[i, j-1, y] + A[y, y]
-                ])
-            )
+            V[i, j, m], Q[i, j, m] = operator.max(V[i-1, j-1] + A[m])
+            V[i, j, x], Q[i, j, x] = operator.max(V[i-1, j] + A[x])
+            V[i, j, y], Q[i, j, y] = operator.max(V[i, j-1] + A[y])
             V[i, j, m] += theta[i-1, j-1, m]
 
     Vt, Q[N + 1, M + 1, m] = operator.max(
@@ -98,14 +78,13 @@ def _backward_pass(Et, Q):
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
     E[N + 1, M + 1, m] = Et
-    # Q[N + 1, M + 1, m] = 1 / 3
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
-            print(i, j, E[i, j])
+            # print(i, j, E[i, j])
     return E
 
 
