@@ -2,6 +2,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from deepblast.dataset.utils import states2alignment, tmstate_f, states2edges
 from deepblast.constants import m as match
+import pandas as pd
 
 
 def roc_edges(true_edges, pred_edges):
