@@ -141,3 +141,47 @@ class StackedRNN(nn.Module):
             z = z.view(x.size(0), x.size(1), -1)
 
         return z
+
+
+class StackedCNN(nn.Module):
+    def __init__(self, nin, nembed, nout, k_size=5, nlayers=2, padding_idx=-1, dropout=0, sparse=False, lm=None):
+        super(StackedCNN, self).__init__()
+        self.conv = nn.Sequential(*([nn.Conv1d(in_channels=nembed if layer == 0 else nout,
+                                               out_channels=nout,
+                                               kernel_size=k_size,
+                                               padding=k_size//2) for layer in range(nlayers)]))
+        self.dropout = nn.Dropout(p=dropout)
+
+        if padding_idx == -1:
+            padding_idx = nin - 1
+
+        if lm is not None:
+            self.embed = LMEmbed(
+                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
+            nembed = self.embed.nout
+            self.lm = True
+        else:
+            self.embed = nn.Embedding(
+                nin, nembed, padding_idx=padding_idx, sparse=sparse)
+            self.lm = False
+        self.nout = nout
+
+    def forward(self, x):
+        if self.lm:
+            h = self.embed(x)
+        else:
+            if type(x) is PackedSequence:
+                h = self.embed(x.data)
+                h = PackedSequence(h, x.batch_sizes)
+            else:
+                h = self.embed(x)
+
+        # stupid thing with conv1d in pytorch is that it expects input_shape: (batch_size, n_channels, L), so I have to do:
+        h = h.permute((0, 2, 1))
+        # before applying conv
+        z = self.conv(h)
+        # then I have to reshape it back to input_shape: (batch_size, L, n_channels)
+        z = z.permute((0, 2, 1))
+        z = self.dropout(z)
+
+        return z
