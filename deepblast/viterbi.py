@@ -46,14 +46,7 @@ def _forward_pass(theta, A, operator='softmax'):
             V[i, j, x], Q[i, j, x] = operator.max(V[i-1, j] + A[x])
             V[i, j, y], Q[i, j, y] = operator.max(V[i, j-1] + A[y])
             V[i, j, m] += theta[i-1, j-1, m]
-
-    Vt, Q[N + 1, M + 1, m] = operator.max(
-        torch.Tensor([
-            V[N, M, m],
-            V[N, M, x],
-            V[N, M, y]
-        ])
-    )
+    Vt, Q[N + 1, M + 1, m] = operator.max(V[N, M])
     return Vt, Q
 
 
