@@ -51,6 +51,7 @@ class TestViterbiUtils(unittest.TestCase):
         resV, resQ = res
         self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(5)))
 
+
     def test_forward_pass_hard(self):
         N, M = 2, 2
         theta = torch.ones(N, M, self.S)
@@ -68,7 +69,7 @@ class TestViterbiUtils(unittest.TestCase):
         resE = _backward_pass(Et, Q)
         self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
 
-    def test_backward_hard(self):
+    def test_backward_pass_hard(self):
         N, M = 2, 2
         theta = torch.ones(N, M, self.S)
         theta[:, :, x] = 0
@@ -77,18 +78,19 @@ class TestViterbiUtils(unittest.TestCase):
         vt, Q = _forward_pass(theta, A, 'hardmax')
         Et = 1
         resE = _backward_pass(Et, Q)[1:-1, 1:-1]
-        print(resE)
+        print('E\n', resE)
 
-    def test_backward_soft(self):
+    def test_backward_pass_soft(self):
         N, M = 2, 2
         theta = torch.ones(N, M, self.S)
         theta[:, :, x] = 0
         theta[:, :, y] = 0
         A = torch.ones(self.S, self.S)
         vt, Q = _forward_pass(theta, A, 'softmax')
-        Et = 1
+        #Et = 1
+        Et = torch.Tensor([1.])
         resE = _backward_pass(Et, Q)[1:-1, 1:-1]
-        print(resE)
+        print('E\n', resE)
 
     def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
@@ -120,8 +122,8 @@ class TestViterbiDecoderDummy(unittest.TestCase):
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32).squeeze()
-        self.theta[:, :, x] = 0
-        self.theta[:, :, y] = 0
+        #self.theta[:, :, x] = 0
+        #self.theta[:, :, y] = 0
         self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
@@ -143,17 +145,23 @@ class TestViterbiDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 1, 3, 2, 2
-        self.theta = torch.rand(N, M, S,
+        B, S, N, M = 1, 3, 5, 5
+        # self.theta = torch.rand(N, M, S,
+        #                         requires_grad=True,
+        #                         dtype=torch.float32).squeeze()
+        self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
-                                dtype=torch.float32).squeeze()
-        self.theta[:, :, x] = 0
-        self.theta[:, :, y] = 0
+                                dtype=torch.float32)
+
+        #self.theta[:, :, x] = 0
+        #self.theta[:, :, y] = 0
+        #self.A = torch.randn(S, S)
+        self.A = torch.ones(S, S)
+
         self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32).squeeze()
         self.Et = torch.Tensor([1.])
-        self.A = torch.randn(S, S)
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'

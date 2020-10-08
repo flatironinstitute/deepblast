@@ -27,6 +27,7 @@ def _forward_pass(theta, A, operator='softmax'):
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
     """
+    # m, x, y = 0, 1, 2
     operator = operators[operator]
     new = theta.new
     N, M, _ = theta.size()
@@ -35,18 +36,18 @@ def _forward_pass(theta, A, operator='softmax'):
     # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
     V = new(N + 1, M + 1, 3).zero_()    # N x M x S
     Q = new(N + 2, M + 2, 3, 3).zero_() # N x M x S x S
-
+    # Q = Q + (1 / 3)
     neg_inf = -1e8   # very negative number
     V = V + neg_inf
-    V[0, 0, m] = 1
+    V[0, 0, m] = 0   # force first state to be a match
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            V[i, j, m], Q[i, j, m] = operator.max(V[i-1, j-1] + A[m])
-            V[i, j, x], Q[i, j, x] = operator.max(V[i-1, j] + A[x])
-            V[i, j, y], Q[i, j, y] = operator.max(V[i, j-1] + A[y])
-            V[i, j, m] += theta[i-1, j-1, m]
-    print(V[1:, 1:])
+            V[i, j, m], Q[i, j, m] = operator.max(V[i - 1, j - 1] + A[m])
+            V[i, j, x], Q[i, j, x] = operator.max(V[i - 1, j] + A[x])
+            V[i, j, y], Q[i, j, y] = operator.max(V[i, j - 1] + A[y])
+            V[i, j] += theta[i - 1, j - 1]  # give emission probs to all states
+            # print(Q[i, j, m], V[i - 1, j - 1])
     Vt, Q[N + 1, M + 1, m] = operator.max(V[N, M])
     return Vt, Q
 
@@ -56,6 +57,8 @@ def _backward_pass(Et, Q):
 
     Parameters
     ----------
+    Et : torch.Tensor
+        Input derivative from upstream step.
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
 
@@ -64,6 +67,7 @@ def _backward_pass(Et, Q):
     E : torch.Tensor
         Traceback matrix of dimension N x M x S
     """
+    # m, x, y = 0, 1, 2
     n_1, m_1, _, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
@@ -78,6 +82,8 @@ def _backward_pass(Et, Q):
             E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
             E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
             # print(i, j, E[i, j, m], Q[i + 1, j + 1, m], E[i + 1, j + 1])
+    #E[1, 1, m] = Et   # if we add this line, we can cheat the small case
+    #E[1, 1, m] = 3 * E[1, 1, m]  # if we add this line, we can also cheat the small case
     return E
 
 
