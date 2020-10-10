@@ -41,13 +41,17 @@ def _forward_pass(theta, A, operator='softmax'):
     V = V + neg_inf
     V[0, 0, m] = 0   # force first state to be a match
     # Forward pass
+
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             V[i, j, m], Q[i, j, m] = operator.max(V[i - 1, j - 1] + A[m])
             V[i, j, x], Q[i, j, x] = operator.max(V[i - 1, j] + A[x])
             V[i, j, y], Q[i, j, y] = operator.max(V[i, j - 1] + A[y])
             V[i, j] += theta[i - 1, j - 1]  # give emission probs to all states
-            # print(Q[i, j, m], V[i - 1, j - 1])
+
+    # print('M', V[:, :, m])
+    # print('X', V[:, :, x])
+    # print('Y', V[:, :, y])
     Vt, Q[N + 1, M + 1, m] = operator.max(V[N, M])
     return Vt, Q
 
@@ -71,19 +75,15 @@ def _backward_pass(Et, Q):
     n_1, m_1, _, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
-
     E = new(N + 2, M + 2, 3).zero_()
     # Initial conditions
     E[N + 1, M + 1, m] = Et
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-            E[i, j, m] = Q[i + 1, j + 1, m] @ E[i + 1, j + 1]
-            E[i, j, x] = Q[i + 1, j, x] @ E[i + 1, j]
-            E[i, j, y] = Q[i, j + 1, y] @ E[i, j + 1]
-            # print(i, j, E[i, j, m], Q[i + 1, j + 1, m], E[i + 1, j + 1])
-    #E[1, 1, m] = Et   # if we add this line, we can cheat the small case
-    #E[1, 1, m] = 3 * E[1, 1, m]  # if we add this line, we can also cheat the small case
+            E[i, j] = Q[i + 1, j + 1, m] * E[i + 1, j + 1, m] + \
+                      Q[i + 1, j, x] * E[i + 1, j, x] + \
+                      Q[i, j + 1, y] * E[i, j + 1, y]
     return E
 
 

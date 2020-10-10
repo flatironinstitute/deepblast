@@ -3,6 +3,7 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
+import torch.testing as tt
 from deepblast.viterbi import (
     _forward_pass, _backward_pass,
     _adjoint_forward_pass, _adjoint_backward_pass,
@@ -49,8 +50,7 @@ class TestViterbiUtils(unittest.TestCase):
         res = _forward_pass(theta, A, 'softmax')
         self.assertEqual(len(res), 2)
         resV, resQ = res
-        self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(5)))
-
+        self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(4)))
 
     def test_forward_pass_hard(self):
         N, M = 2, 2
@@ -60,7 +60,7 @@ class TestViterbiUtils(unittest.TestCase):
         A = torch.ones(self.S, self.S)
         res = _forward_pass(theta, A, 'hardmax')
         vt, q = res
-        self.assertEqual(vt, 5)
+        self.assertEqual(vt, 4)
 
     def test_backward_pass(self):
         Et = 1
@@ -83,14 +83,23 @@ class TestViterbiUtils(unittest.TestCase):
     def test_backward_pass_soft(self):
         N, M = 2, 2
         theta = torch.ones(N, M, self.S)
-        theta[:, :, x] = 0
-        theta[:, :, y] = 0
+        #theta[:, :, x] = 0
+        #theta[:, :, y] = 0
         A = torch.ones(self.S, self.S)
         vt, Q = _forward_pass(theta, A, 'softmax')
         #Et = 1
         Et = torch.Tensor([1.])
         resE = _backward_pass(Et, Q)[1:-1, 1:-1]
-        print('E\n', resE)
+        expE = torch.Tensor(
+            [[[0.0000, 1.0000, 0.0000],
+              [0.0000, 0.0000, 0.4683]],
+             [[0.4683, 0.0000, 0.0000],
+              [0.4683, 0.0634, 0.4683]]])
+        # print('resE\n', resE)
+        # print('expE\n', expE)
+
+        tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
+
 
     def test_adjoint_forward_pass(self):
         V, Q = _forward_pass(
