@@ -6,7 +6,11 @@ from deepblast.constants import x, m, y, s
 
 
 def _forward_pass(theta, A, operator='softmax'):
-    """  Forward pass to calculate DP alignment matrix
+    """  Forward pass to calculate DP alignment matrix.
+
+    If the softmax op is used, this is an explicit implementation
+    of the Forward algorithm commonly used for Expectation-Maximization
+    optimization of HMMs.
 
     Parameters
     ----------
@@ -14,7 +18,7 @@ def _forward_pass(theta, A, operator='softmax'):
         Input Potentials of dimension N x M x S. This represents the
         pairwise residue distance across states.
     A : torch.Tensor
-        Transition probabilities of dimensions S x S.
+        Transition probabilities of dimensions N x M x S x S.
         All of these parameters are assumed to be in log units
     operator : str
         The smoothed maximum operator.
@@ -26,21 +30,22 @@ def _forward_pass(theta, A, operator='softmax'):
         S is the number of states (here it is 3 for M, X, Y).
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
+
+    Notes
+    -----
+    This is currently coded for 4 explicit states, namely matches,
+    insertions, deletions and slips. A slip here indicates that
+    two residues don't match and skipped over.
     """
-    # m, x, y = 0, 1, 2
     op = operators[operator]
     new = theta.new
     N, M, S = theta.size()
-
-    # Initialize the matrices of interest. The 3rd axis here represents the
-    # states that corresponds to (0) match, (1) gaps in X and (2) gaps in Y.
+    # Initialize the matrices of interest.
     V = new(N + 1, M + 1, S).zero_()    # N x M x S
     Q = new(N + 2, M + 2, S, S).zero_() # N x M x S x S
-    # Q = Q + (1 / 3)
     neg_inf = -1e8   # very negative number
     V = V + neg_inf
-    # TODO: make the initial state more flexible
-    V[0, 0, m] = 0   # force first state to be a match
+    V[0, 0] = 0   # Make all 4 states equally likely to enter
     # Forward pass
     for i in range(1, N + 1):
         for j in range(1, M + 1):
@@ -49,21 +54,19 @@ def _forward_pass(theta, A, operator='softmax'):
             V[i, j, x], Q[i, j, x] = op.max(V[i-1, j] + A[i-1, j-1, x])
             V[i, j, y], Q[i, j, y] = op.max(V[i, j-1] + A[i-1, j-1, y])
             V[i, j] += theta[i-1, j-1]  # give emission probs to all states
-
-    # print('M', V[:, :, m])
-    # print('X', V[:, :, x])
-    # print('Y', V[:, :, y])
     Vt, Q[N + 1, M + 1, m] = op.max(V[N, M])
     return Vt, Q
 
 
 def _backward_pass(Et, Q):
-    """ Backward pass to calculate grad DP
+    """ Backward pass to calculate grad DP.
+
+    This is the derivative of the forward pass.
 
     Parameters
     ----------
     Et : torch.Tensor
-        Input derivative from upstream step.
+        Input scalar derivative from upstream step.
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S x S.
 
@@ -72,7 +75,6 @@ def _backward_pass(Et, Q):
     E : torch.Tensor
         Traceback matrix of dimension N x M x S
     """
-    # m, x, y = 0, 1, 2
     n_1, m_1, S, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
@@ -107,6 +109,8 @@ class ViterbiFunction(torch.autograd.Function):
             theta, A, Et, Q, operator)
         return E[1:-1, 1:-1], A, None, None, None
 
+
+# Everything below is outdated
 
 class ViterbiFunctionBackward(torch.autograd.Function):
 
