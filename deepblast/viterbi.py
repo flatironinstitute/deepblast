@@ -91,7 +91,7 @@ def _backward_pass(Et, Q):
     return E
 
 
-class ViterbiFunction(torch.autograd.Function):
+class ForwardFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, theta, A, operator):
@@ -105,30 +105,36 @@ class ViterbiFunction(torch.autograd.Function):
     def backward(ctx, Et):
         theta, A, Q = ctx.saved_tensors
         operator = ctx.others
-        E, A = ViterbiFunctionBackward.apply(
-            theta, A, Et, Q, operator)
+        E = _adjoint_forward_pass(Et, Q)
         return E[1:-1, 1:-1], A, None, None, None
 
 
-# Everything below is outdated
+def baumwelch(theta, A, operator):
+    """ Implements the forward-backward algorithm.
 
-class ViterbiFunctionBackward(torch.autograd.Function):
+    This is used to estimate the posterior distribution of
+    states given the observed sequence.
 
-    @staticmethod
-    def forward(ctx, theta, A, Et, Q, operator):
-        E = _backward_pass(Et, Q)
-        ctx.save_for_backward(E, Q)
-        ctx.others = operator
-        return E, A
+    Parameters
+    ----------
+    theta : torch.Tensor
+       Emission log probabilities of dimension N x M x S
+    A : torch.Tensor
+       Transition log probabilities of dimension N x M x S x S
 
-    @staticmethod
-    def backward(ctx, Ztheta, ZA):
-        E, Q = ctx.saved_tensors
-        operator = ctx.others
-        Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
-        Ed = _adjoint_backward_pass(E, Q, Qd)
-        Ed = Ed[1:-1, 1:-1]
-        return Ed, None, Vtd, None, None, None
+    Returns
+    -------
+    posterior : torch.Tensor
+       Posterior distribution across all states.  This is a
+       N x M x S tensor of log probabilities.
+    """
+    fwd =  ForwardFunction.apply(
+        theta, A, operator)
+    bwd =  ForwardFunction.apply(
+        theta[::-1, ::-1], A[::-1, ::-1].permute(0, 1, 3, 2),
+        operator)
+    posterior = fwd + bwd
+    return posterior
 
 
 class ViterbiDecoder(nn.Module):
@@ -138,11 +144,12 @@ class ViterbiDecoder(nn.Module):
         self.operator = operator
 
     def forward(self, theta, A):
+        # offloading to CPU for now
         theta = theta.cpu()
         A = A.cpu()
-        res =  ViterbiFunction.apply(
-            theta, A, self.operator)
-        return res
+        # Forward and Backward algorithm (aka Baum-Welch)
+        exp = baumwelch(theta, A, self.operator)
+        return exp
 
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
