@@ -183,12 +183,13 @@ def alignment_text(x, y, pred, truth, stats):
 
 
 def score_local_identity(x, k):
-    if x['query_start'] < 0 :
+    if x['query_start'] < 0:
         return [0.] * len(k)
     else:
         return alignment_score_kernel(x['manual'], x['aln'], kernel_widths=k,
                                       query_offset=x['query_start'],
                                       hit_offset=x['hit_start'])
+
 
 def score_local_alignment(df, k, n_cores=4):
     import dask.dataframe as dd
@@ -197,6 +198,7 @@ def score_local_alignment(df, k, n_cores=4):
     res = df2.apply(func, axis=1)
     resdf = res.compute(scheduler='processes')
     return pd.DataFrame(list(resdf.values), columns=k)
+
 
 def score_global_alignment(df, col, k, n_cores=4):
     import dask.dataframe as dd
