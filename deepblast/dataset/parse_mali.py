@@ -35,7 +35,7 @@ def read_mali(root, tool='manual', report_ids=False):
                 S = ''.join(
                     list(map(revstate_f, map(state_f, list(zip(X, Y))))))
                 res.append((X.replace('-', ''), Y.replace('-', ''), S))
-                pdbs.append(os.path.basename(f).split('.ali')[0])
+                pdbs.append(os.path.basename(f).split(f'.{tool}.ali')[0])
                 dirs.append(os.path.basename(path))
 
     res = pd.DataFrame(res)
