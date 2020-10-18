@@ -18,7 +18,7 @@ from deepblast.dataset.utils import (
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
-                             alignment_text)
+                             alignment_text, filter_gaps)
 
 
 class LightningAligner(pl.LightningModule):
@@ -168,9 +168,11 @@ class LightningAligner(pl.LightningModule):
             decoded, _ = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = np.array(list(pred_states))
-            truth_states = states[b].cpu().detach().numpy()
+            true_states = states[b].cpu().detach().numpy()
             pred_edges = states2edges(pred_states)
-            true_edges = states2edges(truth_states)
+            true_edges = states2edges(true_states)
+            pred_edges = filter_gaps(pred_states, pred_edges)
+            true_edges = filter_gaps(true_states, true_edges)
             stats = roc_edges(true_edges, pred_edges)
             if random.random() < self.hparams.visualization_fraction:
                 Av = A[b].cpu().detach().numpy().squeeze()
@@ -184,7 +186,7 @@ class LightningAligner(pl.LightningModule):
                     self.global_step, close=True)
                 try:
                     text = alignment_text(
-                        x_str, y_str, pred_states, truth_states, stats)
+                        x_str, y_str, pred_states, true_states, stats)
                     self.logger.experiment.add_text(
                         f'alignment/{batch_idx}/{b}', text, self.global_step)
                 except Exception as e:
