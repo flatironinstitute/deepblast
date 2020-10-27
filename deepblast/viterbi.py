@@ -5,6 +5,46 @@ from deepblast.ops import operators
 from deepblast.constants import x, m, y, s
 
 
+def hmmforward(theta, A, pos, operator='softmax'):
+    """ Forward algorithm for K state HMM.
+
+    Parameters
+    ----------
+    theta : torch.Tensor
+        Input Potentials of dimension N x M x S. This represents the
+        pairwise residue distance across states.
+    A : torch.Tensor
+        Transition probabilities of dimensions N x M x S x S.
+        All of these parameters are assumed to be in log units
+    pos : list of int
+        Specifies the differential indices for each state.
+    operator : str
+        The smoothed maximum operator.
+    """
+    new = theta.new
+    N, M, S = theta.size()
+    V = new(N + 1, M + 1, S).zero_()    # N x M x S
+    Vt = new(S).zero_()    #S
+    Q = new(N + 2, M + 2, S, S).zero_() # N x M x S x S
+    assert S == len(pos)
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            for k in range(S):
+                for k_ in range(S):
+                    di, dj = pos[k_], pos[k_]
+                    V[i, j, k], Q[i, j, k] += op.max(
+                        V[i - di, j - dj] + A[i - 1, j - 1, k_])
+                    V[i, j] += theta[i - di, j - dj]
+    # Terminate
+    i, j = N + 1, M + 1
+    for k in range(S):
+        for k_ in range(S):
+            di, dj = pos[k_], pos[k_]
+            Vt[k], Q[i, j, k] += op.max(
+                V[i - di, j - dj] + A[i - 1, j - 1, k_])
+    return Vt, Q
+
+
 def _forward_pass(theta, A, operator='softmax'):
     """  Forward pass to calculate DP alignment matrix.
 
