@@ -27,7 +27,7 @@ def read_mali(root, tool='manual', report_ids=False):
     dirs = []
     for path, directories, files in os.walk(root):
         for f in files:
-            if '.ali' in f and tool in f:
+            if '.ali' in f and tool in f and ('manual2' not in f):
                 fname = os.path.join(path, f)
                 lines = open(fname).readlines()
                 X = lines[0].rstrip().upper()
