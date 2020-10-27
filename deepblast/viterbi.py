@@ -35,13 +35,9 @@ def hmmforward(theta, A, pos, operator='softmax'):
                     V[i, j, k], Q[i, j, k] += op.max(
                         V[i - di, j - dj] + A[i - 1, j - 1, k_])
                     V[i, j] += theta[i - di, j - dj]
-    # Terminate
+    # Terminate. First state is terminal state
     i, j = N + 1, M + 1
-    for k in range(S):
-        for k_ in range(S):
-            di, dj = pos[k_], pos[k_]
-            Vt[k], Q[i, j, k] += op.max(
-                V[i - di, j - dj] + A[i - 1, j - 1, k_])
+    Vt, Q[i, j, 0] += op.max(V[i - 1, j - 1, 0])
     return Vt, Q
 
 
