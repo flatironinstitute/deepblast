@@ -6,10 +6,10 @@ from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 import torch.testing as tt
 from deepblast.viterbi import (
     _forward_pass, _backward_pass,
-    ViterbiFunction, ViterbiFunctionBackward,
+    ForwardFunction, ForwardDecoder,
     ViterbiDecoder
 )
-from deepblast.constants import x, m, y
+from deepblast.constants import x, m, y, pos_mxys, pos_test
 import unittest
 
 
@@ -100,12 +100,12 @@ class TestViterbiUtils(unittest.TestCase):
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
 
-class TestViterbiDecoder(unittest.TestCase):
+class TestForwardDecoder(unittest.TestCase):
 
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 1, 4, 5, 5
+        B, S, N, M = 1, 2, 3, 3
         # self.theta = torch.rand(N, M, S,
         #                         requires_grad=True,
         #                         dtype=torch.float32).squeeze()
@@ -125,12 +125,11 @@ class TestViterbiDecoder(unittest.TestCase):
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
-    def test_grad_needlemanwunsch_function(self):
-        needle = ViterbiDecoder(self.operator)
+    def test_grad_needlemanwunsch_function_small(self):
+        fwd = ForwardDecoder(pos_test, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
-        # 2 x 2 x 3 matrix is returned
-        gradcheck(needle, (theta, A), eps=1e-2)
+        gradcheck(fwd, (theta, A), eps=1e-2)
 
 
 if __name__ == "__main__":
