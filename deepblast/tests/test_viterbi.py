@@ -26,8 +26,8 @@ class TestViterbiUtils(unittest.TestCase):
         self.theta[:, :, x] = 0
         self.theta[:, :, y] = 0
         self.Ztheta = torch.randn(N + 2, M + 2, S)
-        self.A = torch.randn(S, S)
-        self.ZA = torch.randn(S, S)
+        self.A = torch.randn(N, M, S, S)
+        self.ZA = torch.randn(N, M, S, S)
         self.N = N
         self.M = M
         self.S = S
@@ -35,11 +35,11 @@ class TestViterbiUtils(unittest.TestCase):
 
     def test_forward_pass(self):
         res = _forward_pass(
-            self.theta, self.A, self.operator)
+            self.theta, self.A, pos_mxys, self.operator)
         self.assertEqual(len(res), 2)
         resV, resQ = res
-        self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, 3, 3))
-        self.assertAlmostEqual(resV.detach().cpu().item(), 9.1165285)
+        self.assertEqual(resQ.shape, (self.N + 2, self.M + 2, self.S, self.S))
+        self.assertAlmostEqual(resV.detach().cpu().item(), 12.27943229675293)
 
     def test_forward_pass_soft(self):
         N, M = 2, 2
@@ -47,7 +47,7 @@ class TestViterbiUtils(unittest.TestCase):
         theta[:, :, x] = 0
         theta[:, :, y] = 0
         A = torch.ones(self.S, self.S)
-        res = _forward_pass(theta, A, 'softmax')
+        res = _forward_pass(theta, A, pos_mxys, 'softmax')
         self.assertEqual(len(res), 2)
         resV, resQ = res
         self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(4)))

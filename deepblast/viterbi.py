@@ -35,7 +35,8 @@ def _forward_pass(theta, A, pos, operator='softmax'):
         for j in range(1, M + 1):
             for k in range(S):
                 di, dj = pos[k]
-                V[i, j, k], Q[i, j, k] = op.max(V[i + di, j + dj] + A[i - 1, j - 1, k])
+                res = op.max(V[i + di, j + dj] + A[i - 1, j - 1, k])
+                V[i, j, k], Q[i, j, k] = res
             V[i, j] += theta[i - 1, j - 1]
     # Terminate. First state is terminal state
     Vt, Q[N + 1, M + 1, 0] = op.max(V[N, M])
