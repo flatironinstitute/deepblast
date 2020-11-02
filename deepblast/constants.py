@@ -3,7 +3,11 @@
 # y: insertion in protein y
 # m: match
 # s: slip in both
-m, x, y, s = 0, 1, 2, 3
+x, m, y = 0, 1, 2
+
+# Below are the tentative encodings for
+# the affine gap alignment
+m_, x_, y_, s_ = 0, 1, 2, 3
 pos_mxys = [(-1, -1),
             (-1, 0),
             (0, -1),
