@@ -105,17 +105,10 @@ class TestForwardDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 1, 2, 3, 3
-        # self.theta = torch.rand(N, M, S,
-        #                         requires_grad=True,
-        #                         dtype=torch.float32).squeeze()
+        B, S, N, M = 1, 2, 5, 5
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
-
-        #self.theta[:, :, x] = 0
-        #self.theta[:, :, y] = 0
-        #self.A = torch.randn(S, S)
         self.A = torch.ones(N, M, S, S)
         self.Ztheta = torch.rand(N, M, S,
                                  requires_grad=True,
@@ -127,6 +120,25 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_needlemanwunsch_function_small(self):
         fwd = ForwardDecoder(pos_test, self.operator)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        gradcheck(fwd, (theta, A), eps=1e-2)
+
+    def test_grad_needlemanwunsch_function_larger(self):
+        torch.manual_seed(2)
+        B, S, N, M = 1, 4, 5, 5
+        self.theta = torch.ones(N, M, S,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.A = torch.ones(N, M, S, S)
+        self.Ztheta = torch.rand(N, M, S,
+                                 requires_grad=True,
+                                 dtype=torch.float32).squeeze()
+        self.Et = torch.Tensor([1.])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+        fwd = ForwardDecoder(pos_mxys, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)

@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 from deepblast.ops import operators
-from deepblast.constants import x, m, y, s
+# from deepblast.constants import x, m, y, s
 
 
 def _forward_pass(theta, A, pos, operator='softmax'):
