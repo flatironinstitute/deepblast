@@ -9,7 +9,7 @@ from deepblast.viterbi import (
     ForwardFunction, ForwardDecoder,
     ViterbiDecoder
 )
-from deepblast.constants import x, m, y, pos_mxys, pos_test
+from deepblast.constants import x, m, y, pos_mxys, pos_test, pos_mxy
 import unittest
 
 
@@ -42,60 +42,57 @@ class TestViterbiUtils(unittest.TestCase):
         self.assertAlmostEqual(resV.detach().cpu().item(), 12.27943229675293)
 
     def test_forward_pass_soft(self):
-        N, M = 2, 2
-        theta = torch.ones(N, M, self.S)
+        N, M, S = 2, 2, 3
+        theta = torch.ones(N, M, S)
         theta[:, :, x] = 0
         theta[:, :, y] = 0
-        A = torch.ones(self.S, self.S)
-        res = _forward_pass(theta, A, pos_mxys, 'softmax')
+        A = torch.ones(N, M, S, S)
+        res = _forward_pass(theta, A, pos_mxy, 'softmax')
         self.assertEqual(len(res), 2)
         resV, resQ = res
-        self.assertAlmostEqual(resV.detach().cpu().item(), np.log(3*np.exp(4)))
+        self.assertAlmostEqual(resV.detach().cpu().item(), 5.857235908508301)
 
     def test_forward_pass_hard(self):
-        N, M = 2, 2
-        theta = torch.ones(N, M, self.S)
+        N, M, S = 2, 2, 3
+        theta = torch.ones(N, M, S)
         theta[:, :, x] = 0
         theta[:, :, y] = 0
-        A = torch.ones(self.S, self.S)
-        res = _forward_pass(theta, A, 'hardmax')
+        A = torch.ones(N, M, S, S)
+        res = _forward_pass(theta, A, pos_mxy, 'hardmax')
         vt, q = res
         self.assertEqual(vt, 4)
 
     def test_backward_pass(self):
         Et = 1
         _, Q = _forward_pass(
-            self.theta, self.A, self.operator)
-        resE = _backward_pass(Et, Q)
-        self.assertEqual(resE.shape, (self.N + 2, self.M + 2, 3))
+            self.theta, self.A, pos_mxys, self.operator)
+        resE = _backward_pass(Et, Q, pos_mxys)
+        self.assertEqual(resE.shape, (self.N + 2, self.M + 2, self.S))
 
     def test_backward_pass_hard(self):
         N, M = 2, 2
         theta = torch.ones(N, M, self.S)
         theta[:, :, x] = 0
         theta[:, :, y] = 0
-        A = torch.ones(self.S, self.S)
-        vt, Q = _forward_pass(theta, A, 'hardmax')
+        A = torch.ones(N, M, self.S, self.S)
+        vt, Q = _forward_pass(theta, A, pos_mxys, 'hardmax')
         Et = 1
-        resE = _backward_pass(Et, Q)[1:-1, 1:-1]
-        print('E\n', resE)
+        resE = _backward_pass(Et, Q, pos_mxys)[1:-1, 1:-1]
 
     def test_backward_pass_soft(self):
-        N, M = 2, 2
-        theta = torch.ones(N, M, self.S)
+        N, M, S = 2, 2, 3
+        theta = torch.ones(N, M, S)
         #theta[:, :, x] = 0
         #theta[:, :, y] = 0
-        A = torch.ones(self.S, self.S)
-        vt, Q = _forward_pass(theta, A, 'softmax')
+        A = torch.ones(N, M, S, S)
+        vt, Q = _forward_pass(theta, A, pos_mxy, 'softmax')
         Et = torch.Tensor([1.])
-        resE = _backward_pass(Et, Q)[1:-1, 1:-1]
+        resE = _backward_pass(Et, Q, pos_mxy)[1:-1, 1:-1]
         expE = torch.Tensor(
-            [[[0.0000, 1.0000, 0.0000],
+            [[[1.0000, 0.0000, 0.0000],
               [0.0000, 0.0000, 0.4683]],
-             [[0.4683, 0.0000, 0.0000],
-              [0.4683, 0.0634, 0.4683]]])
-        # print('resE\n', resE)
-        # print('expE\n', expE)
+             [[0.0000, 0.4683, 0.0000],
+              [0.0634, 0.4683, 0.4683]]])
 
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
