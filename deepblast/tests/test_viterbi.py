@@ -1,15 +1,11 @@
-import numpy as np
 import torch
 from torch.autograd import gradcheck
-from torch.autograd.gradcheck import gradgradcheck
-from torch.nn.utils.rnn import pack_padded_sequence, pad_sequence
 import torch.testing as tt
 from deepblast.viterbi import (
     _forward_pass, _backward_pass,
-    ForwardFunction, ForwardDecoder,
-    ViterbiDecoder
+    ForwardDecoder
 )
-from deepblast.constants import x, m, y, pos_mxys, pos_test, pos_mxy
+from deepblast.constants import x, y, pos_mxys, pos_test, pos_mxy
 import unittest
 
 
@@ -77,13 +73,11 @@ class TestViterbiUtils(unittest.TestCase):
         A = torch.ones(N, M, self.S, self.S)
         vt, Q = _forward_pass(theta, A, pos_mxys, 'hardmax')
         Et = 1
-        resE = _backward_pass(Et, Q, pos_mxys)[1:-1, 1:-1]
+        _backward_pass(Et, Q, pos_mxys)[1:-1, 1:-1]
 
     def test_backward_pass_soft(self):
         N, M, S = 2, 2, 3
         theta = torch.ones(N, M, S)
-        #theta[:, :, x] = 0
-        #theta[:, :, y] = 0
         A = torch.ones(N, M, S, S)
         vt, Q = _forward_pass(theta, A, pos_mxy, 'softmax')
         Et = torch.Tensor([1.])
@@ -102,7 +96,7 @@ class TestForwardDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        B, S, N, M = 1, 2, 5, 5
+        S, N, M = 1, 2, 5, 5
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
@@ -123,7 +117,7 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_needlemanwunsch_function_larger(self):
         torch.manual_seed(2)
-        B, S, N, M = 1, 4, 5, 5
+        S, N, M = 4, 5, 5
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
