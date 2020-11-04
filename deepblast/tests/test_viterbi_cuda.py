@@ -102,10 +102,10 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_needlemanwunsch_function_small(self):
         B, N, M, S = 1, 2, 5, 5
-        self.theta = torch.ones(B, N, M, S,
+        self.theta = torch.rand(B, N, M, S,
                                 requires_grad=True,
                                 device=self.cuda_device, dtype=self.float_type)
-        self.A = torch.ones(B, N, M, S, S,
+        self.A = torch.rand(B, N, M, S, S,
                             device=self.cuda_device, dtype=self.float_type)
         self.Ztheta = torch.rand(B, N, M, S,
                                  requires_grad=True,
@@ -137,7 +137,7 @@ class TestForwardDecoder(unittest.TestCase):
         self.Et = torch.Tensor([1.])
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
-        fwd = ForwardDecoder(pos_mxys)
+        fwd = ForwardDecoder(pos)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
