@@ -8,7 +8,7 @@ torch.autograd.set_detect_anomaly(True)
 
 max_cols = 2048
 float_type = numba.float32
-max_S = 12
+max_S = 8
 tpb = 32  # threads per block
 
 
@@ -80,9 +80,8 @@ def _forward_pass_kernel(theta, A, pos, Q, Vt):
 @cuda.jit(device=True)
 def _backward_pass_device(Et, Q, pos, E):
     Etmp = cuda.local.array(max_S, float_type)
-    n_1, m_1, S, _ = Q.shape
+    n_1, m_1, S = Q.shape[0], Q.shape[1], Q.shape[2]
     N, M = n_1 - 2, m_1 - 2
-
     E[N + 1, M + 1, 0] = Et
     for ir in range(1, N + 1):
         i = N + 1 - ir
@@ -116,7 +115,7 @@ class ForwardFunction(torch.autograd.Function):
                         device=theta.device)
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
-
+        #print(type(theta), type(A), type(pos), type(Q), type(Vt))
         _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = pos
@@ -129,7 +128,7 @@ class ForwardFunction(torch.autograd.Function):
         B, N, M, S = theta.shape
         pos = ctx.others
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
-        E = torch.zeros((N + 2, M + 2, S),
+        E = torch.zeros((B, N + 2, M + 2, S),
                         dtype=theta.dtype,
                         device=theta.device)
         _backward_pass_kernel[tpb, bpg](Et, Q, pos, E)
