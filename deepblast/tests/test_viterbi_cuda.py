@@ -87,7 +87,7 @@ class TestViterbiUtils(unittest.TestCase):
 
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_forward_pass_soft(self):
-        B, N, M, S = 1, 2, 2, 3
+        B, N, M, S = 1, 100, 100, 3
         theta = torch.ones(B, N, M, S, dtype=self.float_type,
                            device=self.cuda_device)
         theta[:, :, :, x] = 0
@@ -104,7 +104,7 @@ class TestViterbiUtils(unittest.TestCase):
 
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_backward_pass_soft(self):
-        B, N, M, S = 1, 2, 2, 3
+        B, N, M, S = 1, 100, 100, 3
         theta = torch.ones(B, N, M, S, device=self.cuda_device, dtype=self.float_type)
         A = torch.ones(B, N, M, S, S, device=theta.device, dtype=theta.dtype)
         Q = torch.zeros((B, N + 2, M + 2, S, S), dtype=theta.dtype, device=theta.device)
@@ -113,7 +113,6 @@ class TestViterbiUtils(unittest.TestCase):
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (vc.tpb - 1)) // vc.tpb
 
-        print(type(theta), type(A), type(pos), type(Q), type(Vt))
         vc._forward_pass_kernel[vc.tpb, bpg](theta.detach(), A.detach(), pos.detach(), Q, Vt)
 
         Et = torch.ones(B, device=theta.device, dtype=theta.dtype)
@@ -121,11 +120,13 @@ class TestViterbiUtils(unittest.TestCase):
         vc._backward_pass_kernel[vc.tpb, bpg](Et, Q, pos, resE)
         resE = resE[0, 1:-1, 1:-1].cpu()
 
-        expE = torch.Tensor(
-            [[[1.0000, 0.0000, 0.0000],
-              [0.0000, 0.0000, 0.4683]],
-             [[0.0000, 0.4683, 0.0000],
-              [0.0634, 0.4683, 0.4683]]])
+        expE = vb._backward_pass(Et.cpu(), Q.squeeze().cpu(), pos_mxy)
+        expE = expE[1:-1, 1:-1]
+        # expE = torch.Tensor(
+        #     [[[1.0000, 0.0000, 0.0000],
+        #       [0.0000, 0.0000, 0.4683]],
+        #      [[0.0000, 0.4683, 0.0000],
+        #       [0.0634, 0.4683, 0.4683]]])
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
 
