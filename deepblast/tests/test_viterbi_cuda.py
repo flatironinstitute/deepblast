@@ -57,9 +57,10 @@ class TestViterbiUtils(unittest.TestCase):
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_logsumexp(self):
         with torch.no_grad():
-            A = torch.zeros(1, self.S, dtype=self.float_type,
+            S = 8
+            A = torch.zeros(1, S, dtype=self.float_type,
                             device=self.cuda_device, requires_grad=False)
-            U = torch.randn(1, self.S, dtype=self.float_type,
+            U = torch.randn(1, S, dtype=self.float_type,
                             device=self.cuda_device, requires_grad=False)
             A = A.detach()
             U = U.detach()
@@ -67,7 +68,7 @@ class TestViterbiUtils(unittest.TestCase):
                                device=self.cuda_device, requires_grad=False)
             resM = resM.detach()
             bpg = (1 + (32 - 1)) // 32  # blocks per grid
-            softmax_kernel[32, bpg](U, self.S, A, resM)
+            softmax_kernel[32, bpg](U, S, A, resM)
             op = operators['softmax']
             expM, expA = op.max(U)
             tt.assert_allclose(resM, expM)
