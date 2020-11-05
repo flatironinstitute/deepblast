@@ -122,42 +122,37 @@ class TestViterbiUtils(unittest.TestCase):
 
         expE = vb._backward_pass(Et.cpu(), Q.squeeze().cpu(), pos_mxy)
         expE = expE[1:-1, 1:-1]
-        # expE = torch.Tensor(
-        #     [[[1.0000, 0.0000, 0.0000],
-        #       [0.0000, 0.0000, 0.4683]],
-        #      [[0.0000, 0.4683, 0.0000],
-        #       [0.0634, 0.4683, 0.4683]]])
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
 
 
-# class TestForwardDecoder(unittest.TestCase):
-#
-#     def setUp(self):
-#         # smoke tests
-#         torch.manual_seed(2)
-#         # TODO: Compare against hardmax and sparsemax
-#         self.operator = 'softmax'
-#         self.cuda_device = torch.device('cuda')
-#         self.float_type = torch.float32
-#
-#     def test_grad_needlemanwunsch_function_small(self):
-#         B, N, M, S = 1, 2, 5, 5
-#         self.theta = torch.rand(B, N, M, S,
-#                                 requires_grad=True,
-#                                 device=self.cuda_device, dtype=self.float_type)
-#         self.A = torch.rand(B, N, M, S, S,
-#                             device=self.cuda_device, dtype=self.float_type)
-#         self.Ztheta = torch.rand(B, N, M, S,
-#                                  requires_grad=True,
-#                                  device=self.cuda_device, dtype=self.float_type)
-#         self.Et = torch.Tensor([1.])
-#         pos = torch.tensor(pos_test, dtype=torch.int8,
-#                            device=self.cuda_device).repeat(B, 1, 1)
-#         fwd = ForwardDecoder(pos)
-#         theta, A = self.theta.double(), self.A.double()
-#         theta.requires_grad_()
-#         gradcheck(fwd, (theta, A), eps=1e-2)
+class TestForwardDecoder(unittest.TestCase):
+
+    def setUp(self):
+        # smoke tests
+        torch.manual_seed(2)
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+        self.cuda_device = torch.device('cuda')
+        self.float_type = torch.float32
+
+    def test_grad_needlemanwunsch_function_small(self):
+        B, N, M, S = 1, 2, 5, 5
+        self.theta = torch.rand(B, N, M, S,
+                                requires_grad=True,
+                                device=self.cuda_device, dtype=self.float_type)
+        self.A = torch.rand(B, N, M, S, S,
+                            device=self.cuda_device, dtype=self.float_type)
+        self.Ztheta = torch.rand(B, N, M, S,
+                                 requires_grad=True,
+                                 device=self.cuda_device, dtype=self.float_type)
+        self.Et = torch.Tensor([1.])
+        pos = torch.tensor(pos_test, dtype=torch.int8,
+                           device=self.cuda_device).repeat(B, 1, 1)
+        fwd = ForwardDecoder(pos)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        gradcheck(fwd, (theta, A), eps=1e-2)
 #
 #     def test_grad_needlemanwunsch_function_larger(self):
 #         B, N, M, S = 1, 4, 5, 4
