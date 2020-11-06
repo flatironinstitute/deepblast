@@ -14,17 +14,13 @@ tpb = 32  # threads per block
 @cuda.jit(device=True)
 def _soft_max_device(X, A):
     M = max(X[0], X[1], X[2])
-
     S = 0.0
     for i in range(3):
         A[i] = exp(X[i] - M)
         S += A[i]
-
     for i in range(3):
         A[i] /= S
-
     M += log(S)
-
     return M
 
 
