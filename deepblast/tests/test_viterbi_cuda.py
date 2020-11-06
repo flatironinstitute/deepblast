@@ -137,7 +137,7 @@ class TestForwardDecoder(unittest.TestCase):
         self.float_type = torch.float32
 
     def test_grad_needlemanwunsch_function_small(self):
-        B, N, M, S = 1, 2, 5, 5
+        B, N, M, S = 1, 3, 3, 4
         self.theta = torch.rand(B, N, M, S,
                                 requires_grad=True,
                                 device=self.cuda_device, dtype=self.float_type)
@@ -147,13 +147,13 @@ class TestForwardDecoder(unittest.TestCase):
                                  requires_grad=True,
                                  device=self.cuda_device, dtype=self.float_type)
         self.Et = torch.Tensor([1.])
-        pos = torch.tensor(pos_test, dtype=torch.int8,
+        pos = torch.tensor(pos_mxys, dtype=torch.int8,
                            device=self.cuda_device).repeat(B, 1, 1)
         fwd = ForwardDecoder(pos)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
-        gradcheck(fwd, (theta, A), eps=1e-2)
-#
+        gradcheck(fwd, (theta, A), eps=1e-2, atol=1e-2, rtol=1e-2)
+
 #     def test_grad_needlemanwunsch_function_larger(self):
 #         B, N, M, S = 1, 4, 5, 4
 #         torch.manual_seed(2)
