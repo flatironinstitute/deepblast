@@ -7,7 +7,7 @@ from deepblast.dataset.utils import pack_sequences
 import unittest
 
 
-class TestAlignmentModel(unittest.TestCase):
+class TestNWAlign(unittest.TestCase):
 
     def setUp(self):
         path = pretrained_language_models['bilstm']
@@ -77,6 +77,11 @@ class TestAlignmentModel(unittest.TestCase):
         aln, theta, A = self.aligner(seq, order)
         self.assertEqual(aln.shape, (2, M, M))
         self.assertEqual(theta.shape, (2, M, M))
+
+
+class TestHMMAlign(unittest.TestCase):
+    def setUp(self):
+        pass
 
 
 if __name__ == '__main__':

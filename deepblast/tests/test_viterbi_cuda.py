@@ -155,6 +155,18 @@ class TestForwardDecoder(unittest.TestCase):
         gradcheck(fwd, (theta, A), eps=1e-2, atol=1e-2, rtol=1e-2)
 
 
+class TestViterbiDecoder(unittest.TestCase):
+    def setUp(self):
+        torch.manual_seed(2)
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+        self.cuda_device = torch.device('cuda')
+        self.float_type = torch.float32
+
+    def test_traceback(self):
+        pass
+
+
 if __name__ == "__main__":
 
     unittest.main()

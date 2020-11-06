@@ -176,6 +176,46 @@ class ViterbiDecoder(nn.Module):
         # Forward and Backward algorithm (aka Baum-Welch)
         return baumwelch(theta, A, self.pos)
 
+    def traceback(self, grad):
+        """ Computes traceback
+
+        Parameters
+        ----------
+        grad : torch.Tensor
+            Gradients of the alignment matrix.
+
+        Returns
+        -------
+        states : list of tuple
+            Indices representing matches.
+        """
+        x, y = 1, 2
+        N, M = grad.shape
+        states = torch.zeros(max(N, M))
+        i, j = N - 1, M - 1
+        states = [(i, j, m)]
+        max_ = -1e8
+        while True:
+            if i > 0 and j > 0:
+                t = torch.Tensor([grad[i + p[0], j + p[1]] for p in pos])
+                s = torch.argmax(t)
+                di, dj = self.pos[s]
+                i, j = i + di, j + dj
+                states.append(i, j, s)
+
+        # take care of any outstanding gaps
+        while i > 0:
+            i = i - 1
+            s = x
+            states.append((i, j, s))
+
+        while j > 0:
+            j = j - 1
+            s = y
+            states.append((i, j, s))
+
+        return states[::-1]
+
     def decode(self, theta, A):
         """ Shortcut for doing inference. """
         # data, batch_sizes = theta
