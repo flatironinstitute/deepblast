@@ -43,4 +43,6 @@ setup(name='deepblast',
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,
-      package_data={})
+      package_data={
+          'deepblast': ['pretrained_models/lstm2x.pt'],
+      })
