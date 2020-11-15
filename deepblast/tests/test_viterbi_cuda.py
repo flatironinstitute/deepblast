@@ -125,7 +125,6 @@ class TestViterbiUtils(unittest.TestCase):
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
 
-
 class TestForwardDecoder(unittest.TestCase):
 
     def setUp(self):

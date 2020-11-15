@@ -4,6 +4,7 @@ from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
 from deepblast.dataset.utils import unpack_sequences
+from deepblast.constants import pos_mxy
 import torch.nn.functional as F
 
 
@@ -127,7 +128,7 @@ class NeedlemanWunschAligner(nn.Module):
 
 class HMMAligner(nn.Module):
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, lm=None, device='gpu'):
+                 n_layers=2, pos=pos_mxy, lm=None, device='gpu'):
         """ Paired HMM Alignment model
 
         Parameters
@@ -142,6 +143,8 @@ class HMMAligner(nn.Module):
            Embedding dimension
         n_layers : int
            Number of RNN layers.
+        pos : list of tuples
+           Specifies the position differentials.
         lm : BiLM
            Pretrained language model (optional)
         padding_idx : int
