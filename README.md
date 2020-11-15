@@ -98,6 +98,10 @@ y_ = torch.Tensor(model.tokenizer(str.encode(y))).long()
 seq, order = pack_sequences([x_], [y_])
 seq = seq.cuda()
 
+# Generate alignment score
+score = model.aligner.score(seq, order).item()
+print('Score', score)
+
 # Predict expected alignment
 A, match_scores, gap_scores = model.forward(seq, order)
 
@@ -118,6 +122,8 @@ The output will look like
 IGKEEIQQRLAQFVDHWKELKQLAAARGQRLEESLEYQQFVANVEEEEAWINEKMTLVASED
 ::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
 QQNKELNFKLREKQNEIFELKKIAETLRSKLEKYVDITKKLEDQNLNLQIKISDLEKKLSDA
+
+Score 282.3163757324219
 ```
 
 ![](https://raw.githubusercontent.com/flatironinstitute/deepblast/master/imgs/example-alignment.png "example alignment")
