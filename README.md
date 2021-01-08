@@ -1,6 +1,6 @@
 # DeepBLAST 
 
-Learning protein structural similarity from sequence alone.
+Learning protein structural similarity from sequence alone.  Our preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.11.03.365932v1)
 
 # Installation
 
@@ -140,3 +140,16 @@ ADQSFLWASGVI-S------D-EM--
 MHHHHHHSSGVDLWSHPQFEKGT-EN
 ```
 The first 12 residues in the alignment are matches.  The last 2 characters indicate insertions in the second sequence (hence the 2 in the alignment string), and the 3rd to last character indciates an insertion in the first sequence (hence the 1 in the aligment string).
+
+# Citation
+
+If you find our work useful, please cite us at
+```
+@article{morton2020protein,
+  title={Protein Structural Alignments From Sequence},
+  author={Morton, Jamie and Strauss, Charlie and Blackwell, Robert and Berenberg, Daniel and Gligorijevic, Vladimir and Bonneau, Richard},
+  journal={bioRxiv},
+  year={2020},
+  publisher={Cold Spring Harbor Laboratory}
+}
+```
