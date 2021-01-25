@@ -3,13 +3,13 @@ import torch
 from torch.autograd import gradcheck
 import torch.testing as tt
 from deepblast.viterbi_cuda import (
-    ViterbiDecoder, ForwardFunction, ForwardDecoder,
+    ForwardFunction, ForwardDecoder,
     _soft_max_device
 )
 from deepblast.ops import operators
 import deepblast.viterbi_cuda as vc
 import deepblast.viterbi as vb
-from deepblast.constants import x, y, pos_mxys, pos_test, pos_mxy
+from deepblast.constants import x, y, pos_mxys, pos_mxy
 import unittest
 
 
@@ -53,7 +53,6 @@ class TestViterbiUtils(unittest.TestCase):
             self.cuda_device = cuda_device
             self.float_type = float_type
 
-
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_logsumexp(self):
         with torch.no_grad():
@@ -77,11 +76,10 @@ class TestViterbiUtils(unittest.TestCase):
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_forward_pass(self):
         Vt = ForwardFunction.apply(self.theta, self.A, self.pos)
-
         Vt_ref, _ = vb._forward_pass(self.theta[0], self.A[0],
                                      pos_mxys, 'softmax')
-
-        # Likely huge FP rounding issues between cuda and cpu implementations of log/exp
+        # Likely huge FP rounding issues between cuda and cpu
+        # implementations of log/exp
         assert(abs(Vt[0] - Vt_ref) < 1E-1)
         self.assertEqual(int(Vt.item()), int(Vt_ref.item()))
 
@@ -105,15 +103,19 @@ class TestViterbiUtils(unittest.TestCase):
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_backward_pass_soft(self):
         B, N, M, S = 1, 100, 100, 3
-        theta = torch.ones(B, N, M, S, device=self.cuda_device, dtype=self.float_type)
-        A = torch.ones(B, N, M, S, S, device=theta.device, dtype=theta.dtype)
-        Q = torch.zeros((B, N + 2, M + 2, S, S), dtype=theta.dtype, device=theta.device)
-        resE = torch.zeros((B, N + 2, M + 2, S), dtype=theta.dtype, device=theta.device)
-        pos = torch.tensor(pos_mxy, dtype=torch.int8, device=self.cuda_device).repeat(B, 1, 1)
-        Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
+        device = self.cuda_device
+        dtype = self.float_type
+        theta = torch.ones(B, N, M, S, device=device, dtype=dtype)
+        A = torch.ones(B, N, M, S, S, device=device, dtype=dtype)
+        Q = torch.zeros((B, N + 2, M + 2, S, S), dtype=dtype, device=device)
+        resE = torch.zeros((B, N + 2, M + 2, S), dtype=dtype, device=device)
+        pos = torch.tensor(pos_mxy, dtype=torch.int8, device=device)
+        pos = pos.repeat(B, 1, 1)
+        Vt = torch.zeros((B), dtype=dtype, device=device)
         bpg = (B + (vc.tpb - 1)) // vc.tpb
 
-        vc._forward_pass_kernel[vc.tpb, bpg](theta.detach(), A.detach(), pos.detach(), Q, Vt)
+        vc._forward_pass_kernel[vc.tpb, bpg](theta.detach(), A.detach(),
+                                             pos.detach(), Q, Vt)
 
         Et = torch.ones(B, device=theta.device, dtype=theta.dtype)
 
@@ -123,7 +125,6 @@ class TestViterbiUtils(unittest.TestCase):
         expE = vb._backward_pass(Et.cpu(), Q.squeeze().cpu(), pos_mxy)
         expE = expE[1:-1, 1:-1]
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
-
 
 
 class TestForwardDecoder(unittest.TestCase):
@@ -140,12 +141,15 @@ class TestForwardDecoder(unittest.TestCase):
         B, N, M, S = 1, 3, 3, 4
         self.theta = torch.rand(B, N, M, S,
                                 requires_grad=True,
-                                device=self.cuda_device, dtype=self.float_type)
+                                device=self.cuda_device,
+                                dtype=self.float_type)
         self.A = torch.rand(B, N, M, S, S,
-                            device=self.cuda_device, dtype=self.float_type)
+                            device=self.cuda_device,
+                            dtype=self.float_type)
         self.Ztheta = torch.rand(B, N, M, S,
                                  requires_grad=True,
-                                 device=self.cuda_device, dtype=self.float_type)
+                                 device=self.cuda_device,
+                                 dtype=self.float_type)
         self.Et = torch.Tensor([1.])
         pos = torch.tensor(pos_mxys, dtype=torch.int8,
                            device=self.cuda_device).repeat(B, 1, 1)

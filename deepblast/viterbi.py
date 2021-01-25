@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
-from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 from deepblast.ops import operators
+# from torch.nn.utils.rnn import pack_padded_sequence, PackedSequence
 # from deepblast.constants import x, m, y, s
 
 
@@ -24,9 +24,9 @@ def _forward_pass(theta, A, pos, operator='softmax'):
     op = operators[operator]
     new = theta.new
     N, M, S = theta.size()
-    V = new(N + 1, M + 1, S).zero_()    # N x M x S
-    Q = new(N + 2, M + 2, S, S).zero_() # N x M x S x S
-    Vt = new(S).zero_()    #S
+    V = new(N + 1, M + 1, S).zero_()     # N x M x S
+    Q = new(N + 2, M + 2, S, S).zero_()  # N x M x S x S
+    Vt = new(S).zero_()    # S
     neg_inf = -1e8   # very negative number
     V = V + neg_inf
     V[0, 0] = 0   # Make all states equally likely to enter
@@ -116,9 +116,8 @@ def baumwelch(theta, A, operator):
        Posterior distribution across all states.  This is a
        N x M x S tensor of log probabilities.
     """
-    fwd =  ForwardFunction.apply(
-        theta, A, operator)
-    bwd =  ForwardFunction.apply(
+    fwd = ForwardFunction.apply(theta, A, operator)
+    bwd = ForwardFunction.apply(
         theta[::-1, ::-1], A[::-1, ::-1].permute(0, 1, 3, 2),
         operator)
     posterior = fwd + bwd
@@ -160,6 +159,5 @@ class ViterbiDecoder(nn.Module):
             nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, = torch.autograd.grad(
-                v, (theta, A),
-               create_graph=True)
+                v, (theta, A), create_graph=True)
         return v_grad

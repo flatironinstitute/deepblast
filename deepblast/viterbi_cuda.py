@@ -1,7 +1,7 @@
 import torch
 import numba
 from numba import cuda
-from math import exp, log, isnan
+from math import exp, log
 import torch.nn as nn
 # FIXME: Refactor cuda utility and variables
 torch.autograd.set_detect_anomaly(True)
@@ -48,8 +48,9 @@ def _forward_pass_device(theta, A, pos, Q):
                 di = pos[k][0]
                 dj = pos[k][1]
 
-                for l in range(S):
-                    maxargs[l] = V[curr + di, j + dj, l] + A[i - 1, j - 1, k, l]
+                for L in range(S):
+                    maxargs[L] = V[curr + di, j + dj, L] + \
+                                 A[i - 1, j - 1, k, L]
 
                 V[curr, j, k] = _soft_max_device(maxargs, S, Q[i, j, k])
 
@@ -67,8 +68,8 @@ def _forward_pass_device(theta, A, pos, Q):
 def _forward_pass_kernel(theta, A, pos, Q, Vt):
     batchid = cuda.grid(1)
     if batchid < theta.shape[0]:
-        Vt[batchid] = _forward_pass_device(theta[batchid], A[batchid], pos[batchid],
-                                           Q[batchid])
+        Vt[batchid] = _forward_pass_device(
+            theta[batchid], A[batchid], pos[batchid], Q[batchid])
 
 
 @cuda.jit(device=True)
@@ -84,17 +85,18 @@ def _backward_pass_device(Et, Q, pos, E):
 
             for k in range(S):
                 di, dj = pos[k][0], pos[k][1]
-                for l in range(S):
-                    Etmp[l] = Q[i - di, j - dj, k, l] * E[i - di, j - dj, k]
-                for l in range(S):
-                    E[i, j, l] += Etmp[l]
+                for L in range(S):
+                    Etmp[L] = Q[i - di, j - dj, k, L] * E[i - di, j - dj, k]
+                for L in range(S):
+                    E[i, j, L] += Etmp[L]
 
 
 @cuda.jit
 def _backward_pass_kernel(Et, Q, pos, E):
     batchid = cuda.grid(1)
     if batchid < Q.shape[0]:
-        _backward_pass_device(Et[batchid], Q[batchid], pos[batchid], E[batchid])
+        _backward_pass_device(Et[batchid], Q[batchid],
+                              pos[batchid], E[batchid])
 
 
 class ForwardFunction(torch.autograd.Function):
@@ -109,7 +111,6 @@ class ForwardFunction(torch.autograd.Function):
                         device=theta.device)
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
-        #print(type(theta), type(A), type(pos), type(Q), type(Vt))
         _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = pos
@@ -184,6 +185,5 @@ class ViterbiDecoder(nn.Module):
             nll = self.forward(theta, A)
             v = torch.sum(nll)
             v_grad, = torch.autograd.grad(
-                v, (theta, A),
-               create_graph=True)
+                v, (theta, A), create_graph=True)
         return v_grad
