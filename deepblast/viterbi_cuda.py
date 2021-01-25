@@ -3,6 +3,8 @@ import numba
 from numba import cuda
 from math import exp, log
 import torch.nn as nn
+from deepblast.constants import m_, x_, y_, s_
+
 # FIXME: Refactor cuda utility and variables
 torch.autograd.set_detect_anomaly(True)
 
@@ -187,3 +189,47 @@ class ViterbiDecoder(nn.Module):
             v_grad, = torch.autograd.grad(
                 v, (theta, A), create_graph=True)
         return v_grad
+
+    def traceback(self, grad):
+        """ Computes traceback
+
+        Parameters
+        ----------
+        grad : torch.Tensor
+            Gradients of the alignment matrix.
+
+        Returns
+        -------
+        states : list of tuple
+            Indices representing matches.
+        """
+        m, x, y, s = m_, x_, y_, s_
+        N, M = grad.shape
+        states = torch.zeros(max(N, M, S))
+        # fill out backtracing tensor
+        BT = torch.zeros(N, M, S)
+        for i in reversed(range(1, N + 1)):
+            for j in reversed(range(1, M + 1)):
+                res = []
+                for k in range(S):
+                    di, dj = self.pos[k]
+                    BT[i, j, k] = torch.argmax(V[i - di, j - dj] + \
+                                               A[i + 1, j + 1, k] + \
+                                               theta[i + 1, j + 1, k])
+        # represent backtracking tensor as string of states
+        i, j = N - 1, M - 1
+        p = BT[i, j, m]
+        states = [i, j, p]
+        while i > 0 and j > 0:
+            di, dj = pos[k]
+            p = BT[i + di, j + dj, p]
+            i = i + di
+            j = j + di
+            states.append((i, j, p))
+        while i > 0:
+            states.append(i, j, x)
+            i = i - 1
+        while j > 0:
+            states.append(i, j, x)
+            j = j - 1
+        return states[::-1]
