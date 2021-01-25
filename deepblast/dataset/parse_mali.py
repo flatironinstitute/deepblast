@@ -27,7 +27,7 @@ def read_mali(root, tool='manual', report_ids=False):
     dirs = []
     for path, directories, files in os.walk(root):
         for f in files:
-            if '.ali' in f and tool in f:
+            if '.ali' in f and tool in f and ('manual2' not in f):
                 fname = os.path.join(path, f)
                 lines = open(fname).readlines()
                 X = lines[0].rstrip().upper()
@@ -35,8 +35,9 @@ def read_mali(root, tool='manual', report_ids=False):
                 S = ''.join(
                     list(map(revstate_f, map(state_f, list(zip(X, Y))))))
                 res.append((X.replace('-', ''), Y.replace('-', ''), S))
-                pdbs.append(os.path.basename(f).split('.')[0])
+                pdbs.append(os.path.basename(f).split(f'.{tool}.ali')[0])
                 dirs.append(os.path.basename(path))
+
     res = pd.DataFrame(res)
     if report_ids:
         res['query_id'] = np.arange(len(res)).astype(np.str)
@@ -89,7 +90,8 @@ def read_mali_mammoth(root, report_ids=False):
                 S = ''.join(
                     list(map(revstate_f, map(state_f, list(zip(X, Y))))))
                 res.append((X.replace('-', ''), Y.replace('-', ''), S))
-                pdbs.append(os.path.basename(f).split('.')[0])
+                pdbs.append(os.path.basename(f).split('.mammoth.ali')[0])
+
     res = pd.DataFrame(res)
     if report_ids:
         res['query_id'] = np.arange(len(res)).astype(np.str)

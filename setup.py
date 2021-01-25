@@ -39,7 +39,10 @@ setup(name='deepblast',
           'pytorch-lightning>=0.8.1',
           'matplotlib',
           'pillow',
+          'biopython>=1.78,<2.0'
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,
-      package_data={})
+      package_data={
+          'deepblast': ['pretrained_models/lstm2x.pt'],
+      })

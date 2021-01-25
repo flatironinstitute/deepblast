@@ -1,6 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 from deepblast.dataset.utils import states2alignment, tmstate_f, states2edges
+from deepblast.constants import m as match
+import pandas as pd
 
 
 def roc_edges(true_edges, pred_edges):
@@ -32,11 +34,18 @@ def roc_edges_kernel_identity(true_edges, pred_edges, kernel_width):
     return perc_id
 
 
+def filter_gaps(states, edges):
+    data = zip(states, edges)
+    data = filter(lambda x: x[0] == match, data)
+    _, edges = zip(*list(data))
+    return list(edges)
+
+
 def alignment_score_kernel(true_states: str, pred_states: str,
                            kernel_widths: list,
-                           query_offset: int = 0, hit_offset: int = 0):
-    """
-    Computes ROC statistics on alignment
+                           query_offset: int = 0, hit_offset: int = 0,
+                           no_gaps=True):
+    """ Computes ROC statistics on alignment.
 
     Parameters
     ----------
@@ -45,7 +54,6 @@ def alignment_score_kernel(true_states: str, pred_states: str,
     pred_states : str
         Predicted state string
     """
-
     pred_states = list(map(tmstate_f, pred_states))
     true_states = list(map(tmstate_f, true_states))
     pred_edges = states2edges(pred_states)
@@ -56,6 +64,9 @@ def alignment_score_kernel(true_states: str, pred_states: str,
     pred_edges[:, 0] += query_offset
     pred_edges[:, 1] += hit_offset
     pred_edges = list(map(tuple, pred_edges))
+    if no_gaps:
+        pred_edges = filter_gaps(pred_states, pred_edges)
+        true_edges = filter_gaps(true_states, true_edges)
 
     res = []
     for k in kernel_widths:
@@ -64,20 +75,26 @@ def alignment_score_kernel(true_states: str, pred_states: str,
     return res
 
 
-def alignment_score(true_states: str, pred_states: str):
-    """
-    Computes ROC statistics on alignment
+def alignment_score(true_states: str, pred_states: str, no_gaps=True):
+    """ Computes ROC statistics on alignment.
+
     Parameters
     ----------
     true_states : str
         Ground truth state string
     pred_states : str
         Predicted state string
+    no_gaps : bool
+        Removes all gaps before computing ROC stats.
     """
     pred_states = list(map(tmstate_f, pred_states))
     true_states = list(map(tmstate_f, true_states))
     pred_edges = states2edges(pred_states)
     true_edges = states2edges(true_states)
+    if no_gaps:
+        pred_edges = filter_gaps(pred_states, pred_edges)
+        true_edges = filter_gaps(true_states, true_edges)
+
     stats = roc_edges(true_edges, pred_edges)
     return stats
 
@@ -163,3 +180,30 @@ def alignment_text(x, y, pred, truth, stats):
 
     s = stats_viz + '\n' + truth_viz + '\n' + pred_viz
     return s
+
+
+def score_local_identity(x, k):
+    if x['query_start'] < 0:
+        return [0.] * len(k)
+    else:
+        return alignment_score_kernel(x['manual'], x['aln'], kernel_widths=k,
+                                      query_offset=x['query_start'],
+                                      hit_offset=x['hit_start'])
+
+
+def score_local_alignment(df, k, n_cores=4):
+    import dask.dataframe as dd
+    df2 = dd.from_pandas(df, npartitions=n_cores)
+    func = lambda x: score_local_identity(x, k)
+    res = df2.apply(func, axis=1)
+    resdf = res.compute(scheduler='processes')
+    return pd.DataFrame(list(resdf.values), columns=k)
+
+
+def score_global_alignment(df, col, k, n_cores=4):
+    import dask.dataframe as dd
+    df2 = dd.from_pandas(df, npartitions=n_cores)
+    func = lambda x: alignment_score_kernel(x['manual'], x[col], k)
+    res = df2.apply(func, axis=1)
+    resdf = res.compute(scheduler='processes')
+    return pd.DataFrame(list(resdf.values), columns=k)
