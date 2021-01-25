@@ -83,7 +83,7 @@ class TestViterbiUtils(unittest.TestCase):
 
         # Likely huge FP rounding issues between cuda and cpu implementations of log/exp
         assert(abs(Vt[0] - Vt_ref) < 1E-1)
-        self.assertAlmostEqual(Vt.item(), Vt_ref.item())
+        self.assertEqual(int(Vt.item()), int(Vt_ref.item()))
 
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_forward_pass_soft(self):
@@ -100,7 +100,7 @@ class TestViterbiUtils(unittest.TestCase):
 
         ref = vb.ForwardFunction.apply(theta[0], A[0], pos_mxy, 'softmax')
         print(ref/res[0] - 1.0)
-        self.assertAlmostEqual(res.item(), ref.item())
+        self.assertEqual(int(res.item()), int(ref.item()))
 
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_backward_pass_soft(self):
