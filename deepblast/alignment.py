@@ -10,7 +10,7 @@ import torch.nn.functional as F
 
 
 class BaseAligner(nn.Module):
-def __init__(self, n_alpha, n_input, n_units, n_embed,
+    def __init__(self, n_alpha, n_input, n_units, n_embed,
                  n_layers=2, lm=None, device='gpu'):
         """ Base Alignment model
 

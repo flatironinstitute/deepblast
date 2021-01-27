@@ -154,8 +154,11 @@ def baumwelch(theta, A, pos):
     """
     fwd = ForwardFunction.apply(
         theta, A, pos)
+
     bwd = ForwardFunction.apply(
-        theta[:, ::-1, ::-1], A[:, ::-1, ::-1].permute(0, 1, 2, 4, 3), pos)
+        torch.flip(theta, dims=[1, 2]),
+        torch.flip(A, dims=[1, 2]).permute(0, 1, 2, 4, 3),
+        pos)
     posterior = fwd + bwd
     return posterior
 
@@ -186,11 +189,11 @@ class ViterbiDecoder(nn.Module):
             # data.requires_grad_()
             nll = self.forward(theta, A)
             v = torch.sum(nll)
-            v_grad, = torch.autograd.grad(
+            v_grad = torch.autograd.grad(
                 v, (theta, A), create_graph=True)
         return v_grad
 
-    def traceback(self, grad):
+    def traceback(self, theta_grad):
         """ Computes traceback
 
         Parameters
@@ -204,24 +207,23 @@ class ViterbiDecoder(nn.Module):
             Indices representing matches.
         """
         m, x, y, s = m_, x_, y_, s_
-        N, M = grad.shape
+        N, M, S, _ = theta_grad.shape
         states = torch.zeros(max(N, M, S))
         # fill out backtracing tensor
-        BT = torch.zeros(N, M, S)
-        for i in reversed(range(1, N + 1)):
-            for j in reversed(range(1, M + 1)):
+        BT = torch.zeros(N, M, S).long()
+        for i in reversed(range(N - 1)):
+            for j in reversed(range(M - 1)):
                 res = []
                 for k in range(S):
-                    di, dj = self.pos[k]
-                    BT[i, j, k] = torch.argmax(V[i - di, j - dj] + \
-                                               A[i + 1, j + 1, k] + \
-                                               theta[i + 1, j + 1, k])
+                    di, dj = self.pos[0, k]  # grab the first batch whatev
+                    BT[i, j, k] = torch.argmax(
+                        theta_grad[i + 1, j + 1, k])
         # represent backtracking tensor as string of states
         i, j = N - 1, M - 1
         p = BT[i, j, m]
         states = [i, j, p]
         while i > 0 and j > 0:
-            di, dj = pos[k]
+            di, dj = self.pos[0, k]
             p = BT[i + di, j + dj, p]
             i = i + di
             j = j + di

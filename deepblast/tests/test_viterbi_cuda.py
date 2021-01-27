@@ -4,7 +4,7 @@ from torch.autograd import gradcheck
 import torch.testing as tt
 from deepblast.viterbi_cuda import (
     ForwardFunction, ForwardDecoder,
-    _soft_max_device
+    ViterbiDecoder, _soft_max_device
 )
 from deepblast.ops import operators
 import deepblast.viterbi_cuda as vc
@@ -157,6 +157,62 @@ class TestForwardDecoder(unittest.TestCase):
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2, atol=1e-2, rtol=1e-2)
+
+
+class TestViterbiDecoder(unittest.TestCase):
+
+    def setUp(self):
+        # smoke tests
+        torch.manual_seed(2)
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+        self.cuda_device = torch.device('cuda')
+        self.float_type = torch.float32
+        B, N, M, S = 1, 3, 3, 4
+        self.theta = torch.rand(B, N, M, S,
+                                requires_grad=True,
+                                device=self.cuda_device,
+                                dtype=self.float_type)
+        self.A = torch.rand(B, N, M, S, S,
+                            device=self.cuda_device,
+                            dtype=self.float_type)
+        self.Ztheta = torch.rand(B, N, M, S,
+                                 requires_grad=True,
+                                 device=self.cuda_device,
+                                 dtype=self.float_type)
+        self.Et = torch.Tensor([1.])
+        self.B = B
+        self.N = N
+        self.M = M
+        self.S = S
+
+    def test_forward(self):
+        pos = torch.tensor(pos_mxys, dtype=torch.int8,
+                           device=self.cuda_device).repeat(self.B, 1, 1)
+        vit = ViterbiDecoder(pos)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        vit(theta, A)
+
+    def test_decode(self):
+        pos = torch.tensor(pos_mxys, dtype=torch.int8,
+                           device=self.cuda_device).repeat(self.B, 1, 1)
+        vit = ViterbiDecoder(pos)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        A.requires_grad_()
+        vit.decode(theta, A)
+
+    def test_traceback(self):
+        pos = torch.tensor(pos_mxys, dtype=torch.int8,
+                           device=self.cuda_device).repeat(self.B, 1, 1)
+        vit = ViterbiDecoder(pos)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        A.requires_grad_()
+        grad = vit.decode(theta, A)
+        A_grad, theta_grad = grad
+        states = vit.traceback(theta_grad[0])
 
 
 if __name__ == "__main__":
