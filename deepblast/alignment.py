@@ -172,15 +172,14 @@ class HMM3Aligner(BaseAligner):
                 n_alpha, n_input, n_embed * S, lm=lm)
             self.gap_embedding = EmbedLinear(
                 n_alpha, n_input, n_embed * S, lm=lm)
-        # TODO: need to fix the embeddings to accomodate for a
-        # much larger state-space
-        self.hmm = ViterbiDecoderCUDA(pos_mxy)
+        pos = torch.Tensor(pos_mxy).long()
+        self.hmm = ViterbiDecoderCUDA(pos)
         self.S = S
 
     def contract(self, x, order):
         """ Tensor contraction operation. """
         zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-        gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
+        gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
         # Obtain theta through an inner product across latent dimensions
         B, n, d3 = zx.shape
         B, m, d3 = zy.shape
@@ -189,7 +188,7 @@ class HMM3Aligner(BaseAligner):
         gx, gy = gx.view(B, n, d, self.S), gy.view(B, m, d, self.S)
         theta = torch.einsum('bids,bjds->bijs', zx, zy)
         A = torch.einsum('bidu,bjdv->bijuv', gx, gy)
-        return theta, A
+        return theta, A, xlen, ylen
 
     def forward(self, x, order):
         """ Generate alignment matrix.
@@ -207,13 +206,14 @@ class HMM3Aligner(BaseAligner):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            theta, A = self.contract(x, order)
-            aln = self.hmm.decode(theta, A)
+            theta, A, _, _ = self.contract(x, order)
+            aln = self.hmm.forward(theta, A)
+            print(aln.shape)
             return aln, theta, A
 
     def score(self, x, order):
         with torch.no_grad():
-            theta, A = self.contract(x, order)
+            theta, A, _, _ = self.contract(x, order)
             ascore = self.hmm(theta, A)
             return ascore
 
@@ -236,12 +236,12 @@ class HMM3Aligner(BaseAligner):
         """
         # dim B x N x D
         with torch.enable_grad():
-            match, gap = self.contract(x, order)
-            B, _, _ = match.shape
+            match, gap, xlen, ylen = self.contract(x, order)
+            B = match.shape[0]
             for b in range(B):
-                aln, _ = self.nw.decode(
+                match_grad, _ = self.hmm.decode(
                     match[b, :xlen[b], :ylen[b]].unsqueeze(0),
                     gap[b, :xlen[b], :ylen[b]].unsqueeze(0)
                 )
-                decoded = self.hmm.traceback(aln.squeeze())
-                yield decoded, aln
+                decoded = self.hmm.traceback(match_grad.squeeze())
+                yield decoded, match_grad

@@ -188,7 +188,7 @@ class TestViterbiDecoder(unittest.TestCase):
 
     def test_forward(self):
         pos = torch.tensor(pos_mxys, dtype=torch.int8,
-                           device=self.cuda_device).repeat(self.B, 1, 1)
+                           device=self.cuda_device)
         vit = ViterbiDecoder(pos)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
@@ -196,7 +196,7 @@ class TestViterbiDecoder(unittest.TestCase):
 
     def test_decode(self):
         pos = torch.tensor(pos_mxys, dtype=torch.int8,
-                           device=self.cuda_device).repeat(self.B, 1, 1)
+                           device=self.cuda_device)
         vit = ViterbiDecoder(pos)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
@@ -205,13 +205,13 @@ class TestViterbiDecoder(unittest.TestCase):
 
     def test_traceback(self):
         pos = torch.tensor(pos_mxys, dtype=torch.int8,
-                           device=self.cuda_device).repeat(self.B, 1, 1)
+                           device=self.cuda_device)
         vit = ViterbiDecoder(pos)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         A.requires_grad_()
         grad = vit.decode(theta, A)
-        A_grad, theta_grad = grad
+        theta_grad, A_grad = grad
         states = vit.traceback(theta_grad[0])
 
 

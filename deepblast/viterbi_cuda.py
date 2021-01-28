@@ -111,6 +111,7 @@ class ForwardFunction(torch.autograd.Function):
                         dtype=theta.dtype,
                         device=theta.device)
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
+        pos = pos.repeat(B, 1, 1)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
         _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt)
         ctx.save_for_backward(theta, A, Q)
@@ -150,6 +151,8 @@ def baumwelch(theta, A, pos):
        Posterior distribution across all states.  This is a
        B X N x M x S tensor of log probabilities.
     """
+    # TODO: need a way to retrieve the forward and backward matrices.
+    # Right now, only the terminal values are returned.
     fwd = ForwardFunction.apply(
         theta, A, pos)
 
@@ -164,7 +167,7 @@ def baumwelch(theta, A, pos):
 class ForwardDecoder(nn.Module):
     def __init__(self, pos):
         super().__init__()
-        self.pos = pos
+        self.register_buffer('pos', pos)
 
     def forward(self, theta, A):
         return ForwardFunction.apply(theta, A, self.pos)
@@ -173,7 +176,7 @@ class ForwardDecoder(nn.Module):
 class ViterbiDecoder(nn.Module):
     def __init__(self, pos):
         super().__init__()
-        self.pos = pos
+        self.register_buffer('pos', pos)
 
     def forward(self, theta, A):
         # offloading to CPU for now
@@ -205,7 +208,7 @@ class ViterbiDecoder(nn.Module):
             Indices representing matches.
         """
         m, x, y, s = m_, x_, y_, s_
-        N, M, S, _ = theta_grad.shape
+        N, M, S = theta_grad.shape
         states = torch.zeros(max(N, M, S))
         # fill out backtracing tensor
         BT = torch.zeros(N, M, S).long()
@@ -214,7 +217,7 @@ class ViterbiDecoder(nn.Module):
             for j in reversed(range(M - 1)):
                 res = []
                 for k in range(S):
-                    di, dj = self.pos[0, k]  # grab the first batch whatev
+                    di, dj = self.pos[k]
                     BT[i, j, k] = torch.argmax(
                         theta_grad[i + 1, j + 1, k])
         # represent backtracking tensor as string of states
@@ -222,7 +225,7 @@ class ViterbiDecoder(nn.Module):
         p = BT[i, j, m]
         states = [i, j, p]
         while i > 0 and j > 0:
-            di, dj = self.pos[0, k]
+            di, dj = self.pos[k]
             p = BT[i + di, j + dj, p]
             i = i + di
             j = j + di
