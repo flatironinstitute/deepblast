@@ -78,6 +78,75 @@ def _backward_pass(Et, Q, pos):
     return E
 
 
+def _adjoint_forward_pass(Q, Ztheta, ZA, pos):
+    """ Calculate directional derivatives and Hessians.
+    Parameters
+    ----------
+    Q : torch.Tensor
+        Derivatives of max theta + v of dimension N x M x S x S
+    Ztheta : torch.Tensor
+        Derivative of theta of dimension N x M x S
+    ZA : torch.Tensor
+        Derivative of transition probabilities of dimension N x M x S x S
+    operator : str
+        The smoothed maximum operator.
+    Returns
+    -------
+    Vd : torch.Tensor
+        Derivatives of V of dimension N x M x S
+    Qd : torch.Tensor
+        Derivatives of Q of dimension N x M x S x S
+    """
+    op = operators[operator]
+    new = Ztheta.new
+    N, M, S = Ztheta.size()
+    N, M = N - 2, M - 2
+    Vd = new(N + 1, M + 1, S).zero_()     # N x M
+    Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
+    for i in range(1, N + 1):
+        for j in range(1, M + 1):
+            di, dj = pos[k]
+            for k in range(S):
+                v_ = ZA[i - 1, j - 1, k] + Vd[i + di, j + dj, k]
+                Vd[i, j, k] += Q[i, j, k] @ v_
+                Vd[i, j, k] += Ztheta[i, j, k]
+                Qd[i, j, k] = operator.hessian_product(Q[i, j, k], v_)
+    return Vd[N, M], Qd
+
+
+def _adjoint_backward_pass(E, Q, Qd, pos):
+    """ Calculate directional derivatives and Hessians.
+
+    Parameters
+    ----------
+    E : torch.Tensor
+        Traceback matrix of dimension N x M x S
+    Q : torch.Tensor
+        Derivatives of max theta + v of dimension N x M x S x S
+    Qd : torch.Tensor
+        Derivatives of Q of dimension N x M x S
+    Returns
+    -------
+    Ed : torch.Tensor
+        Derivative of traceback matrix of dimension N x M x S
+
+    Notes
+    -----
+    Careful with Ztheta, it actually has dimensions (N + 2)  x (M + 2).
+    The border elements aren't useful, only need Ztheta[1:-1, 1:-1]
+    """
+    n_1, m_1, S, _ = Q.shape
+    new = Q.new
+    N, M = n_1 - 2, m_1 - 2
+    Ed = new(N + 2, M + 2, S).zero_()
+    for i in reversed(range(1, N + 1)):
+        for j in reversed(range(1, M + 1)):
+            di, dj = pos[k]
+            for k in range(S):
+                Ed[i, j] = Qd[i - di, j - dj, k] * E[i - di, j - dj, k] + \
+                    Q[i - di, j - dj, k] * Ed[i - di, j - dj, k]
+
+
 class ForwardFunction(torch.autograd.Function):
 
     @staticmethod

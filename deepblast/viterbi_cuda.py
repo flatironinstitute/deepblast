@@ -29,49 +29,45 @@ def _soft_max_device(X, S, A):
 
 
 @cuda.jit(device=True)
-def _forward_pass_device(theta, A, pos, Q):
+def _forward_pass_device(theta, A, pos, Q, V):
     maxargs = cuda.local.array(max_S, float_type)
-    V = cuda.local.array((2, max_cols, max_S), float_type)
+    Vtmp = cuda.local.array((2, max_cols, max_S), float_type)
     N, M, S = theta.shape
-
     neg_inf = -1e8
     last, curr = 0, 1
     for j in range(M + 1):
         for k in range(S):
-            V[last, j, k] = neg_inf
-            V[curr, j, k] = neg_inf
-
+            Vtmp[last, j, k] = neg_inf
+            Vtmp[curr, j, k] = neg_inf
     for k in range(S):
-        V[last, 0][k] = 0.0
-
+        Vtmp[last, 0, k] = 0.0
+        V[i, j, K] = Vtmp[last, j, k]
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             for k in range(S):
                 di = pos[k][0]
                 dj = pos[k][1]
-
                 for L in range(S):
-                    maxargs[L] = V[curr + di, j + dj, L] + \
+                    maxargs[L] = Vtmp[curr + di, j + dj, L] + \
                                  A[i - 1, j - 1, k, L]
-
-                V[curr, j, k] = _soft_max_device(maxargs, S, Q[i, j, k])
-
+                Vtmp[curr, j, k] = _soft_max_device(maxargs, S, Q[i, j, k])
             for k in range(0, S):
-                V[curr, j, k] += theta[i - 1, j - 1, k]
-
+                Vtmp[curr, j, k] += theta[i - 1, j - 1, k]
+                V[i, j, K] = Vtmp[cur, j, k]  # copy over everything to V
         last = curr
         curr = 1 - curr
-
-    Vt = _soft_max_device(V[last, M], S, Q[N + 1, M + 1, 0])
+    Vt = _soft_max_device(Vtmp[last, M], S, Q[N + 1, M + 1, 0])
     return Vt
 
 
 @cuda.jit
-def _forward_pass_kernel(theta, A, pos, Q, Vt):
+def _forward_pass_kernel(theta, A, pos, Q, Vt, V):
     batchid = cuda.grid(1)
     if batchid < theta.shape[0]:
         Vt[batchid] = _forward_pass_device(
-            theta[batchid], A[batchid], pos[batchid], Q[batchid])
+            theta[batchid], A[batchid], pos[batchid], Q[batchid],
+            V[batchid]
+        )
 
 
 @cuda.jit(device=True)
@@ -110,11 +106,12 @@ class ForwardFunction(torch.autograd.Function):
         Q = torch.zeros((B, N + 2, M + 2, S, S),
                         dtype=theta.dtype,
                         device=theta.device)
+        V = torch.zeros((B, N, M, S), dtype=theta.dtype, device=theta.device)
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         pos = pos.repeat(B, 1, 1)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
-        _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt)
-        ctx.save_for_backward(theta, A, Q)
+        _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt, V)
+        ctx.save_for_backward(theta, A, Q, V)
         ctx.others = pos
         return Vt
 

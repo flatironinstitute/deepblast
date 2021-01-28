@@ -32,7 +32,6 @@ class MatrixCrossEntropy:
                     Ypred[b, :x_len[b], :y_len[b]]),
                 G[b, :x_len[b], :y_len[b]].bool()
             )
-
             neg = torch.masked_select(
                 (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
                     1 - Ypred[b, :x_len[b], :y_len[b]]),
@@ -42,9 +41,7 @@ class MatrixCrossEntropy:
             #     Ypred[b, :x_len[b], :y_len[b]])
             # neg = (1 - Ytrue[b, :x_len[b], :y_len[b]]) * torch.log(
             #     1 - Ypred[b, :x_len[b], :y_len[b]])
-
             score += -torch.mean(pos + neg)
-
         return score / len(x_len)
 
 
