@@ -31,7 +31,7 @@ def _soft_max_device(X, S, A):
 @cuda.jit(device=True)
 def _forward_pass_device(theta, A, pos, Q, V):
     maxargs = cuda.local.array(max_S, float_type)
-    Vtmp = cuda.local.array((2, max_cols, max_S), float_type)
+    V = cuda.local.array((2, max_cols, max_S), float_type)
     N, M, S = theta.shape
     neg_inf = -1e8
     last, curr = 0, 1
@@ -40,20 +40,18 @@ def _forward_pass_device(theta, A, pos, Q, V):
             Vtmp[last, j, k] = neg_inf
             Vtmp[curr, j, k] = neg_inf
     for k in range(S):
-        Vtmp[last, 0, k] = 0.0
-        V[i, j, K] = Vtmp[last, j, k]
+        V[last, 0, k] = 0.0
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             for k in range(S):
                 di = pos[k][0]
                 dj = pos[k][1]
                 for L in range(S):
-                    maxargs[L] = Vtmp[curr + di, j + dj, L] + \
+                    maxargs[L] = V[curr + di, j + dj, L] + \
                                  A[i - 1, j - 1, k, L]
-                Vtmp[curr, j, k] = _soft_max_device(maxargs, S, Q[i, j, k])
+                V[curr, j, k] = _soft_max_device(maxargs, S, Q[i, j, k])
             for k in range(0, S):
-                Vtmp[curr, j, k] += theta[i - 1, j - 1, k]
-                V[i, j, K] = Vtmp[cur, j, k]  # copy over everything to V
+                V[curr, j, k] += theta[i - 1, j - 1, k]
         last = curr
         curr = 1 - curr
     Vt = _soft_max_device(Vtmp[last, M], S, Q[N + 1, M + 1, 0])

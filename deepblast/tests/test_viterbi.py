@@ -1,5 +1,5 @@
 import torch
-from torch.autograd import gradcheck
+from torch.autograd import gradcheck, gradgradcheck
 import torch.testing as tt
 from deepblast.viterbi import (
     _forward_pass, _backward_pass,
@@ -109,13 +109,14 @@ class TestForwardDecoder(unittest.TestCase):
         # TODO: Compare against hardmax and sparsemax
         self.operator = 'softmax'
 
-    def test_grad_needlemanwunsch_function_small(self):
+    def test_grad_hmm_function_small(self):
         fwd = ForwardDecoder(pos_test, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
+        gradgradcheck(fwd, (theta, A), eps=1e-2)
 
-    def test_grad_needlemanwunsch_function_larger(self):
+    def test_grad_hmm_function_larger(self):
         torch.manual_seed(2)
         S, N, M = 4, 5, 5
         self.theta = torch.ones(N, M, S,
@@ -133,6 +134,7 @@ class TestForwardDecoder(unittest.TestCase):
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
+        gradgradcheck(fwd, (theta, A), eps=1e-2)
 
 
 if __name__ == "__main__":

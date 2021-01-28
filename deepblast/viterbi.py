@@ -78,7 +78,7 @@ def _backward_pass(Et, Q, pos):
     return E
 
 
-def _adjoint_forward_pass(Q, Ztheta, ZA, pos):
+def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
     """ Calculate directional derivatives and Hessians.
     Parameters
     ----------
@@ -102,15 +102,17 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos):
     N, M, S = Ztheta.size()
     N, M = N - 2, M - 2
     Vd = new(N + 1, M + 1, S).zero_()     # N x M
-    Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
+    Qd = new(N + 2, M + 2, S, S).zero_()  # N x M x S
+    v_ = new(S, S).zero_()  # N x M x S
     for i in range(1, N + 1):
         for j in range(1, M + 1):
-            di, dj = pos[k]
             for k in range(S):
-                v_ = ZA[i - 1, j - 1, k] + Vd[i + di, j + dj, k]
-                Vd[i, j, k] += Q[i, j, k] @ v_
+                di, dj = pos[k]
+                for k_ in range(S):
+                    v_[k] = ZA[i - 1, j - 1, k_] + Vd[i + di, j + dj, k_]
+                    Vd[i, j, k] += Q[i, j, k] @ v_[k]
                 Vd[i, j, k] += Ztheta[i, j, k]
-                Qd[i, j, k] = operator.hessian_product(Q[i, j, k], v_)
+                Qd[i, j, k] = op.hessian_product(Q[i, j, k], v_[k])
     return Vd[N, M], Qd
 
 
@@ -125,6 +127,7 @@ def _adjoint_backward_pass(E, Q, Qd, pos):
         Derivatives of max theta + v of dimension N x M x S x S
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S
+
     Returns
     -------
     Ed : torch.Tensor
@@ -141,10 +144,11 @@ def _adjoint_backward_pass(E, Q, Qd, pos):
     Ed = new(N + 2, M + 2, S).zero_()
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
-            di, dj = pos[k]
             for k in range(S):
-                Ed[i, j] = Qd[i - di, j - dj, k] * E[i - di, j - dj, k] + \
+                di, dj = pos[k]
+                Ed[i, j] += Qd[i - di, j - dj, k] * E[i - di, j - dj, k] + \
                     Q[i - di, j - dj, k] * Ed[i - di, j - dj, k]
+    return Ed
 
 
 class ForwardFunction(torch.autograd.Function):
@@ -155,15 +159,43 @@ class ForwardFunction(torch.autograd.Function):
         Vt, Q = _forward_pass(theta, A, pos, operator)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = pos, operator
-
         return Vt
 
     @staticmethod
     def backward(ctx, Et):
         theta, A, Q = ctx.saved_tensors
         pos, operator = ctx.others
-        E = _backward_pass(Et, Q, pos)
+        E, A = ForwardFunctionBackward.apply(
+            theta, A, Et, Q, pos, operator)
         return E[1:-1, 1:-1], A, None, None, None
+
+
+class ForwardFunctionBackward(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, theta, A, Et, Q, pos, operator):
+        E = _backward_pass(Et, Q, pos)
+        ctx.save_for_backward(E, Q)
+        ctx.others = pos, operator
+        return E, A
+
+    @staticmethod
+    def backward(ctx, Ztheta, ZA):
+        """
+        Parameters
+        ----------
+        ctx : ?
+           Some autograd context object
+        Ztheta : torch.Tensor
+            Derivative of theta of dimension N x M
+        ZA : torch.Tensor
+            Derivative of affine gap matrix
+        """
+        E, Q = ctx.saved_tensors
+        pos, operator = ctx.others
+        Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator)
+        Ed = _adjoint_backward_pass(E, Q, Qd, pos)
+        Ed = Ed[1:-1, 1:-1]
+        return Ed, None, Vtd, None, None, None
 
 
 def baumwelch(theta, A, operator):
