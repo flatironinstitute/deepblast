@@ -107,7 +107,6 @@ class ForwardFunction(torch.autograd.Function):
     def forward(ctx, theta, A, pos):
         # Return both the alignment matrix
         B, N, M, S = theta.shape
-
         Q = torch.zeros((B, N + 2, M + 2, S, S),
                         dtype=theta.dtype,
                         device=theta.device)
@@ -116,7 +115,6 @@ class ForwardFunction(torch.autograd.Function):
         _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), pos, Q, Vt)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = pos
-
         return Vt
 
     @staticmethod
@@ -211,6 +209,7 @@ class ViterbiDecoder(nn.Module):
         states = torch.zeros(max(N, M, S))
         # fill out backtracing tensor
         BT = torch.zeros(N, M, S).long()
+        # TODO: need to confirm that the indexes are correct
         for i in reversed(range(N - 1)):
             for j in reversed(range(M - 1)):
                 res = []

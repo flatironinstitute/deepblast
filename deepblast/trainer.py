@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
-from deepblast.alignment import NeedlemanWunschAligner
+from deepblast.alignment import NeedlemanWunschAligner, HMM3Aligner
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
@@ -43,8 +43,14 @@ class LightningAligner(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        self.aligner = NeedlemanWunschAligner(
-            n_alpha, n_input, n_units, n_embed, n_layers)
+        if self.hparams.aligner == 'nw':
+            self.aligner = NeedlemanWunschAligner(
+                n_alpha, n_input, n_units, n_embed, n_layers)
+        elif self.hparams.aligner == 'hmm':
+            self.aligner = HMM3Aligner(
+                n_alpha, n_input, n_units, n_embed, n_layers)
+        else:
+            raise ValueError(f'{self.hparams.aligner} not supported')
 
     def align(self, x, y):
         x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
@@ -345,6 +351,13 @@ class LightningAligner(pl.LightningModule):
             help=(
                 'Compute multitask loss between DP and matchings. '
                 'WARNING: this option is deprecated, use at your own risk.'
+            )
+        )
+        parser.add_argument(
+            '--aligner', default='nw', required=False, type=str,
+            help=(
+                'Specify to use Needleman wunsch (nw) or '
+                'Hidden Markov models (hmm)'
             )
         )
         parser.add_argument(
