@@ -68,7 +68,7 @@ def _backward_pass(Et, Q, pos):
     E = new(N + 2, M + 2, S).zero_()
     # Initial conditions (note first state is terminal state)
     E[N + 1, M + 1, 0] = Et
-    assert S == len(pos)
+    # Q[N + 1, M + 1, 0] = 1
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
@@ -108,19 +108,21 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
     N, M = N - 2, M - 2
     Vd = new(N + 1, M + 1, S).zero_()     # N x M
     Qd = new(N + 2, M + 2, S, S).zero_()  # N x M x S
-    v_ = new(S, S).zero_()  # N x M x S
-    q_ = new(S, S).zero_()  # N x M x S
+    # Initial state
+    neg_inf = -1e8   # very negative number
+    Vd = Vd + neg_inf
+    Vd[0, 0] = 0   # Make all states equally likely to enter
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             for k in range(S):
                 di, dj = pos[k]
-                v_[k] = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
-                q_[k] = Q[i, j, k]
-                Vd[i, j, k] = Ztheta[i - 1, j - 1, k] + q_[k] @ v_[k]
-                Qd[i, j, k] = op.hessian_product(q_[k], v_[k])
+                vd_ = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
+                q_ = Q[i, j, k]
+                Vd[i, j, k] = Ztheta[i - 1, j - 1, k] + q_ @ vd_
+                Qd[i, j, k] = op.hessian_product(q_, vd_)
     # Terminate. First state *is* terminal state
-    v_[0], q_[0] = Vd[N, M], Q[N, M, 0]
-    Vdt, Qd[N + 1, M + 1, 0] = q_[0] @ v_[0], op.hessian_product(q_[0], v_[0])
+    vd_, q_ = Vd[N, M], Q[N, M, 0]
+    Vdt, Qd[N + 1, M + 1, 0] = q_ @ vd_, op.hessian_product(q_, vd_)
     return Vdt, Qd
 
 
