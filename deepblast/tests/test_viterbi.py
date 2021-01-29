@@ -111,10 +111,17 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_hmm_function_tiny(self):
         torch.manual_seed(2)
-        S, N, M = 2, 2, 2
+        S, N, M = 2, 1, 1
+        self.theta = torch.ones(N, M, S,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.A = torch.ones(N, M, S, S)
+        self.Et = torch.Tensor([1.])
+        self.S, self.N, self.M = S, N, M
         fwd = ForwardDecoder(pos_test, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
+        # A.requires_grad_() # TODO: need to test this scenario
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 

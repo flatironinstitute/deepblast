@@ -68,7 +68,6 @@ def _backward_pass(Et, Q, pos):
     E = new(N + 2, M + 2, S).zero_()
     # Initial conditions (note first state is terminal state)
     E[N + 1, M + 1, 0] = Et
-    # Q[N + 1, M + 1, 0] = 1
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
@@ -116,13 +115,14 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
         for j in range(1, M + 1):
             for k in range(S):
                 di, dj = pos[k]
-                vd_ = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
-                q_ = Q[i, j, k]
-                Vd[i, j, k] = Ztheta[i - 1, j - 1, k] + q_ @ vd_
-                Qd[i, j, k] = op.hessian_product(q_, vd_)
+                vd = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
+                q = Q[i, j, k]
+                Vd[i, j, k] = q @ vd
+                Qd[i, j, k] = op.hessian_product(q, vd)
+            Vd[i, j] += Ztheta[i - 1, j - 1]
     # Terminate. First state *is* terminal state
-    vd_, q_ = Vd[N, M], Q[N, M, 0]
-    Vdt, Qd[N + 1, M + 1, 0] = q_ @ vd_, op.hessian_product(q_, vd_)
+    vd, q = Vd[N, M], Q[N, M, 0]
+    Vdt, Qd[N + 1, M + 1, 0] = q @ vd, op.hessian_product(q, vd)
     return Vdt, Qd
 
 
