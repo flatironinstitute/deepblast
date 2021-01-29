@@ -112,13 +112,12 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
             for k in range(S):
                 di, dj = pos[k]
                 vd = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
-                q = Q[i, j, k]
-                Vd[i, j, k] = q @ vd + Ztheta[i, j, k]
-                Qd[i, j, k] = op.hessian_product(q, vd)
+                Vd[i, j, k] = Ztheta[i, j, k] + Q[i, j, k] @ vd
+                # print(f'{i},{j},{k}', Vd[i, j, k], Ztheta[i, j, k], Q[i, j, k], vd)
+                Qd[i, j, k] = op.hessian_product(Q[i, j, k], vd)
     # Terminate. First state *is* terminal state
-    vd, q = Vd[N, M], Q[N, M, 0]
-    Vdt = q @ vd
-    Qd[N + 1, M + 1, 0] = op.hessian_product(q, vd)
+    Vdt = Q[N, M, 0] @ Vd[N, M]
+    Qd[N + 1, M + 1, 0] = op.hessian_product(Q[N, M, 0], Vd[N, M])
     return Vdt, Qd
 
 

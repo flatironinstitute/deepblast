@@ -90,6 +90,21 @@ class TestViterbiUtils(unittest.TestCase):
 
         tt.assert_allclose(resE, expE, atol=1e-3, rtol=1e-3)
 
+    def test_adjoint_forward_pass_soft(self):
+        N, M, S = 2, 2, 3
+        theta = torch.ones(N, M, S)
+        theta[:, :, x] = 0
+        theta[:, :, y] = 0
+        A = torch.ones(N, M, S, S)
+        _, Q = _forward_pass(
+            self.theta, self.A, pos_mxys, self.operator)
+        resE = _backward_pass(Et, Q, pos_mxys)
+
+        res = _adjoint_forward_pass(theta, A, pos_mxy, 'softmax')
+        self.assertEqual(len(res), 2)
+        resV, resQ = res
+        self.assertAlmostEqual(resV.detach().cpu().item(), 5.857235908508301)
+
 
 class TestForwardDecoder(unittest.TestCase):
 
@@ -133,11 +148,11 @@ class TestForwardDecoder(unittest.TestCase):
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 
     def test_grad_hmm_function_mxy(self):
-        torch.manual_seed(2)
-        S, N, M = 3, 1, 1
-        self.theta = torch.ones(N, M, S,
-                                requires_grad=True,
-                                dtype=torch.float32)
+        #torch.manual_seed(2)
+        S, N, M = 3, 2, 2
+        self.theta = torch.randn(N, M, S,
+                                 requires_grad=True,
+                                 dtype=torch.float32)
         self.A = torch.ones(N, M, S, S)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
@@ -145,7 +160,6 @@ class TestForwardDecoder(unittest.TestCase):
         self.operator = 'softmax'
         fwd = ForwardDecoder(pos_mxy, self.operator)
         theta, A = self.theta.double(), self.A.double()
-        theta.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 
