@@ -134,7 +134,7 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_hmm_function_mxy(self):
         torch.manual_seed(2)
-        S, N, M = 3, 2, 1
+        S, N, M = 3, 1, 1
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
