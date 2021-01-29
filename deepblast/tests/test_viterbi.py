@@ -122,8 +122,8 @@ class TestForwardDecoder(unittest.TestCase):
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
         # A.requires_grad_() # TODO: need to test this scenario
-        gradcheck(fwd, (theta, A), eps=1e-2)
-        gradgradcheck(fwd, (theta, A), eps=1e-2)
+        gradcheck(fwd, (theta, A))
+        gradgradcheck(fwd, (theta, A))
 
     def test_grad_hmm_function_small(self):
         fwd = ForwardDecoder(pos_test, self.operator)

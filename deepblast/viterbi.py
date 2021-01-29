@@ -107,10 +107,6 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
     N, M = N - 2, M - 2
     Vd = new(N + 1, M + 1, S).zero_()     # N x M
     Qd = new(N + 2, M + 2, S, S).zero_()  # N x M x S
-    # Initial state
-    neg_inf = -1e8   # very negative number
-    Vd = Vd + neg_inf
-    Vd[0, 0] = 0   # Make all states equally likely to enter
     for i in range(1, N + 1):
         for j in range(1, M + 1):
             for k in range(S):
@@ -121,8 +117,10 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
                 Qd[i, j, k] = op.hessian_product(q, vd)
             Vd[i, j] += Ztheta[i - 1, j - 1]
     # Terminate. First state *is* terminal state
-    vd, q = Vd[N, M], Q[N, M, 0]
-    Vdt, Qd[N + 1, M + 1, 0] = q @ vd, op.hessian_product(q, vd)
+    vd = Vd[N, M]
+    q = Q[N, M, 0]
+    Vdt = Ztheta[N, M, 0] + q @ vd
+    Qd[N + 1, M + 1, 0] = op.hessian_product(q, vd)
     return Vdt, Qd
 
 
