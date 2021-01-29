@@ -38,7 +38,7 @@ def _forward_pass(theta, A, pos, operator='softmax'):
                 res = op.max(V[i + di, j + dj] + A[i - 1, j - 1, k])
                 V[i, j, k], Q[i, j, k] = res
             V[i, j] += theta[i - 1, j - 1]
-    # Terminate. First state is terminal state
+    # Terminate. First state *is* terminal state
     Vt, Q[N + 1, M + 1, 0] = op.max(V[N, M])
     return Vt, Q
 
@@ -80,6 +80,7 @@ def _backward_pass(Et, Q, pos):
 
 def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
     """ Calculate directional derivatives and Hessians.
+
     Parameters
     ----------
     Q : torch.Tensor
@@ -90,6 +91,10 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
         Derivative of transition probabilities of dimension N x M x S x S
     operator : str
         The smoothed maximum operator.
+    pos :str
+        Differential indexes to help facilitate the construction of
+        alternative HMM architectures.
+
     Returns
     -------
     Vd : torch.Tensor
@@ -109,12 +114,14 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
         for j in range(1, M + 1):
             for k in range(S):
                 di, dj = pos[k]
-                v_[k] = ZA[i - 1, j - 1, k] + Vd[i + di, j + dj, k]
+                v_[k] = Vd[i + di, j + dj] + ZA[i - 1, j - 1, k]
                 q_[k] = Q[i, j, k]
-                Vd[i, j, k] = q_[k] @ v_[k]
-                Vd[i, j, k] += Ztheta[i, j, k]
+                Vd[i, j, k] = Ztheta[i - 1, j - 1, k] + q_[k] @ v_[k]
                 Qd[i, j, k] = op.hessian_product(q_[k], v_[k])
-    return Vd[N, M], Qd
+    # Terminate. First state *is* terminal state
+    v_[0], q_[0] = Vd[N, M], Q[N, M, 0]
+    Vdt, Qd[N + 1, M + 1, 0] = q_[0] @ v_[0], op.hessian_product(q_[0], v_[0])
+    return Vdt, Qd
 
 
 def _adjoint_backward_pass(E, Q, Qd, pos):
