@@ -132,9 +132,26 @@ class TestForwardDecoder(unittest.TestCase):
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 
+    def test_grad_hmm_function_mxy(self):
+        torch.manual_seed(2)
+        S, N, M = 3, 2, 1
+        self.theta = torch.ones(N, M, S,
+                                requires_grad=True,
+                                dtype=torch.float32)
+        self.A = torch.ones(N, M, S, S)
+        self.Et = torch.Tensor([1.])
+        self.S, self.N, self.M = S, N, M
+        # TODO: Compare against hardmax and sparsemax
+        self.operator = 'softmax'
+        fwd = ForwardDecoder(pos_mxy, self.operator)
+        theta, A = self.theta.double(), self.A.double()
+        theta.requires_grad_()
+        gradcheck(fwd, (theta, A), eps=1e-2)
+        gradgradcheck(fwd, (theta, A), eps=1e-2)
+
     def test_grad_hmm_function_larger(self):
         torch.manual_seed(2)
-        S, N, M = 4, 5, 5
+        S, N, M = 4, 2, 2
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
@@ -149,6 +166,7 @@ class TestForwardDecoder(unittest.TestCase):
         fwd = ForwardDecoder(pos_mxys, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
+        # A.requires_grad_() # TODO: need figure this out.
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 

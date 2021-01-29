@@ -117,7 +117,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
                 Qd[i, j, k] = op.hessian_product(q, vd)
             Vd[i, j] += Ztheta[i - 1, j - 1]
     # Terminate. First state *is* terminal state
-    vd = Vd[N, M]
+    vd = Vd[N, M]  # + ZA[N, M, 0]  # Q: why does ZA have weird dims?
     q = Q[N, M, 0]
     Vdt = Ztheta[N, M, 0] + q @ vd
     Qd[N + 1, M + 1, 0] = op.hessian_product(q, vd)
