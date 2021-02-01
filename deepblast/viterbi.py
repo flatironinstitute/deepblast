@@ -112,12 +112,11 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
         for j in range(1, M + 1):
             for s in range(S):
                 di, dj = pos[s]
-                Vd[i, j, s] = Ztheta[i, j, s]
                 qvd = torch.zeros(S)
+                Vd[i, j, s] = Ztheta[i, j, s]
                 for k in range(S):
-                    qvd[k] = Q[i, j, s, k] * (
-                        Vd[i + di, j + dj, k] + ZA[i - 1, j - 1, s, k])
-                    Vd[i, j, s] += qvd[k]
+                    qvd[k] = Vd[i + di, j + dj, k] + ZA[i - 1, j - 1, s, k]
+                    Vd[i, j, s] += Q[i, j, s, k] * qvd[k]
                 Qd[i, j, s] = op.hessian_product(Q[i, j, s], qvd)
     # Terminate. First state *is* terminal state
     Vdt = Q[N + 1, M + 1, 0] @ Vd[N, M]
