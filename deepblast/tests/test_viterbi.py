@@ -149,11 +149,17 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_hmm_function_mxy(self):
         #torch.manual_seed(2)
-        S, N, M = 3, 2, 2
+        S, N, M = 3, 1, 1
         self.theta = torch.randn(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32)
         self.A = torch.ones(N, M, S, S)
+        self.Ztheta = torch.randn(N, M, S,
+                                  requires_grad=True,
+                                  dtype=torch.float32)
+        self.ZA = torch.zeros(N, M, S, S,
+                              requires_grad=True,
+                              dtype=torch.float32)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
@@ -161,7 +167,8 @@ class TestForwardDecoder(unittest.TestCase):
         fwd = ForwardDecoder(pos_mxy, self.operator)
         theta, A = self.theta.double(), self.A.double()
         gradcheck(fwd, (theta, A), eps=1e-2)
-        gradgradcheck(fwd, (theta, A), eps=1e-2)
+        gradgradcheck(fwd, (theta, A),
+                      eps=1e-2)
 
     def test_grad_hmm_function_larger(self):
         torch.manual_seed(2)
