@@ -153,7 +153,8 @@ def _adjoint_backward_pass(E, A, Q, Qd, pos):
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
     Ed = new(N + 2, M + 2, S).zero_()
-    Ad = Qd[N + 1, M + 1] @ Q[N, M] + Q[N + 1, M + 1] @ Qd[N, M] * 0.3924
+    Ad = E[N + 1, M + 1, 0] * (
+        Qd[N + 1, M + 1] @ Q[N, M] + Q[N + 1, M + 1] @ Qd[N, M])
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             for s in range(S):
