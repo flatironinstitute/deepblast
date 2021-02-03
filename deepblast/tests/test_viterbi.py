@@ -113,12 +113,9 @@ class TestForwardDecoder(unittest.TestCase):
         torch.manual_seed(2)
         S, N, M = 2, 5, 5
         self.theta = torch.ones(N, M, S,
-                                requires_grad=True,
+                                requires_grad=False,
                                 dtype=torch.float32)
-        self.A = torch.ones(N, M, S, S)
-        self.Ztheta = torch.rand(N, M, S,
-                                 requires_grad=True,
-                                 dtype=torch.float32).squeeze()
+        self.A = torch.ones(S, S, requires_grad=False)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
@@ -130,7 +127,7 @@ class TestForwardDecoder(unittest.TestCase):
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
-        self.A = torch.ones(N, M, S, S)
+        self.A = torch.ones(S, S)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
         fwd = ForwardDecoder(pos_test, self.operator)
@@ -142,9 +139,8 @@ class TestForwardDecoder(unittest.TestCase):
     def test_grad_hmm_function_tiny_A(self):
         torch.manual_seed(2)
         S, N, M = 2, 1, 1
-        self.theta = torch.ones(N, M, S,
-                                requires_grad=False,
-                                dtype=torch.float32)
+        self.theta = torch.ones(
+            N, M, S, requires_grad=False, dtype=torch.float32)
         self.A = torch.ones(S, S, requires_grad=True)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
@@ -153,10 +149,17 @@ class TestForwardDecoder(unittest.TestCase):
         gradcheck(fwd, (theta, A))
         gradgradcheck(fwd, (theta, A))
 
-    def test_grad_hmm_function_small(self):
+    def test_grad_hmm_function_small_theta(self):
         fwd = ForwardDecoder(pos_test, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
+        gradcheck(fwd, (theta, A), eps=1e-2)
+        gradgradcheck(fwd, (theta, A), eps=1e-2)
+
+    def test_grad_hmm_function_small_A(self):
+        fwd = ForwardDecoder(pos_test, self.operator)
+        theta, A = self.theta.double(), self.A.double()
+        A.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 
@@ -166,13 +169,7 @@ class TestForwardDecoder(unittest.TestCase):
         self.theta = torch.randn(N, M, S,
                                  requires_grad=True,
                                  dtype=torch.float32)
-        self.A = torch.ones(N, M, S, S)
-        self.Ztheta = torch.randn(N, M, S,
-                                  requires_grad=True,
-                                  dtype=torch.float32)
-        self.ZA = torch.zeros(N, M, S, S,
-                              requires_grad=True,
-                              dtype=torch.float32)
+        self.A = torch.ones(S, S)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
@@ -189,10 +186,7 @@ class TestForwardDecoder(unittest.TestCase):
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)
-        self.A = torch.ones(N, M, S, S)
-        self.Ztheta = torch.rand(N, M, S,
-                                 requires_grad=True,
-                                 dtype=torch.float32).squeeze()
+        self.A = torch.ones(S, S)
         self.Et = torch.Tensor([1.])
         self.S, self.N, self.M = S, N, M
         # TODO: Compare against hardmax and sparsemax
@@ -200,7 +194,7 @@ class TestForwardDecoder(unittest.TestCase):
         fwd = ForwardDecoder(pos_mxys, self.operator)
         theta, A = self.theta.double(), self.A.double()
         theta.requires_grad_()
-        # A.requires_grad_() # TODO: need figure this out.
+        A.requires_grad_()
         gradcheck(fwd, (theta, A), eps=1e-2)
         gradgradcheck(fwd, (theta, A), eps=1e-2)
 
