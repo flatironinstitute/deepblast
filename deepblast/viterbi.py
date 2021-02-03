@@ -14,7 +14,7 @@ def _forward_pass(theta, A, pos, operator='softmax'):
         Input Potentials of dimension N x M x S. This represents the
         pairwise residue distance across states.
     A : torch.Tensor
-        Transition probabilities of dimensions N x M x S x S.
+        Transition probabilities of dimensions S x S.
         All of these parameters are assumed to be in log units
     pos : list of int
         Specifies the differential indices for each state.
@@ -35,7 +35,7 @@ def _forward_pass(theta, A, pos, operator='softmax'):
         for j in range(1, M + 1):
             for s in range(S):
                 di, dj = pos[s]
-                res = op.max(V[i + di, j + dj] + A[i - 1, j - 1, s])
+                res = op.max(V[i + di, j + dj] + A[s])
                 V[i, j, s], Q[i, j, s] = res
             V[i, j] += theta[i - 1, j - 1]
     # Terminate. First state *is* terminal state
@@ -61,21 +61,24 @@ def _backward_pass(Et, Q, pos):
     -------
     E : torch.Tensor
         Traceback matrix of dimension N x M x S
+    A : torch.Tensor
+        Gradient of transition probs
     """
     n_1, m_1, S, _ = Q.shape
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
     E = new(N + 2, M + 2, S).zero_()
+    A = new(S, S).zero_()
     # Initial conditions (note first state is terminal state)
     E[N + 1, M + 1, 0] = Et
-    # Q[N + 1, M + 1, 0] = 1  # not like nw
+    A = Et * Q[N + 1, M + 1] @ Q[N, M]
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             for s in range(S):
                 di, dj = pos[s]
                 E[i, j] += Q[i - di, j - dj, s] * E[i - di, j - dj, s]
-    return E
+    return E, A
 
 
 def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
@@ -115,7 +118,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
                 qvd = torch.zeros(S)
                 Vd[i, j, s] = Ztheta[i, j, s]
                 for k in range(S):
-                    qvd[k] = Vd[i + di, j + dj, k] + ZA[i - 1, j - 1, s, k]
+                    qvd[k] = Vd[i + di, j + dj, k] + ZA[s, k]
                     Vd[i, j, s] += Q[i, j, s, k] * qvd[k]
                 Qd[i, j, s] = op.hessian_product(Q[i, j, s], qvd)
     # Terminate. First state *is* terminal state
@@ -124,7 +127,7 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
     return Vdt, Qd
 
 
-def _adjoint_backward_pass(E, Q, Qd, pos):
+def _adjoint_backward_pass(E, A, Q, Qd, pos):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
@@ -150,13 +153,14 @@ def _adjoint_backward_pass(E, Q, Qd, pos):
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
     Ed = new(N + 2, M + 2, S).zero_()
+    Ad = Qd[N + 1, M + 1] @ Q[N, M] + Q[N + 1, M + 1] @ Qd[N, M] * 0.3924
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             for s in range(S):
                 di, dj = pos[s]
                 Ed[i, j] += Qd[i - di, j - dj, s] * E[i - di, j - dj, s] + \
                     Q[i - di, j - dj, s] * Ed[i - di, j - dj, s]
-    return Ed
+    return Ed, Ad
 
 
 class ForwardFunction(torch.autograd.Function):
@@ -173,18 +177,18 @@ class ForwardFunction(torch.autograd.Function):
     def backward(ctx, Et):
         theta, A, Q = ctx.saved_tensors
         pos, operator = ctx.others
-        E, A = ForwardFunctionBackward.apply(
+        E, A_ = ForwardFunctionBackward.apply(
             theta, A, Et, Q, pos, operator)
-        return E[1:-1, 1:-1], A, None, None, None
+        return E[1:-1, 1:-1], A_, None, None, None
 
 
 class ForwardFunctionBackward(torch.autograd.Function):
     @staticmethod
     def forward(ctx, theta, A, Et, Q, pos, operator):
-        E = _backward_pass(Et, Q, pos)
-        ctx.save_for_backward(E, Q)
+        E, A_ = _backward_pass(Et, Q, pos)
+        ctx.save_for_backward(E, A_, Q)
         ctx.others = pos, operator
-        return E, A
+        return E, A_
 
     @staticmethod
     def backward(ctx, Ztheta, ZA):
@@ -198,12 +202,12 @@ class ForwardFunctionBackward(torch.autograd.Function):
         ZA : torch.Tensor
             Derivative of affine gap matrix
         """
-        E, Q = ctx.saved_tensors
+        E, A_, Q = ctx.saved_tensors
         pos, operator = ctx.others
         Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator)
-        Ed = _adjoint_backward_pass(E, Q, Qd, pos)
+        Ed, Ad = _adjoint_backward_pass(E, A_, Q, Qd, pos)
         Ed = Ed[1:-1, 1:-1]
-        return Ed, None, Vtd, None, None, None
+        return Ed, Ad, Vtd, None, None, None
 
 
 def baumwelch(theta, A, operator):
