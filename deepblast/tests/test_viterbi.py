@@ -111,7 +111,7 @@ class TestForwardDecoder(unittest.TestCase):
     def setUp(self):
         # smoke tests
         torch.manual_seed(2)
-        S, N, M = 2, 5, 5
+        S, N, M = 2, 2, 2
         self.theta = torch.ones(N, M, S,
                                 requires_grad=False,
                                 dtype=torch.float32)
@@ -182,7 +182,7 @@ class TestForwardDecoder(unittest.TestCase):
 
     def test_grad_hmm_function_larger(self):
         torch.manual_seed(2)
-        S, N, M = 4, 2, 2
+        S, N, M = 4, 5, 5
         self.theta = torch.ones(N, M, S,
                                 requires_grad=True,
                                 dtype=torch.float32)

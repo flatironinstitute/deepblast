@@ -69,15 +69,28 @@ def _backward_pass(Et, Q, pos):
     N, M = n_1 - 2, m_1 - 2
     E = new(N + 2, M + 2, S).zero_()
     A = new(S, S).zero_()
+    A_ = new(S, S).zero_()
     # Initial conditions (note first state is terminal state)
     E[N + 1, M + 1, 0] = Et
-    A = Et * (Q[N + 1, M + 1] @ Q[N, M])
+    A_ = Et * Q[N + 1, M + 1]
+    #A = A @ Q[N, M]
+    #A = Et * (Q[N + 1, M + 1] @ Q[N, M])
+    # for s in range(S):
+    #     for k in range(S):
+    #         A[s, k] = A_[s] @ Q[N, M, :, k]
+
     # Backward pass
     for i in reversed(range(1, N + 1)):
         for j in reversed(range(1, M + 1)):
             for s in range(S):
                 di, dj = pos[s]
                 E[i, j] += Q[i - di, j - dj, s] * E[i - di, j - dj, s]
+                for k in range(S):
+                    A[s, k] = A_[s] @ Q[i, j, :, k]
+            # copy stuff over
+            for s in range(S):
+                for k in range(S):
+                    A_[s, k] = A[s, k]
     return E, A
 
 
