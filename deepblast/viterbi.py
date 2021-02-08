@@ -68,30 +68,31 @@ def _backward_pass(Et, Q, pos):
     new = Q.new
     N, M = n_1 - 2, m_1 - 2
     E = new(N + 2, M + 2, S).zero_()
-    A = new(S, S).zero_()
-    A_ = new(S, S).zero_()
+    A = new(N + 2, M + 2, S, S).zero_()
     # Initial conditions (note first state is terminal state)
     E[N + 1, M + 1, 0] = Et
-    A_ = Et * Q[N + 1, M + 1]
-    #A = A @ Q[N, M]
-    #A = Et * (Q[N + 1, M + 1] @ Q[N, M])
+    A[N + 1, M + 1, 0, 0] = Et
+    # A = A @ Q[N, M]
+    # A = Et * (Q[N + 1, M + 1] @ Q[N, M])
     # for s in range(S):
     #     for k in range(S):
     #         A[s, k] = A_[s] @ Q[N, M, :, k]
-
     # Backward pass
-    for i in reversed(range(1, N + 1)):
-        for j in reversed(range(1, M + 1)):
+    for i in reversed(range(0, N + 1)):
+        for j in reversed(range(0, M + 1)):
             for s in range(S):
                 di, dj = pos[s]
-                E[i, j] += Q[i - di, j - dj, s] * E[i - di, j - dj, s]
                 for k in range(S):
-                    A[s, k] = A_[s] @ Q[i, j, :, k]
-            # copy stuff over
-            for s in range(S):
-                for k in range(S):
-                    A_[s, k] = A[s, k]
-    return E, A
+                    E[i, j, k] += Q[i - di, j - dj, s, k] * E[i - di, j - dj, s]
+                    A[i, j, s, k] = A[i - di, j - dj, s] @ Q[i - di, j - dj, :, k]
+            #print(i, j, A[i - di, j - dj], Q[i - di, j - dj])
+    i, j = 0, 0
+    for s in range(S):
+        di, dj = pos[s]
+        for k in range(S):
+            print(s, k, A[i - di, j - dj, s], Q[i - di, j - dj, :, k])
+    print(A[0, 0])
+    return E, A[0, 0]
 
 
 def _adjoint_forward_pass(Q, Ztheta, ZA, pos, operator):
