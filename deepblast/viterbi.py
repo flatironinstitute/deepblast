@@ -73,8 +73,13 @@ def _backward_pass(Et, Q, pos):
         for j in reversed(range(1, M + 1)):
             for s in range(S):
                 di, dj = pos[s]
-                E[i, j, s] = Q[i - di, j - dj, :, s] * U[i - di, j - dj]
+                E[i, j, :, s] = Q[i - di, j - dj, :, s] * U[i - di, j - dj]
                 U[i, j, s] = E[i, j, :, s].sum()
+                # print(i, j, s, i - di, j - dj,
+                #       'E', E[i, j, s].detach().numpy(),
+                #       'Q', Q[i - di, j - dj, s].detach().numpy(),
+                #       'U', U[i - di, j - dj].detach().numpy(),
+                #       'U', U[i, j, s].detach().numpy())
     return E
 
 
