@@ -3,6 +3,7 @@ import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
 from deepblast.nw import NeedlemanWunschDecoder
+from torch.autograd import grad
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 
@@ -41,6 +42,7 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         self.operator = 'softmax'
 
     def test_decoding(self):
+        print(self.N, self.M)
         theta = torch.from_numpy(make_data())
         theta.requires_grad_()
         A = torch.ones_like(theta) * 0.1
@@ -49,6 +51,16 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         v = needle(theta, A)
         v.backward()
         decoded = needle.traceback(theta.grad)
+        # get gradient / Hessian examples
+        theta_grad = needle.decode(theta, A)[:self.N, :self.M]
+        true_grad = torch.eye(self.N, self.M)
+        print(theta_grad)
+        gn2 = torch.norm((theta_grad - true_grad) ** 2)
+        theta_ggrad = torch.autograd.grad(gn2, (theta, A),
+                                          allow_unused=True,
+                                          create_graph=True)
+        print(theta_ggrad)
+
         states = [(0, 0, 0), (1, 0, 0), (2, 0, 1), (3, 1, 1), (4, 2, 2),
                   (4, 3, 1)]
         self.assertListEqual(states, decoded)
