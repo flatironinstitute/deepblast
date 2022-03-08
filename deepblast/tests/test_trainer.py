@@ -1,6 +1,7 @@
 import os
 import shutil
 import unittest
+import torch
 from deepblast.trainer import LightningAligner
 from deepblast.utils import get_data_path
 from deepblast.sim import hmm_alignments
@@ -39,7 +40,7 @@ class TestTrainer(unittest.TestCase):
         if os.path.exists('valid.txt'):
             os.remove('valid.txt')
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_trainer_sim(self):
         output_dir = 'output'
         args = [
@@ -51,7 +52,7 @@ class TestTrainer(unittest.TestCase):
             '--batch-size', '3',
             '--num-workers', '1',
             '--learning-rate', '1e-4',
-            '--clip-ends', 'False',
+            # '--clip-ends', 'False',
             '--visualization-fraction', '0.5',
             '--gpus', '1'
         ]
@@ -71,7 +72,7 @@ class TestTrainer(unittest.TestCase):
         )
         trainer.fit(model)
 
-    @unittest.skip("Can only run with GPU")
+    @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
     def test_trainer_struct(self):
         output_dir = 'output'
         args = [
@@ -83,7 +84,7 @@ class TestTrainer(unittest.TestCase):
             '--batch-size', '1',
             '--num-workers', '1',
             '--learning-rate', '1e-4',
-            '--clip-ends', 'False',
+            # '--clip-ends', 'False',
             '--visualization-fraction', '1',
             '--gpus', '1'
         ]

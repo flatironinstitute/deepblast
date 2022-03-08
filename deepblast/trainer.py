@@ -25,8 +25,9 @@ class LightningAligner(pl.LightningModule):
 
     def __init__(self, args):
         super(LightningAligner, self).__init__()
+        self._hparams = args
         self.tokenizer = UniprotTokenizer(pad_ends=False)
-        self.hparams = args
+        #self.hparams = args
         self.initialize_aligner()
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
