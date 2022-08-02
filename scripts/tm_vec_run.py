@@ -1,8 +1,9 @@
+#!/usr/bin/env python3
 import numpy as np
 import pandas as pd
 import torch
 from embed_structure_model import trans_basic_block, trans_basic_block_Config
-from tm_vec_utils import featurize_prottrans, embed_tm_vec
+from tm_vec.tm_vec_utils import featurize_prottrans, embed_tm_vec
 from transformers import T5EncoderModel, T5Tokenizer
 import re
 import gc
@@ -11,9 +12,9 @@ import faiss
 from pathlib import Path
 import argparse
 import pickle
-from deepblast.trainer import LightningAligner
-from deepblast.dataset.utils import pack_sequences
-from deepblast.dataset.utils import states2alignment
+from tm_vec_align.trainer import LightningAligner
+from tm_vec_align.dataset.utils import pack_sequences
+from tm_vec_align.dataset.utils import states2alignment
 
 parser = argparse.ArgumentParser(description='Process TM-Vec arguments')
 
@@ -101,7 +102,7 @@ model = model.eval()
 print("ProtTrans model downloaded")
 
 
-#Load the DeepBLAST TM model
+#Load the Tm_Vec_Align TM model
 tm_vec_model_config = trans_basic_block_Config.from_json(args.tm_vec_config_path)
 model_deep = trans_basic_block.load_from_checkpoint(args.tm_vec_model_path, config=tm_vec_model_config)
 model_deep = model_deep.to(device)
@@ -109,7 +110,7 @@ model_deep = model_deep.eval()
 print("TM-Vec model loaded")
 
 
-#Read in query sequences                                                                                                                                          
+#Read in query sequences
 with open(args.input_data) as handle:
     headers = []
     seqs = []
@@ -117,16 +118,16 @@ with open(args.input_data) as handle:
         headers.append(record.id)
         seqs.append(str(record.seq))
 
-flat_seqs = [seqs[i] for i in range(len(seqs))] 
+flat_seqs = [seqs[i] for i in range(len(seqs))]
 print("Sequences inputed")
 
 #Embed all query sequences
 i = 0
 embed_all_sequences= []
-while i < len(flat_seqs): 
+while i < len(flat_seqs):
     seq = flat_seqs[i:i+1]
     protrans_sequence = featurize_prottrans(seq, model, tokenizer, device)
-    embed_sequence = embed_tm_vec(protrans_sequence, model_deep, device)    
+    embed_sequence = embed_tm_vec(protrans_sequence, model_deep, device)
     embed_all_sequences.append(embed_sequence)
     i = i + 1
 
@@ -140,10 +141,10 @@ queries = embed_all_sequences_np.copy()
 faiss.normalize_L2(queries)
 
 #Build an indexed database
-d = query_database.shape[1] 
-index = faiss.IndexFlatIP(d) 
+d = query_database.shape[1]
+index = faiss.IndexFlatIP(d)
 faiss.normalize_L2(query_database)
-index.add(query_database)                 
+index.add(query_database)
 
 #Return the nearest neighbors
 k = args.k_nearest_neighbors
@@ -155,13 +156,13 @@ if args.metadata is not None:
     metadata_database = np.load(args.metadata)
     #Return the metadata for the nearest neighbor results
     near_ids = []
-    
+
     print("meta data loaded")
 
     for i in range(I.shape[0]):
         meta = metadata_database[I[i]]
-        near_ids.append(list(meta))       
-    
+        near_ids.append(list(meta))
+
     near_ids = np.array(near_ids)
 
 
@@ -171,12 +172,12 @@ if args.align == True:
     align_model = LightningAligner.load_from_checkpoint(args.tm_vec_align_path)
     align_model = align_model.to(device)
 
-    #Read in database sequences                                                                                                                                                                                                                                                                                                                           
+    #Read in database sequences
     with open(args.database_sequences) as handle_db:
         seqs_db = []
         for record in SeqIO.parse(handle_db, "fasta"):
             seqs_db.append(str(record.seq))
-    
+
     alignments = []
     for i in range(I.shape[0]):
         alignments_i = []
@@ -186,9 +187,9 @@ if args.align == True:
             pred_alignment = align_model.align(x, y)
             x_aligned, y_aligned = states2alignment(pred_alignment, x, y)
             alignments_i.append([x_aligned, pred_alignment, y_aligned])
-        
+
         alignments.append(alignments_i)
-    
+
     #Write out the alignments
     np.save(args.path_output_alignments, np.array(alignments))
 
@@ -205,4 +206,3 @@ else:
 np.save(args.path_output_embeddings, embed_all_sequences_np)
 
 print("Done")
-
