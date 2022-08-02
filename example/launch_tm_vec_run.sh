@@ -1,6 +1,6 @@
 #!/usr/bin/env sh
 
-python tm_vec_run.py \
+python ../scripts/tm_vec_run.py \
     --input_data /mnt/home/thamamsy/ceph/cath/cath/cath_sequence_data/cath_sequence_data/cath-domain-seqs-S100.fa \
     --database /mnt/home/thamamsy/ceph/deepblast/data/embeddings_cath_s100_final.npy \
     --tm_vec_model_path /mnt/home/thamamsy/ceph/deepblast/models/transformer_lr0.0001_dmodel1024_nlayer2_datasample_45_thresh_300_pairs_in_folds_included_23M_normal_tmax/checkpoints/last.ckpt \
@@ -15,7 +15,7 @@ python tm_vec_run.py \
 #Required inputs
 #"--input_data": These are the sequences you want to query (FASTA format)
 #"--database": This is the database of vectors to query (i.e. CATH, SwissProt)
-#"--tm_vec_model_path": TM-Vec Model path for embedding 
+#"--tm_vec_model_path": TM-Vec Model path for embedding
 #"--tm_vec_config_path": Config for TM-Vec Model
 #"--k_nearest_neighbors": Number of nearest neighbhors
 #"--path_output_embeddings": Path for saving Embeddings for queried sequences
@@ -27,6 +27,5 @@ python tm_vec_run.py \
 #If performing alignments:
 #"--align": True of False- would you like to also perform alignments for query results
 #"--tm_vec_align_path": TM-Vec-Align model path
-#"--database_sequences": Database of sequences that corresponds to the query database of embedding vectors 
+#"--database_sequences": Database of sequences that corresponds to the query database of embedding vectors
 #"--path_output_alignments": Path for saving alignments
-
