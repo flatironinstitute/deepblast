@@ -1,9 +1,9 @@
 import torch
-from deepblast.alignment import NeedlemanWunschAligner
-from deepblast.language_model import BiLM, pretrained_language_models
-from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset.utils import collate_f
-from deepblast.dataset.utils import pack_sequences
+from tmvec.alignment import NeedlemanWunschAligner
+from tmvec.language_model import BiLM, pretrained_language_models
+from tmvec.dataset.alphabet import UniprotTokenizer
+from tmvec.dataset.utils import collate_f
+from tmvec.dataset.utils import pack_sequences
 import unittest
 
 

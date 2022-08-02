@@ -1,5 +1,5 @@
 import unittest
-from deepblast.score import alignment_score, alignment_score_kernel
+from tmvec.score import alignment_score, alignment_score_kernel
 
 
 class TestScore(unittest.TestCase):

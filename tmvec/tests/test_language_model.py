@@ -1,6 +1,6 @@
 import torch
-from deepblast.language_model import BiLM, pretrained_language_models
-from deepblast.dataset.alphabet import UniprotTokenizer
+from tmvec.language_model import BiLM, pretrained_language_models
+from tmvec.dataset.alphabet import UniprotTokenizer
 from torch.nn.utils.rnn import pad_packed_sequence
 from torch.nn.utils.rnn import pack_padded_sequence
 import torch.testing as tt

@@ -9,15 +9,15 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
-from deepblast.alignment import NeedlemanWunschAligner
-from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.dataset import TMAlignDataset
-from deepblast.dataset.utils import (
+from tmvec.alignment import NeedlemanWunschAligner
+from tmvec.dataset.alphabet import UniprotTokenizer
+from tmvec.dataset import TMAlignDataset
+from tmvec.dataset.utils import (
     decode, states2edges, collate_f, test_collate_f,
     unpack_sequences, pack_sequences, revstate_f)
-from deepblast.losses import (
+from tmvec.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
-from deepblast.score import (roc_edges, alignment_visualization,
+from tmvec.score import (roc_edges, alignment_visualization,
                              alignment_text, filter_gaps)
 
 

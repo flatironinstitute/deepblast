@@ -1,4 +1,4 @@
-Copyright 2020-- deepblast development team
+Copyright 2020-- tmvec development team
 
 Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
 

@@ -3,9 +3,9 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset, IterableDataset
-from deepblast.dataset.alphabet import UniprotTokenizer
-from deepblast.constants import m
-from deepblast.dataset.utils import (
+from tmvec.dataset.alphabet import UniprotTokenizer
+from tmvec.constants import m
+from tmvec.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
     path_distance_matrix, gap_mask

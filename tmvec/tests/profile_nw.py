@@ -1,6 +1,6 @@
 import torch
-from deepblast.nw import NeedlemanWunschFunction
-from deepblast.nw_cuda import NeedlemanWunschFunction as CUDANWFunction
+from tmvec.nw import NeedlemanWunschFunction
+from tmvec.nw_cuda import NeedlemanWunschFunction as CUDANWFunction
 import time
 import cProfile
 from pstats import Stats
