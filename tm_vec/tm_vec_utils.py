@@ -3,7 +3,7 @@ import pandas as pd
 
 import torch
 from torch import nn
-from embed_structure_model import trans_basic_block, trans_basic_block_Config
+from tm_vec.embed_structure_model import trans_basic_block, trans_basic_block_Config
 
 from transformers import T5EncoderModel, T5Tokenizer
 import re

@@ -12,9 +12,9 @@ from torch.utils.data import DataLoader
 import pytorch_lightning as pl
 from pytorch_lightning.plugins import DDPPlugin
 
-from data_embed_structure import collate_fn, tm_score_embeds_dataset, construct_datasets
-from embed_structure_model import trans_basic_block, trans_basic_block_Config
-from utils import SessionTree
+from tm_vec.data_embed_structure import collate_fn, tm_score_embeds_dataset, construct_datasets
+from tm_vec.embed_structure_model import trans_basic_block, trans_basic_block_Config
+from tm_vec.utils import SessionTree
 
 
 #Comand line
