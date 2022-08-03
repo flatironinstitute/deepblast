@@ -2,9 +2,9 @@ import numpy as np
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from deepblast.nw_cuda import NeedlemanWunschDecoder
-from deepblast.utils import get_data_path
-from deepblast.dataset.utils import states2alignment
+from tm_vec_align.nw_cuda import NeedlemanWunschDecoder
+from tm_vec_align.utils import get_data_path
+from tm_vec_align.dataset.utils import states2alignment
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 

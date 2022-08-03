@@ -1,4 +1,4 @@
-name: deepblast2
+name: tmvec
 channels:
   - conda-forge
   - bioconda

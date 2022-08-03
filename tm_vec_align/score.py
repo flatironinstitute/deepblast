@@ -1,7 +1,7 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from deepblast.dataset.utils import states2alignment, tmstate_f, states2edges
-from deepblast.constants import m as match
+from tm_vec_align.dataset.utils import states2alignment, tmstate_f, states2edges
+from tm_vec_align.constants import m as match
 import pandas as pd
 
 

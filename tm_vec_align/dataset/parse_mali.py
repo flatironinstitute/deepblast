@@ -1,5 +1,5 @@
 import os
-from deepblast.dataset.utils import state_f, revstate_f
+from tm_vec_align.dataset.utils import state_f, revstate_f
 import pandas as pd
 import numpy as np
 from collections import Counter

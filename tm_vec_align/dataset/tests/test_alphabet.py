@@ -1,6 +1,6 @@
 import numpy as np
 import unittest
-from deepblast.dataset.alphabet import UniprotTokenizer
+from tm_vec_align.dataset.alphabet import UniprotTokenizer
 import numpy.testing as npt
 
 

@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from deepblast.ops import operators
+from tm_vec_align.ops import operators
 import numba
 import numpy as np
 

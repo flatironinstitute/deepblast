@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import torch
-from deepblast.nw_cuda import NeedlemanWunschDecoder
+from tm_vec_align.nw_cuda import NeedlemanWunschDecoder
 import time
 import numpy as np
 

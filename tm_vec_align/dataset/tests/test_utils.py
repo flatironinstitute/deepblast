@@ -1,5 +1,5 @@
 import unittest
-from deepblast.dataset.utils import (
+from tm_vec_align.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
     pack_sequences, unpack_sequences,
@@ -220,7 +220,7 @@ class TestDataUtils(unittest.TestCase):
         states2alignment(pred, gen, oth)
 
     def test_clip_ends_none(self):
-        from deepblast.constants import m
+        from tm_vec_align.constants import m
         s_ = [m, m, m, m]
         x_ = 'GSSG'
         y_ = 'GEIR'
@@ -231,7 +231,7 @@ class TestDataUtils(unittest.TestCase):
         self.assertEqual(s_, rs)
 
     def test_clip_ends(self):
-        from deepblast.constants import x, m, y
+        from tm_vec_align.constants import x, m, y
         s = [x, m, m, m, y]
         x = 'GSSG'
         y = 'GEIR'

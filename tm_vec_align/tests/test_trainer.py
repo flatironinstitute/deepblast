@@ -2,9 +2,9 @@ import os
 import shutil
 import unittest
 import torch
-from deepblast.trainer import LightningAligner
-from deepblast.utils import get_data_path
-from deepblast.sim import hmm_alignments
+from tm_vec_align.trainer import LightningAligner
+from tm_vec_align.utils import get_data_path
+from tm_vec_align.sim import hmm_alignments
 from pytorch_lightning import Trainer
 import argparse
 
