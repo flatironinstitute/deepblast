@@ -18,7 +18,7 @@ pip install git+https://github.com/flatironinstitute/tm-vec.git
 
 # Downloading pretrained models and data
 
-The pretrained TM-vec model can be downloaded [here](https://users.flatironinstitute.org/jmorton/public_www/deepblast-public-data/checkpoints/deepblast-lstm4x.pt).
+The pretrained TM-Vec-align model can be downloaded [here](https://users.flatironinstitute.org/jmorton/public_www/deepblast-public-data/checkpoints/deepblast-lstm4x.pt).
 
 The TM-align structural alignments used to pretrain Tm_Vec_Align can be found [here](https://users.flatironinstitute.org/jmorton/public_www/deepblast-public-data/tmalign.tar.gz)
 
