@@ -1,7 +1,7 @@
 import unittest
-from tm_vec_align.utils import get_data_path
-from tm_vec_align.dataset import MaliAlignmentDataset, TMAlignDataset
-from tm_vec_align.dataset.alphabet import UniprotTokenizer
+from deepblast.utils import get_data_path
+from deepblast.dataset import MaliAlignmentDataset, TMAlignDataset
+from deepblast.dataset.alphabet import UniprotTokenizer
 import pandas as pd
 
 
