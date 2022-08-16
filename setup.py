@@ -22,8 +22,8 @@ classifiers = [s.strip() for s in classes.split('\n') if s]
 description = ('Deep Sequence Alignments.')
 
 
-setup(name='tm-vec',
-      version='1.0.0',
+setup(name='deepblast',
+      version='0.1.0',
       license='BSD-3-Clause',
       description=description,
       author_email="jamietmorton@gmail.com",
@@ -44,5 +44,5 @@ setup(name='tm-vec',
       scripts=glob('scripts/*'),
       classifiers=classifiers,
       package_data={
-          'tmvec': ['pretrained_models/lstm2x.pt'],
+          'deepblast': ['pretrained_models/lstm2x.pt'],
       })

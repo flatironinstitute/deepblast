@@ -3,7 +3,7 @@ import torch
 from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
 from scipy.sparse import coo_matrix
 from scipy.spatial import cKDTree
-from tm_vec_align.constants import x, m, y
+from deepblast.constants import x, m, y
 from itertools import islice
 from functools import reduce
 

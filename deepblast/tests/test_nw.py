@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.autograd import gradcheck
 from torch.autograd.gradcheck import gradgradcheck
-from tm_vec_align.nw import NeedlemanWunschDecoder
+from deepblast.nw import NeedlemanWunschDecoder
 from sklearn.metrics.pairwise import pairwise_distances
 import unittest
 

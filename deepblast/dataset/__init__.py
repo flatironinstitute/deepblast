@@ -1,4 +1,4 @@
-from tm_vec_align.dataset.dataset import (MaliAlignmentDataset, TMAlignDataset,
+from deepblast.dataset.dataset import (MaliAlignmentDataset, TMAlignDataset,
                                        FastaDataset)
 
 
