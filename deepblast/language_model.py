@@ -28,12 +28,12 @@ class LanguageModel(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def encode(self, x : PackedSequence):
+    def encode(self, x):
         """ Generates sequence representations from tokenized protein
 
         Parameters
         ----------
-        x : PackedSequence
+        x : torch.Tensor
             List of protein sequences
 
         Returns
@@ -325,17 +325,22 @@ class ESM2(LanguageModel):
 
         self.batch_converter = self.alphabet.get_batch_converter()
 
+        # convert one hot to letters (for decoding)
+        data = [('test', 'ARNDCQEGHILKMFPSTWYVXOUBZ')]
+        batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
+
+        bt = list(batch_tokens.squeeze()[1:-1].cpu().detach().numpy())
+        self.lookup = {d:b for (d, b) in zip(bt, list(data[0][1]))}
+
     @property
     def hidden_size(self):
         return self.avail_model_types[self.model_type]
 
-    def encode(self, x : PackedSequence):
-        assert isinstance(x, PackedSequence)
-        x, batch_sizes = pad_packed_sequence(x, batch_first=True)
+    def encode(self, x):
         results = self.model(x, repr_layers=[self.layers],
                              return_contacts=False)
-        # drop beginning token
-        tokens = results["representations"][self.layers][:, 1:]
+        # drop beginning token and end tokens
+        tokens = results["representations"][self.layers] # [:, 1:-1]
         return tokens
 
     def tokenize(self, x):
@@ -347,3 +352,6 @@ class ESM2(LanguageModel):
 
         batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
         return batch_tokens
+
+    def untokenize(self, x):
+        return ''.join([self.lookup[int(i)] for i in x[1:-1]])

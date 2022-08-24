@@ -448,3 +448,11 @@ def remove_orphans(states, threshold: int = 11):
     new_states += list(states[:threshold // 2])
     new_states += list(states[-threshold // 2 + 1:])
     return ''.join(new_states)
+
+def unpack_esm(seq, order):
+    x, xlen, y, ylen = unpack_sequences(seq, order)
+    x = x[:, 1:-1]
+    y = y[:, 1:-1]
+    xlen = xlen - 2
+    ylen = ylen - 2
+    return x, xlen, y, ylen

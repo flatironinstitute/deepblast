@@ -35,23 +35,22 @@ class NeedlemanWunschAligner(nn.Module):
         """
         super(NeedlemanWunschAligner, self).__init__()
         assert lm is not None
-
-        if n_layers > 1:
-            self.match_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-            self.gap_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-        else:
-            self.match_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
-            self.gap_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
+        self.lm = lm
+        n_embed = self.lm.hidden_size
+        self.match_embedding = nn.Linear(n_embed, n_embed)
+        self.gap_embedding = nn.Linear(n_embed, n_embed)
 
         # TODO: make cpu compatible version
         # if device == 'cpu':
         #     self.nw = NWDecoderCPU(operator='softmax')
         # else:
         self.nw = NWDecoderCUDA(operator='softmax')
+
+    def blosum(self, x):
+        hx = self.lm.encode(x)
+        zx = self.match_embedding(hx)
+        gx = self.gap_embedding(hx)
+        return zx, gx
 
     def forward(self, x, order):
         """ Generate alignment matrix.
@@ -69,8 +68,9 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
+            hx, _, hy, _ = unpack_sequences(x, order)
+            zx, gx = self.blosum(hx)
+            zy, gy = self.blosum(hy)
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -80,9 +80,9 @@ class NeedlemanWunschAligner(nn.Module):
 
     def score(self, x, order):
         with torch.no_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
-
+            hx, _, hy, _ = unpack_sequences(x, order)
+            zx, gx = self.blosum(hx)
+            zy, gy = self.blosum(hy)
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
@@ -96,7 +96,7 @@ class NeedlemanWunschAligner(nn.Module):
         ----------
         x : PackedSequence
             Packed sequence object of proteins to align.
-        order : np.array
+        order : torch.Tensor
             The origin order of the sequences
 
         Returns
@@ -108,8 +108,11 @@ class NeedlemanWunschAligner(nn.Module):
         """
         # dim B x N x D
         with torch.enable_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
+
+            hx, xlen, hy, ylen = unpack_sequences(x, order)
+            zx, gx = self.blosum(hx)
+            zy, gy = self.blosum(hy)
+
             match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = match.shape

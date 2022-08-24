@@ -166,7 +166,6 @@ class TMAlignDataset(AlignmentDataset):
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
-
             path_matrix = reshape(path_matrix, lg, lp)
         if self.mask_gaps:
             g_mask = torch.from_numpy(gap_mask(st)).bool()

@@ -14,7 +14,7 @@ from deepblast.language_model import ESM2
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     states2edges, collate_f, test_collate_f,
-    unpack_sequences, pack_sequences, revstate_f)
+    unpack_sequences, pack_sequences, unpack_esm, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
@@ -50,8 +50,7 @@ class DeepBLAST(pl.LightningModule):
             n_alpha, n_input, n_units, n_embed, n_layers,
             lm=lm
         )
-        # TODO : these nested objects are disgusting - needs refactoring
-        self.tokenizer = self.aligner.match_embedding.embed.lm.tokenize
+        self.tokenizer = self.aligner.lm.tokenize
 
     def align(self, x, y):
         x_code = self.tokenizer(x).to(self.device)
@@ -151,8 +150,10 @@ class DeepBLAST(pl.LightningModule):
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
         seq, order = seq.to(self.device), order.to(self.device)
+
         predA, theta, gap = self.aligner(seq, order)
         _, xlen, _, ylen = unpack_sequences(seq, order)
+
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
         if len(self.trainer.lr_schedulers) >= 1:
@@ -164,11 +165,13 @@ class DeepBLAST(pl.LightningModule):
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
-    def validation_stats(self, xs, ys, x, y, xlen, ylen, gen,
+    def validation_stats(self, x, y, xlen, ylen, gen,
                          states, A, predA, theta, gap, batch_idx):
         statistics = []
         for b in range(len(xlen)):
-            x_str, y_str = xs[b], ys[b]
+            # TODO : throw warning if untokenize isn't implemented
+            x_str = self.aligner.lm.untokenize(x[b, :xlen[b]])
+            y_str = self.aligner.lm.untokenize(y[b, :ylen[b]])
             decoded, _ = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = np.array(list(pred_states))
@@ -189,15 +192,19 @@ class DeepBLAST(pl.LightningModule):
                     f'alignment-matrix/{batch_idx}/{b}', fig,
                     self.global_step, close=True)
                 try:
+
                     text = alignment_text(
                         x_str, y_str, pred_states, true_states, stats)
                     self.logger.experiment.add_text(
                         f'alignment/{batch_idx}/{b}', text, self.global_step)
                 except Exception as e:
-                    print(predA[b])
-                    print(A[b])
-                    print(theta[b])
-                    print(xlen[b], ylen[b])
+                    print('predA', predA[b].shape)
+                    print('A', A[b].shape)
+                    print('theta', theta[b].shape)
+                    print('xlen', xlen[b], 'ylen', ylen[b])
+                    print('pred_states', pred_states)
+                    print('true_states', true_states)
+                    print(x_str, len(x_str), y_str, len(y_str))
                     raise e
             statistics.append(stats)
         return statistics
@@ -211,9 +218,10 @@ class DeepBLAST(pl.LightningModule):
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
         gen = self.aligner.traceback(seq, order)
-        # TODO; compare the traceback and the forward
+        # TODO: compare the traceback and the forward
+        # x, xlen, y, ylen = unpack_esm(seq, order)
         statistics = self.validation_stats(
-            genes, others, x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(
             statistics, columns=[
                 'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
@@ -237,7 +245,7 @@ class DeepBLAST(pl.LightningModule):
         gen = self.aligner.traceback(seq, order)
         # TODO: compare the traceback and the forward
         statistics = self.validation_stats(
-            genes, others, x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         assert len(statistics) > 0, (batch_idx, s)
         statistics = pd.DataFrame(
             statistics, columns=[
@@ -272,9 +280,7 @@ class DeepBLAST(pl.LightningModule):
     def configure_optimizers(self):
         # Freeze language model
         if self.hparams.finetune is False:
-            for param in (self.aligner
-                          .match_embedding
-                          .embed.lm
+            for param in (self.aligner.lm
                           .model.parameters()):
                 param.requires_grad = False
 
