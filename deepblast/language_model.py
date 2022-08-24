@@ -1,10 +1,11 @@
 import os
+import re
 import torch
 import torch.nn as nn
 from torch.nn.utils.rnn import (
     PackedSequence, pack_padded_sequence, pad_packed_sequence)
 import torch.nn.functional as F
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 import esm
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
@@ -19,15 +20,20 @@ pretrained_language_models = {
 }
 
 
-class LanguageModel(nn.Module, metaclass=ABCMeta):
+class LanguageModel(metaclass=ABCMeta):
+    """ Abstract class for defining new models.
+
+    In order to incorporate new language models, both the
+    `encode` method and `tokenize` methods need to be overriden.
+    """
 
     @abstractmethod
     def encode(self, x):
-        """ Generates sequence representations
+        """ Generates sequence representations from tokenized protein
 
         Parameters
         ----------
-        x : list of str
+        x : torch.Tensor
             List of protein sequences
 
         Returns
@@ -37,9 +43,28 @@ class LanguageModel(nn.Module, metaclass=ABCMeta):
         """
         pass
 
+    @abstractmethod
+    def tokenize(self, x):
+        """ Convert protein sequence to tokens
 
-class BiLM(LanguageModel):
-    """ Two layer LSTM implemented in Bepler et al 2019"""
+        Parameters
+        ----------
+        x : list of str
+           Protein sequences
+
+        Returns
+        -------
+        torch.Tensor
+            Protein token sequences
+        """
+        pass
+
+
+class BiLM(nn.Module):
+    """ Two layer LSTM implemented in Bepler et al 2019
+
+    TODO : Do we want to inherit the new language model structure?
+    """
     def __init__(self, nin=22, nout=21, embedding_dim=21, hidden_dim=1024,
                  num_layers=2, tied=True, mask_idx=None, dropout=0):
         super(BiLM, self).__init__()
@@ -285,14 +310,26 @@ class ESM2(LanguageModel):
             'esm2_t12_35M_UR50D',
             'esm2_t6_8M_UR50D'
         ]
-        assert model_type impo avail_model_types
-        self.model, _ = eval(f'esm.pretrained.{model_type}()')
+        assert model_type in avail_model_types
+        self.model, self.alphabet = eval(f'esm.pretrained.{model_type}()')
         pattern = re.compile(r't(\d+)')
-        self.layers = int(re.findall(model_type)[0])
+        self.layers = int(pattern.findall(model_type)[0])
+
+        self.batch_converter = self.alphabet.get_batch_converter()
 
     def encode(self, x):
-        results = model(x, repr_layers=[self.layers],
-                        return_contacts=False)
+        results = self.model(x, repr_layers=[self.layers],
+                             return_contacts=False)
         # drop beginning token
         tokens = results["representations"][self.layers][:, 1:]
         return tokens
+
+    def tokenize(self, x):
+        if isinstance(x, str):
+            data = [('_', x)]
+        else:
+            ids = ['_'] * len(x)
+            data = list(zip(ids, x))
+
+        batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
+        return batch_tokens

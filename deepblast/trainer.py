@@ -14,7 +14,7 @@ from deepblast.language_model import ESM2
 from deepblast.dataset.alphabet import ESMTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
-    decode, states2edges, collate_f, test_collate_f,
+    states2edges, collate_f, test_collate_f,
     unpack_sequences, pack_sequences, revstate_f)
 from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
@@ -30,9 +30,8 @@ class DeepBLAST(pl.LightningModule):
             self._hparams = argparse.Namespace(**args)
         else:
             self._hparams = args
-
         self.tokenizer = ESMTokenizer()
-        #self.hparams = args
+        # self.hparams = args
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
         elif self.hparams.loss == 'cross_entropy':
@@ -51,6 +50,7 @@ class DeepBLAST(pl.LightningModule):
             n_alpha, n_input, n_units, n_embed, n_layers,
             lm=ESM2(args.lm)
         )
+        self.tokenizer = self.alpha.lm.tokenize
 
     def align(self, x, y):
         x_code = self.tokenizer(x).to(self.device)
@@ -95,7 +95,8 @@ class DeepBLAST(pl.LightningModule):
     def train_dataloader(self):
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs,
-            construct_paths=isinstance(self.loss_func, SoftPathLoss))
+            construct_paths=isinstance(self.loss_func, SoftPathLoss),
+            tokenizer=self.tokenizer)
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=True, num_workers=self.hparams.num_workers,
@@ -105,7 +106,8 @@ class DeepBLAST(pl.LightningModule):
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(
             self.hparams.valid_pairs,
-            construct_paths=isinstance(self.loss_func, SoftPathLoss))
+            construct_paths=isinstance(self.loss_func, SoftPathLoss),
+            tokenizer=self.tokenizer)
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
             shuffle=False, num_workers=self.hparams.num_workers,
@@ -115,7 +117,9 @@ class DeepBLAST(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
             self.hparams.test_pairs, return_names=True,
-            construct_paths=isinstance(self.loss_func, SoftPathLoss))
+            construct_paths=isinstance(self.loss_func, SoftPathLoss),
+            tokenizer=self.tokenizer
+        )
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
             collate_fn=test_collate_f, num_workers=self.hparams.num_workers,

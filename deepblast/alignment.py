@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from deepblast.language_model import BiLM, pretrained_language_models
+# from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.embedding import StackedRNN, EmbedLinear
 from deepblast.dataset.utils import unpack_sequences
@@ -34,13 +34,18 @@ class NeedlemanWunschAligner(nn.Module):
         sparse : False?
         """
         super(NeedlemanWunschAligner, self).__init__()
-        if lm is None:
-            self.lm = ESM2()
+        assert lm is not None
 
-        self.match_embedding = EmbedLinear(
-            n_alpha, n_input, n_embed, lm=lm)
-        self.gap_embedding = EmbedLinear(
-            n_alpha, n_input, n_embed, lm=lm)
+        if n_layers > 1:
+            self.match_embedding = StackedRNN(
+                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+            self.gap_embedding = StackedRNN(
+                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
+        else:
+            self.match_embedding = EmbedLinear(
+                n_alpha, n_input, n_embed, lm=lm)
+            self.gap_embedding = EmbedLinear(
+                n_alpha, n_input, n_embed, lm=lm)
 
         # TODO: make cpu compatible version
         # if device == 'cpu':

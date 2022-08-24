@@ -6,16 +6,16 @@ import os
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
-from deepblast.trainer import LightningAligner
+from deepblast.trainer import DeepBLAST
 
 
 def main(args):
     print('args', args)
     if args.load_from_checkpoint is not None:
-        model = LightningAligner.load_from_checkpoint(
+        model = DeepBLAST.load_from_checkpoint(
             args.load_from_checkpoint)
     else:
-        model = LightningAligner(args)
+        model = DeepBLAST(args)
     # profiler = AdvancedProfiler()
 
     trainer = Trainer(

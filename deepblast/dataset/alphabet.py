@@ -82,20 +82,3 @@ class UniprotTokenizer:
             return z
         else:
             return x
-
-
-class ESMTokenizer:
-    def __init__(self):
-        self.alphabet = esm.data.Alphabet.from_architecture("ESM-1b")
-        self.batch_converter = self.alphabet.get_batch_converter()
-
-    def __call__(self, x):
-        """
-        Parameters
-        ----------
-        x : str
-           A single protein sequence
-        """
-        data = [('_', x)]
-        batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
-        return batch_tokens

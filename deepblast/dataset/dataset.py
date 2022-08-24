@@ -3,7 +3,7 @@ import pandas as pd
 import math
 import torch
 from torch.utils.data import Dataset, IterableDataset
-from deepblast.dataset.alphabet import UniprotTokenizer
+# from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
@@ -25,7 +25,7 @@ def reshape(x, N, M):
 
 
 class AlignmentDataset(Dataset):
-    def __init__(self, pairs, tokenizer=ESMTokenizer()):
+    def __init__(self, pairs, tokenizer):
         self.tokenizer = tokenizer
         self.pairs = pairs
 
@@ -55,7 +55,7 @@ class TMAlignDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, path, tokenizer=ESMTokenizer(),
+    def __init__(self, path, tokenizer,
                  tm_threshold=0.4, max_len=1024, pad_ends=False,
                  clip_ends=True, mask_gaps=True, return_names=False,
                  construct_paths=False):
@@ -184,7 +184,7 @@ class MaliAlignmentDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, pairs, tokenizer=ESMTokenizer()):
+    def __init__(self, pairs, tokenizer):
         """ Read in pairs of proteins
 
         Parameters
@@ -236,7 +236,7 @@ class FastaDataset(IterableDataset):
 
     This is appropriate when searching fasta files with pretrained models.
     """
-    def __init__(self, query_file, db_file, tokenizer=ESMTokenizer()):
+    def __init__(self, query_file, db_file, tokenizer):
         """ Read in pairs of proteins
 
         Parameters
