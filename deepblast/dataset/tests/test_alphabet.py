@@ -1,10 +1,10 @@
 import numpy as np
 import unittest
-from deepblast.dataset.alphabet import UniprotTokenizer
+from deepblast.dataset.alphabet import UniprotTokenizer, ESMTokenizer
 import numpy.testing as npt
 
 
-class TestAlphabet(unittest.TestCase):
+class TestUniprotAlphabet(unittest.TestCase):
 
     def test_tokenizer(self):
         tokenizer = UniprotTokenizer(pad_ends=True)
@@ -34,6 +34,16 @@ class TestAlphabet(unittest.TestCase):
              9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
              19, 20, 11, 4, 20, 20])
         npt.assert_allclose(exp, res)
+
+
+def TestESMTokenizer(unittest.TestCase):
+
+    def test_decode(self):
+        data = "MKTVRQERLK"
+        tokenizer = ESMTokenizer()
+        toks = tokenizer(data)
+        res = tokenizer.decode(toks)
+        self.assertEqual(res, data)
 
 
 if __name__ == '__main__':

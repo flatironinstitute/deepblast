@@ -25,7 +25,7 @@ class NeedlemanWunschAligner(nn.Module):
            Embedding dimension
         n_layers : int
            Number of RNN layers.
-        lm : BiLM
+        lm : ESM2
            Pretrained language model (optional)
         padding_idx : int
            Location of padding index in embedding (default -1)
@@ -35,20 +35,12 @@ class NeedlemanWunschAligner(nn.Module):
         """
         super(NeedlemanWunschAligner, self).__init__()
         if lm is None:
-            path = pretrained_language_models['bilstm']
-            self.lm = BiLM()
-            self.lm.load_state_dict(torch.load(path))
-            self.lm.eval()
-        if n_layers > 1:
-            self.match_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-            self.gap_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-        else:
-            self.match_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
-            self.gap_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
+            self.lm = ESM2()
+
+        self.match_embedding = EmbedLinear(
+            n_alpha, n_input, n_embed, lm=lm)
+        self.gap_embedding = EmbedLinear(
+            n_alpha, n_input, n_embed, lm=lm)
 
         # TODO: make cpu compatible version
         # if device == 'cpu':

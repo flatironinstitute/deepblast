@@ -10,7 +10,8 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
-from deepblast.dataset.alphabet import UniprotTokenizer
+from deepblast.language_model import ESM2
+from deepblast.dataset.alphabet import ESMTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     decode, states2edges, collate_f, test_collate_f,
@@ -21,18 +22,17 @@ from deepblast.score import (roc_edges, alignment_visualization,
                              alignment_text, filter_gaps)
 
 
-class LightningAligner(pl.LightningModule):
+class DeepBLAST(pl.LightningModule):
 
     def __init__(self, args):
-        super(LightningAligner, self).__init__()
+        super(DeepBLAST, self).__init__()
         if isinstance(args, dict):
             self._hparams = argparse.Namespace(**args)
         else:
             self._hparams = args
 
-        self.tokenizer = UniprotTokenizer(pad_ends=False)
+        self.tokenizer = ESMTokenizer()
         #self.hparams = args
-        self.initialize_aligner()
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
         elif self.hparams.loss == 'cross_entropy':
@@ -42,20 +42,19 @@ class LightningAligner(pl.LightningModule):
         else:
             raise ValueError(f'`{args.loss}` is not implemented.')
 
-    def initialize_aligner(self):
         n_alpha = len(self.tokenizer.alphabet)
         n_embed = self.hparams.embedding_dim
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
         self.aligner = NeedlemanWunschAligner(
-            n_alpha, n_input, n_units, n_embed, n_layers)
+            n_alpha, n_input, n_units, n_embed, n_layers,
+            lm=ESM2(args.lm)
+        )
 
     def align(self, x, y):
-        x_code = torch.Tensor(self.tokenizer(str.encode(x))).long()
-        y_code = torch.Tensor(self.tokenizer(str.encode(y))).long()
-        x_code = x_code.to(self.device)
-        y_code = y_code.to(self.device)
+        x_code = self.tokenizer(x).to(self.device)
+        y_code = self.tokenizer(y).to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
@@ -159,17 +158,11 @@ class LightningAligner(pl.LightningModule):
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
-    def validation_stats(self, x, y, xlen, ylen, gen,
+    def validation_stats(self, xs, ys, x, y, xlen, ylen, gen,
                          states, A, predA, theta, gap, batch_idx):
         statistics = []
         for b in range(len(xlen)):
-            # TODO: Issue #47
-            x_str = decode(
-                list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
-                self.tokenizer.alphabet)
-            y_str = decode(
-                list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
-                self.tokenizer.alphabet)
+            x_str, y_str = xs[b], ys[b]
             decoded, _ = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = np.array(list(pred_states))
@@ -214,7 +207,7 @@ class LightningAligner(pl.LightningModule):
         gen = self.aligner.traceback(seq, order)
         # TODO; compare the traceback and the forward
         statistics = self.validation_stats(
-            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+            genes, others, x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         statistics = pd.DataFrame(
             statistics, columns=[
                 'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
@@ -238,16 +231,8 @@ class LightningAligner(pl.LightningModule):
         gen = self.aligner.traceback(seq, order)
         # TODO: compare the traceback and the forward
         statistics = self.validation_stats(
-            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+            genes, others, x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
         assert len(statistics) > 0, (batch_idx, s)
-        genes = list(map(
-            lambda x: self.tokenizer.alphabet.decode(
-                x.detach().cpu().numpy()).decode("utf-8"),
-            genes))
-        others = list(map(
-            lambda x: self.tokenizer.alphabet.decode(
-                x.detach().cpu().numpy()).decode("utf-8"),
-            others))
         statistics = pd.DataFrame(
             statistics, columns=[
                 'test_tp', 'test_fp', 'test_fn', 'test_perc_id',
@@ -345,6 +330,12 @@ class LightningAligner(pl.LightningModule):
         parser.add_argument(
             '--batch-size', help='Training batch size',
             required=False, type=int, default=32)
+        parser.add_argument(
+            '--lm',
+            help=('ESM language model. See '
+                  'https://github.com/facebookresearch/esm#available-models-and-datasets- '
+                  'for options'),
+            required=False, type=str, default='esm2_t30_150M_UR50D')
         parser.add_argument(
             '--multitask', default=False, required=False, type=bool,
             help=(

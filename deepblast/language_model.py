@@ -4,7 +4,8 @@ import torch.nn as nn
 from torch.nn.utils.rnn import (
     PackedSequence, pack_padded_sequence, pad_packed_sequence)
 import torch.nn.functional as F
-
+from abc import ABCMeta
+import esm
 
 _ROOT = os.path.abspath(os.path.dirname(__file__))
 
@@ -18,7 +19,26 @@ pretrained_language_models = {
 }
 
 
-class BiLM(nn.Module):
+class LanguageModel(nn.Module, metaclass=ABCMeta):
+
+    @abstractmethod
+    def encode(self, x):
+        """ Generates sequence representations
+
+        Parameters
+        ----------
+        x : list of str
+            List of protein sequences
+
+        Returns
+        -------
+        torch.Tensor
+            List of protein tensor representations
+        """
+        pass
+
+
+class BiLM(LanguageModel):
     """ Two layer LSTM implemented in Bepler et al 2019"""
     def __init__(self, nin=22, nout=21, embedding_dim=21, hidden_dim=1024,
                  num_layers=2, tied=True, mask_idx=None, dropout=0):
@@ -241,3 +261,38 @@ class BiLM(nn.Module):
             logp = pack_padded_sequence(logp, batch_s, batch_first=True)
 
         return logp
+
+
+class ESM2(LanguageModel):
+    def __init__(self, model_type='esm2_t6_8M_UR50D'):
+        """
+        Parameters
+        ----------
+        model_type : str
+           Specify the model to be loaded.  The following options are available
+               - esm2_t33_650M_UR50D
+               - esm2_t36_3B_UR50D
+               - esm2_t33_650M_UR50D
+               - esm2_t30_150M_UR50D
+               - esm2_t12_35M_UR50D
+               - esm2_t6_8M_UR50D
+        """
+        avail_model_types = [
+            'esm2_t33_650M_UR50D',
+            'esm2_t36_3B_UR50D',
+            'esm2_t33_650M_UR50D',
+            'esm2_t30_150M_UR50D',
+            'esm2_t12_35M_UR50D',
+            'esm2_t6_8M_UR50D'
+        ]
+        assert model_type impo avail_model_types
+        self.model, _ = eval(f'esm.pretrained.{model_type}()')
+        pattern = re.compile(r't(\d+)')
+        self.layers = int(re.findall(model_type)[0])
+
+    def encode(self, x):
+        results = model(x, repr_layers=[self.layers],
+                        return_contacts=False)
+        # drop beginning token
+        tokens = results["representations"][self.layers][:, 1:]
+        return tokens

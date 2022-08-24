@@ -25,7 +25,7 @@ def reshape(x, N, M):
 
 
 class AlignmentDataset(Dataset):
-    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
+    def __init__(self, pairs, tokenizer=ESMTokenizer()):
         self.tokenizer = tokenizer
         self.pairs = pairs
 
@@ -55,7 +55,7 @@ class TMAlignDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, path, tokenizer=UniprotTokenizer(),
+    def __init__(self, path, tokenizer=ESMTokenizer(),
                  tm_threshold=0.4, max_len=1024, pad_ends=False,
                  clip_ends=True, mask_gaps=True, return_names=False,
                  construct_paths=False):
@@ -153,8 +153,8 @@ class TMAlignDataset(AlignmentDataset):
             states = [m] + states + [m]
 
         states = torch.Tensor(states).long()
-        gene = self.tokenizer(str.encode(gene))
-        pos = self.tokenizer(str.encode(pos))
+        gene = self.tokenizer(gene)
+        pos = self.tokenizer(pos)
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
@@ -184,7 +184,7 @@ class MaliAlignmentDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
+    def __init__(self, pairs, tokenizer=ESMTokenizer()):
         """ Read in pairs of proteins
 
         Parameters
@@ -223,8 +223,8 @@ class MaliAlignmentDataset(AlignmentDataset):
         assert len(gene) == len(pos)
         alnstr = list(zip(list(gene), list(pos)))
         states = torch.Tensor(list(map(state_f, alnstr)))
-        gene = self.tokenizer(str.encode(gene.replace('-', '')))
-        pos = self.tokenizer(str.encode(pos.replace('-', '')))
+        gene = self.tokenizer(gene.replace('-', ''))
+        pos = self.tokenizer(pos.replace('-', ''))
         gene = torch.Tensor(gene).long()
         pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(states2matrix(states))
@@ -236,7 +236,7 @@ class FastaDataset(IterableDataset):
 
     This is appropriate when searching fasta files with pretrained models.
     """
-    def __init__(self, query_file, db_file, tokenizer=UniprotTokenizer()):
+    def __init__(self, query_file, db_file, tokenizer=ESMTokenizer()):
         """ Read in pairs of proteins
 
         Parameters
@@ -259,6 +259,6 @@ class FastaDataset(IterableDataset):
         dbid, dbseq = db.id, str(db.seq)
         for q in query_seqs:
             qid, qseq = q.id, str(q.seq)
-            dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()
-            qtoks = torch.Tensor(self.tokenizer(str.encode(qseq))).long()
+            dbtoks = self.tokenizer(dbseq)
+            qtoks = self.tokenizer(qseq)
             yield qid, dbid, qtoks, dbtoks
