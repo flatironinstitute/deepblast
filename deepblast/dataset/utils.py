@@ -259,7 +259,8 @@ def collate_f(batch):
     G = torch.zeros((B, max_x, max_y)).bool()
     G.requires_grad = False
     for b in range(B):
-        n, m = len(genes[b]), len(others[b])
+        # TODO : this is to handle the start/end tokens with ESM tokenizer
+        n, m = len(genes[b]) - 2, len(others[b]) - 2
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
         G[b, :n, :m] = masks[b].bool()

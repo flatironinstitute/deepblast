@@ -39,6 +39,7 @@ setup(name='deepblast',
           'pytorch-lightning>=0.8.1',
           'matplotlib',
           'pillow',
+          'fair-esm',
           'biopython>=1.78,<2.0'
       ],
       scripts=glob('scripts/*'),

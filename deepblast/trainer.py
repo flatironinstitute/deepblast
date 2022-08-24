@@ -11,7 +11,6 @@ from torch.optim.lr_scheduler import (
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import ESM2
-from deepblast.dataset.alphabet import ESMTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     states2edges, collate_f, test_collate_f,
@@ -30,7 +29,6 @@ class DeepBLAST(pl.LightningModule):
             self._hparams = argparse.Namespace(**args)
         else:
             self._hparams = args
-        self.tokenizer = ESMTokenizer()
         # self.hparams = args
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
@@ -41,16 +39,19 @@ class DeepBLAST(pl.LightningModule):
         else:
             raise ValueError(f'`{args.loss}` is not implemented.')
 
-        n_alpha = len(self.tokenizer.alphabet)
+        n_alpha = 22  # number of amino acids
         n_embed = self.hparams.embedding_dim
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
+        lm = ESM2(args.lm)
+
         self.aligner = NeedlemanWunschAligner(
             n_alpha, n_input, n_units, n_embed, n_layers,
-            lm=ESM2(args.lm)
+            lm=lm
         )
-        self.tokenizer = self.alpha.lm.tokenize
+        # TODO : these nested objects are disgusting - needs refactoring
+        self.tokenizer = self.aligner.match_embedding.embed.lm.tokenize
 
     def align(self, x, y):
         x_code = self.tokenizer(x).to(self.device)
@@ -149,6 +150,7 @@ class DeepBLAST(pl.LightningModule):
         self.aligner.train()
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
+        seq, order = seq.to(self.device), order.to(self.device)
         predA, theta, gap = self.aligner(seq, order)
         _, xlen, _, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
@@ -268,8 +270,14 @@ class DeepBLAST(pl.LightningModule):
         return {'val_loss': loss, 'log': tensorboard_logs}
 
     def configure_optimizers(self):
-        for p in self.aligner.lm.parameters():
-            p.requires_grad = False
+        # Freeze language model
+        if self.hparams.finetune is False:
+            for param in (self.aligner
+                          .match_embedding
+                          .embed.lm
+                          .model.parameters()):
+                param.requires_grad = False
+
         grad_params = list(filter(
             lambda p: p.requires_grad, self.aligner.parameters()))
         optimizer = torch.optim.AdamW(
@@ -349,8 +357,7 @@ class DeepBLAST(pl.LightningModule):
         )
         parser.add_argument(
             '--finetune',
-            help=('Perform finetuning. '
-                  'WARNING: this option is not tested, use at your own risk.'),
+            help=('Perform finetuning of language model'),
             default=False, required=False, type=bool)
         parser.add_argument(
             '--mask-gaps',

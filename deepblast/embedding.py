@@ -13,7 +13,7 @@ class LMEmbed(nn.Module):
         self.lm = lm
         self.embed = nn.Embedding(
             nin, nout, padding_idx=padding_idx, sparse=sparse)
-        self.proj = nn.Linear(lm.hidden_size(), nout)
+        self.proj = nn.Linear(lm.hidden_size, nout)
         self.transform = transform
         self.nout = nout
 

@@ -153,23 +153,26 @@ class TMAlignDataset(AlignmentDataset):
             states = [m] + states + [m]
 
         states = torch.Tensor(states).long()
-        gene = self.tokenizer(gene)
-        pos = self.tokenizer(pos)
-        gene = torch.Tensor(gene).long()
-        pos = torch.Tensor(pos).long()
+        gene = self.tokenizer(gene).squeeze()
+        pos = self.tokenizer(pos).squeeze()
+        # gene = torch.Tensor(gene).long()
+        # pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         path_matrix = torch.empty(*alignment_matrix.shape)
         g_mask = torch.ones(*alignment_matrix.shape)
+        # TODO : this is to handle the start/end tokens with ESM tokenizer
+        lg, lp = len(gene) - 2, len(pos) - 2
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
-            path_matrix = reshape(path_matrix, len(gene), len(pos))
+
+            path_matrix = reshape(path_matrix, lg, lp)
         if self.mask_gaps:
             g_mask = torch.from_numpy(gap_mask(st)).bool()
 
-        alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
-        g_mask = reshape(g_mask, len(gene), len(pos))
+        alignment_matrix = reshape(alignment_matrix, lg, lp)
+        g_mask = reshape(g_mask, lg, lp)
         if not self.return_names:
             return gene, pos, states, alignment_matrix, path_matrix, g_mask
         else:
@@ -225,8 +228,8 @@ class MaliAlignmentDataset(AlignmentDataset):
         states = torch.Tensor(list(map(state_f, alnstr)))
         gene = self.tokenizer(gene.replace('-', ''))
         pos = self.tokenizer(pos.replace('-', ''))
-        gene = torch.Tensor(gene).long()
-        pos = torch.Tensor(pos).long()
+        # gene = torch.Tensor(gene).long()
+        # pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(states2matrix(states))
         return gene, pos, states, alignment_matrix
 

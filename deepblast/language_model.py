@@ -28,12 +28,12 @@ class LanguageModel(metaclass=ABCMeta):
     """
 
     @abstractmethod
-    def encode(self, x):
+    def encode(self, x : PackedSequence):
         """ Generates sequence representations from tokenized protein
 
         Parameters
         ----------
-        x : torch.Tensor
+        x : PackedSequence
             List of protein sequences
 
         Returns
@@ -59,6 +59,11 @@ class LanguageModel(metaclass=ABCMeta):
         """
         pass
 
+    @property
+    @abstractmethod
+    def hidden_size(self):
+        """ Returns the embedding dimension """
+        pass
 
 class BiLM(nn.Module):
     """ Two layer LSTM implemented in Bepler et al 2019
@@ -302,22 +307,31 @@ class ESM2(LanguageModel):
                - esm2_t12_35M_UR50D
                - esm2_t6_8M_UR50D
         """
-        avail_model_types = [
-            'esm2_t33_650M_UR50D',
-            'esm2_t36_3B_UR50D',
-            'esm2_t33_650M_UR50D',
-            'esm2_t30_150M_UR50D',
-            'esm2_t12_35M_UR50D',
-            'esm2_t6_8M_UR50D'
-        ]
-        assert model_type in avail_model_types
+        self.model_type = model_type
+        self.avail_model_types = {
+            'esm2_t33_650M_UR50D' : 5120,
+            'esm2_t36_3B_UR50D' : 2560,
+            'esm2_t33_650M_UR50D' : 1280,
+            'esm2_t30_150M_UR50D' : 640,
+            'esm2_t12_35M_UR50D' : 480,
+            'esm2_t6_8M_UR50D' : 320
+        }
+        assert model_type in self.avail_model_types.keys()
         self.model, self.alphabet = eval(f'esm.pretrained.{model_type}()')
+        # TODO : assumes GPU is available
+        self.model = self.model.eval().cuda()
         pattern = re.compile(r't(\d+)')
         self.layers = int(pattern.findall(model_type)[0])
 
         self.batch_converter = self.alphabet.get_batch_converter()
 
-    def encode(self, x):
+    @property
+    def hidden_size(self):
+        return self.avail_model_types[self.model_type]
+
+    def encode(self, x : PackedSequence):
+        assert isinstance(x, PackedSequence)
+        x, batch_sizes = pad_packed_sequence(x, batch_first=True)
         results = self.model(x, repr_layers=[self.layers],
                              return_contacts=False)
         # drop beginning token
