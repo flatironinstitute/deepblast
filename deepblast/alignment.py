@@ -46,7 +46,15 @@ class NeedlemanWunschAligner(nn.Module):
         # else:
         self.nw = NWDecoderCUDA(operator='softmax')
 
-    def blosum(self, x):
+    def blosum_factor(self, x):
+        """ Computes factors for blosum parameters using a single sequence
+
+        Parameters
+        ----------
+        x : torch.Tensor
+           Representation of a single protein sequence from ESM
+           with dimensions B x (N + 2) x D
+        """
         hx = self.lm.encode(x)
         zx = self.match_embedding(hx)
         gx = self.gap_embedding(hx)
@@ -69,20 +77,21 @@ class NeedlemanWunschAligner(nn.Module):
         """
         with torch.enable_grad():
             hx, _, hy, _ = unpack_sequences(x, order)
-            zx, gx = self.blosum(hx)
-            zy, gy = self.blosum(hy)
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             aln = self.nw.decode(theta, A)
+            print('predA', aln.shape, 'theta', theta.shape, 'gap', A.shape)
             return aln, theta, A
 
     def score(self, x, order):
         with torch.no_grad():
             hx, _, hy, _ = unpack_sequences(x, order)
-            zx, gx = self.blosum(hx)
-            zy, gy = self.blosum(hy)
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
@@ -110,8 +119,8 @@ class NeedlemanWunschAligner(nn.Module):
         with torch.enable_grad():
 
             hx, xlen, hy, ylen = unpack_sequences(x, order)
-            zx, gx = self.blosum(hx)
-            zy, gy = self.blosum(hy)
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
 
             match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
@@ -120,6 +129,7 @@ class NeedlemanWunschAligner(nn.Module):
                 aln = self.nw.decode(
                     match[b, :xlen[b], :ylen[b]].unsqueeze(0),
                     gap[b, :xlen[b], :ylen[b]].unsqueeze(0)
-                )
-                decoded = self.nw.traceback(aln.squeeze())
+                ).squeeze()
+                # Ignore the start/end tokens
+                decoded = self.nw.traceback(aln[1:-1, 1:-1])
                 yield decoded, aln

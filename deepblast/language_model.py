@@ -345,13 +345,13 @@ class ESM2(LanguageModel):
 
     def tokenize(self, x):
         if isinstance(x, str):
-            data = [('_', x)]
+            data = [('_', x.upper())]
         else:
             ids = ['_'] * len(x)
-            data = list(zip(ids, x))
-
+            data = list(zip(ids, x.upper()))
         batch_labels, batch_strs, batch_tokens = self.batch_converter(data)
         return batch_tokens
 
     def untokenize(self, x):
+        # optional : we only need this to visualize alignment text while training
         return ''.join([self.lookup[int(i)] for i in x[1:-1]])

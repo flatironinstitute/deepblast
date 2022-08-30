@@ -127,13 +127,21 @@ class DeepBLAST(pl.LightningModule):
         return test_dataloader
 
     def compute_loss(self, x, y, predA, A, P, G, theta):
+        try:
+            if (
+                    isinstance(self.loss_func, SoftAlignmentLoss) or
+                    isinstance(self.loss_func, MatrixCrossEntropy) or
+                    isinstance(self.loss_func, SoftPathLoss)
+            ):
+                loss = self.loss_func(A, predA, x, y, G)
 
-        if isinstance(self.loss_func, SoftAlignmentLoss):
-            loss = self.loss_func(A, predA, x, y, G)
-        elif isinstance(self.loss_func, MatrixCrossEntropy):
-            loss = self.loss_func(A, predA, x, y, G)
-        elif isinstance(self.loss_func, SoftPathLoss):
-            loss = self.loss_func(P, predA, x, y, G)
+        except Exception as e:
+            print('A', A.shape, 'predA', predA.shape,
+                  'theta', theta.shape)
+            print('x', x)
+            print('y', y)
+            raise e
+
         if self.hparams.multitask:
             current_lr = self.trainer.lr_schedulers[0]['scheduler']
             current_lr = current_lr.get_last_lr()[0]
@@ -192,7 +200,6 @@ class DeepBLAST(pl.LightningModule):
                     f'alignment-matrix/{batch_idx}/{b}', fig,
                     self.global_step, close=True)
                 try:
-
                     text = alignment_text(
                         x_str, y_str, pred_states, true_states, stats)
                     self.logger.experiment.add_text(
@@ -202,9 +209,8 @@ class DeepBLAST(pl.LightningModule):
                     print('A', A[b].shape)
                     print('theta', theta[b].shape)
                     print('xlen', xlen[b], 'ylen', ylen[b])
-                    print('pred_states', pred_states)
-                    print('true_states', true_states)
-                    print(x_str, len(x_str), y_str, len(y_str))
+                    print('pred_states', pred_states, len(pred_states))
+                    print('true_states', true_states, len(true_states))
                     raise e
             statistics.append(stats)
         return statistics
