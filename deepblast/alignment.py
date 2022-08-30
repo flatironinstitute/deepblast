@@ -84,7 +84,6 @@ class NeedlemanWunschAligner(nn.Module):
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             aln = self.nw.decode(theta, A)
-            print('predA', aln.shape, 'theta', theta.shape, 'gap', A.shape)
             return aln, theta, A
 
     def score(self, x, order):

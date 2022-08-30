@@ -23,12 +23,29 @@ from deepblast.score import (roc_edges, alignment_visualization,
 
 class DeepBLAST(pl.LightningModule):
 
-    def __init__(self, args):
+    def __init__(self, batch_size=20,
+                 embedding_dim=512,
+                 epochs=32,
+                 finetune=False,
+                 gpus=1,
+                 layers=1,
+                 learning_rate=0.0001,
+                 lm='esm2_t30_150M_UR50D',
+                 loss='cross_entropy',
+                 mask_gaps=False,
+                 multitask=False,
+                 num_workers=1,
+                 output_directory=None,
+                 rnn_dim=512,
+                 rnn_input_dim=512,
+                 scheduler='cosine',
+                 test_pairs=None,
+                 train_pairs=None,
+                 valid_pairs=None,
+                 visualization_fraction=1.0):
         super(DeepBLAST, self).__init__()
-        if isinstance(args, dict):
-            self._hparams = argparse.Namespace(**args)
-        else:
-            self._hparams = args
+        self.save_hyperparameters()
+
         # self.hparams = args
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
@@ -44,7 +61,7 @@ class DeepBLAST(pl.LightningModule):
         n_input = self.hparams.rnn_input_dim
         n_units = self.hparams.rnn_dim
         n_layers = self.hparams.layers
-        lm = ESM2(args.lm)
+        lm = ESM2(lm)
 
         self.aligner = NeedlemanWunschAligner(
             n_alpha, n_input, n_units, n_embed, n_layers,
@@ -157,8 +174,6 @@ class DeepBLAST(pl.LightningModule):
         self.aligner.train()
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
-        seq, order = seq.to(self.device), order.to(self.device)
-
         predA, theta, gap = self.aligner(seq, order)
         _, xlen, _, ylen = unpack_sequences(seq, order)
 

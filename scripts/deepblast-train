@@ -15,7 +15,7 @@ def main(args):
         model = DeepBLAST.load_from_checkpoint(
             args.load_from_checkpoint)
     else:
-        model = DeepBLAST(args)
+        model = DeepBLAST(**vars(args))
     # profiler = AdvancedProfiler()
 
     trainer = Trainer(
@@ -71,6 +71,6 @@ if __name__ == '__main__':
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
     # options include ddp_cpu, dp, ddp
 
-    parser = LightningAligner.add_model_specific_args(parser)
+    parser = DeepBLAST.add_model_specific_args(parser)
     hparams = parser.parse_args()
     main(hparams)
