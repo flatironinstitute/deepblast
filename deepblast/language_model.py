@@ -125,13 +125,13 @@ class BiLM(nn.Module):
             for i in range(h.size(0)):
                 n = batch_sizes[i]
                 idx = [j for j in range(n - 1, -1, -1)]
-                idx = torch.LongTensor(idx).to(h.device)
+                idx = torch.LongTensor(idx)
                 h_rvs[i, :n] = h[i].index_select(0, idx)
             # repack h_rvs
             h_rvs = pack_padded_sequence(h_rvs, batch_sizes, batch_first=True)
         else:
             idx = [i for i in range(h.size(1) - 1, -1, -1)]
-            idx = torch.LongTensor(idx).to(h.device)
+            idx = torch.LongTensor(idx)
             h_rvs = h.index_select(1, idx)
         return h_rvs
 

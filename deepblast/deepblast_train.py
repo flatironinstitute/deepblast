@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+
+import argparse
+import os
+
+import torch
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+import sys
+sys.path.append("/mnt/home/thamamsy/projects/deep_blast_pull/deepblast/")
+from deepblast.trainer import DeepBLAST
+
+
+def main(args):
+    print('args', args)
+    if args.load_from_checkpoint is not None:
+        model = DeepBLAST.load_from_checkpoint(
+            args.load_from_checkpoint)
+    else:
+        model = DeepBLAST(**vars(args))
+    # profiler = AdvancedProfiler()
+
+    trainer = Trainer(
+        max_epochs=args.epochs,
+        gpus=args.gpus,
+        num_nodes=args.nodes,
+        #accumulate_grad_batches=args.grad_accum,
+        #gradient_clip_val=args.grad_clip,
+        distributed_backend=args.backend,
+        precision=args.precision,
+        val_check_interval=0.25,
+        fast_dev_run=False,
+        gradient_clip_algorithm="norm"
+    )
+
+    ckpt_path = os.path.join(
+        args.output_directory,
+        trainer.logger.name,
+        f"version_{trainer.logger.version}",
+        "checkpoints",
+    )
+
+    print(f'{ckpt_path}:', ckpt_path)
+    # initialize Model Checkpoint Saver
+    checkpoint_callback = ModelCheckpoint(
+        filepath=ckpt_path,
+        period=1,
+        monitor='validation_loss',
+        mode='min',
+        verbose=True
+    )
+    trainer.checkpoint_callback = checkpoint_callback
+    print('model', model)
+    trainer.fit(model)
+    trainer.test()
+
+    # In case this doesn't checkpoint
+    torch.save(model.state_dict(),
+               args.output_directory + '/last_ckpt.pt')
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--gpus', type=int, default=None)
+    #parser.add_argument('--grad-accum', type=int, default=1)
+    #parser.add_argument('--grad-clip', type=int, default=0)
+    parser.add_argument('--nodes', type=int, default=1)
+    parser.add_argument('--num-workers', type=int, default=1)
+    parser.add_argument('--precision', type=int, default=32)
+    parser.add_argument('--backend', type=str, default=None)
+    parser.add_argument('--load-from-checkpoint', type=str, default=None)
+    # options include ddp_cpu, dp, ddp
+
+    parser = DeepBLAST.add_model_specific_args(parser)
+    hparams = parser.parse_args()
+    main(hparams)

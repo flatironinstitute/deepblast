@@ -9,6 +9,9 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
+import sys
+sys.path.append("/mnt/home/thamamsy/projects/deep_blast_pull/deepblast/")
+
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import ESM2
 from deepblast.dataset import TMAlignDataset
@@ -28,6 +31,7 @@ class DeepBLAST(pl.LightningModule):
                  epochs=32,
                  finetune=False,
                  gpus=1,
+                 nodes=1,
                  layers=1,
                  learning_rate=0.0001,
                  lm='esm2_t30_150M_UR50D',
@@ -404,6 +408,6 @@ class DeepBLAST(pl.LightningModule):
             help='Fraction of alignments to be visualized per epoch',
             required=False, type=float, default=0.1)
         parser.add_argument(
-            '-o', '--output-directory',
+            '--output-directory',
             help='Output directory of model results', required=True)
         return parser
