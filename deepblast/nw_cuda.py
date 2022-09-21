@@ -4,7 +4,7 @@ import torch.nn as nn
 from numba import cuda
 from math import log, exp
 
-torch.autograd.set_detect_anomaly(True)
+torch.autograd.set_detect_anomaly(False)
 
 max_cols = 2048
 float_type = numba.float32
