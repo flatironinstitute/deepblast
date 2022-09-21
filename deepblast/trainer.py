@@ -71,7 +71,13 @@ class DeepBLAST(pl.LightningModule):
             n_alpha, n_input, n_units, n_embed, n_layers,
             lm=lm
         )
+
         self.tokenizer = self.aligner.lm.tokenize
+
+    def to(self, *args, **kwargs):
+        super(DeepBLAST, self).to(*args, **kwargs)
+        self.aligner.to(*args, **kwargs)
+        self.aligner.lm.to(*args, **kwargs)
 
     def align(self, x, y):
         x_code = self.tokenizer(x).to(self.device)

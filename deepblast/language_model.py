@@ -318,8 +318,7 @@ class ESM2(LanguageModel):
         }
         assert model_type in self.avail_model_types.keys()
         self.model, self.alphabet = eval(f'esm.pretrained.{model_type}()')
-        # TODO : assumes GPU is available
-        self.model = self.model.eval().cuda()
+
         pattern = re.compile(r't(\d+)')
         self.layers = int(pattern.findall(model_type)[0])
 
@@ -331,6 +330,9 @@ class ESM2(LanguageModel):
 
         bt = list(batch_tokens.squeeze()[1:-1].cpu().detach().numpy())
         self.lookup = {d:b for (d, b) in zip(bt, list(data[0][1]))}
+
+    def to(self, *args, **kwargs):
+        self.model.to(*args, **kwargs)
 
     @property
     def hidden_size(self):
