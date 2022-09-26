@@ -9,8 +9,6 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
-import sys
-sys.path.append("/mnt/home/thamamsy/projects/deep_blast_pull/deepblast/")
 
 from deepblast.alignment import NeedlemanWunschAligner
 from deepblast.language_model import ESM2
@@ -23,6 +21,7 @@ from deepblast.losses import (
 from deepblast.score import (roc_edges, alignment_visualization,
                              alignment_text, filter_gaps)
 
+import matplotlib.pyplot as plt
 
 class DeepBLAST(pl.LightningModule):
 
@@ -225,6 +224,7 @@ class DeepBLAST(pl.LightningModule):
                 self.logger.experiment.add_figure(
                     f'alignment-matrix/{batch_idx}/{b}', fig,
                     self.global_step, close=True)
+                plt.close(fig)
                 try:
                     text = alignment_text(
                         x_str, y_str, pred_states, true_states, stats)
@@ -263,6 +263,7 @@ class DeepBLAST(pl.LightningModule):
         statistics = statistics.mean(axis=0).to_dict()
         tensorboard_logs = {'valid_loss': loss}
         tensorboard_logs = {**tensorboard_logs, **statistics}
+        self.log('validation_loss', loss, batch_size=self.hparams.batch_size, sync_dist=True)
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
