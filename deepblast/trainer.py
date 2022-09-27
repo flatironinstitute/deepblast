@@ -23,6 +23,7 @@ from deepblast.score import (roc_edges, alignment_visualization,
 
 import matplotlib.pyplot as plt
 
+
 class DeepBLAST(pl.LightningModule):
 
     def __init__(self, batch_size=20,
@@ -78,11 +79,15 @@ class DeepBLAST(pl.LightningModule):
         super(DeepBLAST, self).to(*args, **kwargs)
         self.aligner.to(*args, **kwargs)
         self.aligner.lm.to(*args, **kwargs)
-
-    def align(self, x, y):
+        
+    def pack_sequence_cuda(self, x, y):
         x_code = self.tokenizer(x).to(self.device)
         y_code = self.tokenizer(y).to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
+        return seq, order
+    
+    def align(self, x, y):
+        seq, order self.pack_sequence_cuda(x, y)
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
         pred_x, pred_y, pred_states = zip(*decoded)
@@ -243,7 +248,8 @@ class DeepBLAST(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         genes, others, s, A, P, G = batch
-        seq, order = pack_sequences(genes, others)
+        # seq, order = pack_sequences(genes, others)
+        seq, order = self.pack_sequence_cuda(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
