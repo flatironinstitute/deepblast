@@ -300,6 +300,8 @@ class DeepBLAST(pl.LightningModule):
         self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
         metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
                    'val_ppv', 'val_fnr', 'val_fdr']
+        # FIXME: Disable metrics for now
+        metrics = []
         scores = []
         for i, m in enumerate(metrics):
             loss_f = lambda x: x['log'][m]
