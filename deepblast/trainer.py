@@ -170,7 +170,7 @@ class DeepBLAST(pl.LightningModule):
             raise e
 
         if self.hparams.multitask:
-            current_lr = self.trainer.lr_schedulers[0]['scheduler']
+            current_lr = self.trainer.lr_scheduler_configs[0].scheduler
             current_lr = current_lr.get_last_lr()[0]
             max_lr = self.hparams.learning_rate
             lam = current_lr / max_lr
@@ -189,8 +189,8 @@ class DeepBLAST(pl.LightningModule):
 
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
-        if len(self.trainer.lr_schedulers) >= 1:
-            current_lr = self.trainer.lr_schedulers[0]['scheduler']
+        if len(self.trainer.lr_scheduler_configs) >= 1:
+            current_lr = self.trainer.lr_scheduler_configs[0].scheduler
             current_lr = current_lr.get_last_lr()[0]
         else:
             current_lr = self.hparams.learning_rate
