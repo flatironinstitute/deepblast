@@ -248,8 +248,10 @@ class DeepBLAST(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         genes, others, s, A, P, G = batch
-        # seq, order = pack_sequences(genes, others)
-        seq, order = self.pack_sequence_cuda(genes, others)
+        seq, order = pack_sequences(genes, others)
+        seq = seq.to(self.device)
+        order = order.to(self.device)
+        # seq, order = self.pack_sequence_cuda(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
