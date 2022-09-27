@@ -80,18 +80,16 @@ class DeepBLAST(pl.LightningModule):
         self.aligner.to(*args, **kwargs)
         self.aligner.lm.to(*args, **kwargs)
         
-    def pack_sequence_cuda(self, x, y):
+    
+    def align(self, x, y):        
         x_code = self.tokenizer(x).to(self.device)
         y_code = self.tokenizer(y).to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
-        return seq, order
-    
-    def align(self, x, y):
-        seq, order self.pack_sequence_cuda(x, y)
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
         pred_x, pred_y, pred_states = zip(*decoded)
         s = ''.join(list(map(revstate_f, pred_states)))
+        
         return s
 
     def forward(self, x, order):
@@ -249,28 +247,25 @@ class DeepBLAST(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         genes, others, s, A, P, G = batch
         seq, order = pack_sequences(genes, others)
-        seq = seq.to(self.device)
-        order = order.to(self.device)
-        # seq, order = self.pack_sequence_cuda(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
         # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(seq, order)
+        #gen = self.aligner.traceback(seq, order)
         # TODO: compare the traceback and the forward
         # x, xlen, y, ylen = unpack_esm(seq, order)
-        statistics = self.validation_stats(
-            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
-        statistics = pd.DataFrame(
-            statistics, columns=[
-                'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-                'val_ppv', 'val_fnr', 'val_fdr'
-            ]
-        )
-        statistics = statistics.mean(axis=0).to_dict()
+        #statistics = self.validation_stats(
+        #    x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+        #statistics = pd.DataFrame(
+        #    statistics, columns=[
+        #        'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+        #        'val_ppv', 'val_fnr', 'val_fdr'
+        #    ]
+        #)
+        #statistics = statistics.mean(axis=0).to_dict()
         tensorboard_logs = {'valid_loss': loss}
-        tensorboard_logs = {**tensorboard_logs, **statistics}
+        #tensorboard_logs = {**tensorboard_logs, **statistics}
         self.log('validation_loss', loss, batch_size=self.hparams.batch_size, sync_dist=True)
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
