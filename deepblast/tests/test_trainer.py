@@ -2,7 +2,7 @@ import os
 import shutil
 import unittest
 import torch
-from deepblast.trainer import LightningAligner
+from deepblast.trainer import DeepBLAST
 from deepblast.utils import get_data_path
 from deepblast.sim import hmm_alignments
 from pytorch_lightning import Trainer
@@ -57,7 +57,7 @@ class TestTrainer(unittest.TestCase):
             '--gpus', '1'
         ]
         parser = argparse.ArgumentParser(add_help=False)
-        parser = LightningAligner.add_model_specific_args(parser)
+        parser = DeepBLAST.add_model_specific_args(parser)
         parser.add_argument('--num-workers', type=int)
         parser.add_argument('--gpus', type=int)
         args = parser.parse_args(args)

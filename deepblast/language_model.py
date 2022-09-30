@@ -20,7 +20,7 @@ pretrained_language_models = {
 }
 
 
-class LanguageModel(metaclass=ABCMeta):
+class LanguageModel(nn.Module, metaclass=ABCMeta):
     """ Abstract class for defining new models.
 
     In order to incorporate new language models, both the
@@ -307,6 +307,7 @@ class ESM2(LanguageModel):
                - esm2_t12_35M_UR50D
                - esm2_t6_8M_UR50D
         """
+        super(ESM2, self).__init__()
         self.model_type = model_type
         self.avail_model_types = {
             'esm2_t33_650M_UR50D' : 5120,
@@ -342,6 +343,9 @@ class ESM2(LanguageModel):
         # drop beginning token and end tokens
         tokens = results["representations"][self.layers] # [:, 1:-1]
         return tokens
+
+    def forward(self, x):
+        return self.encode(x)
 
     def tokenize(self, x):
         if isinstance(x, str):
