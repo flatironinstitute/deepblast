@@ -70,9 +70,23 @@ class DeepBLAST(pl.LightningModule):
         self.tokenizer = self.aligner.lm.tokenize
 
     def align(self, x, y):
+        """ Aligns two proteins
+
+        Parameters
+        ----------
+        x : str
+           First protein
+        y : str
+           Second protein
+
+        Returns
+        -------
+        s : str
+           Alignment string
+        """
         x_code = self.tokenizer(x).to(self.device)
         y_code = self.tokenizer(y).to(self.device)
-        seq, order = pack_sequences([x_code], [y_code])
+        seq, order = pack_sequences([x_code.squeeze()], [y_code.squeeze()])
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
         pred_x, pred_y, pred_states = zip(*decoded)
