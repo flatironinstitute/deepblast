@@ -39,7 +39,8 @@ setup(name='deepblast',
           'pytorch-lightning>=0.8.1',
           'matplotlib',
           'pillow',
-          'biopython>=1.78,<2.0'
+          'biopython>=1.78,<2.0',
+          'transformers'
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,

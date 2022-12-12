@@ -18,6 +18,35 @@ pretrained_language_models = {
 }
 
 
+class ProTrans(nn.Module):
+    def __init__(self, lm, freeze=True):
+        super(ProTrans, self).__init__()
+        self.lm = lm
+        self.freeze = freeze
+
+    def forward(self, x, mask=None):
+
+        if self.freeze:
+            with torch.no_grad():
+                embedding = self.lm(input_ids=x, attention_mask=mask)
+        else:
+            embedding = self.lm(input_ids=x, attention_mask=mask)
+
+        embedding = embedding.last_hidden_state
+        features = []
+        for seq_num in range(len(embedding)):
+            seq_len = (mask[seq_num] == 1).sum()
+            seq_emd = embedding[seq_num][:seq_len-1]
+            features.append(seq_emd)
+        prottrans_embedding = torch.tensor(features[0])
+        prottrans_embedding = torch.unsqueeze(prottrans_embedding, 0)
+        return prottrans_embedding
+
+
+    def encode(self, x, mask=None):
+        return self.forward(x, mask)
+
+
 class BiLM(nn.Module):
     """ Two layer LSTM implemented in Bepler et al 2019"""
     def __init__(self, nin=22, nout=21, embedding_dim=21, hidden_dim=1024,

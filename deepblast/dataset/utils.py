@@ -447,3 +447,23 @@ def remove_orphans(states, threshold: int = 11):
     new_states += list(states[:threshold // 2])
     new_states += list(states[-threshold // 2 + 1:])
     return ''.join(new_states)
+
+
+def reshape(x, N, M):
+    # Motherfucker ...
+    if x.shape != (N, M) and x.shape != (M, N):
+        raise ValueError(f'The shape of `x` {x.shape} '
+                         f'does not agree with ({N}, {M})')
+    if tuple(x.shape) != (N, M):
+        return x.t()
+    else:
+        return x
+
+
+def get_sequence(x, tokenizer):
+    id_ = tokenizer.batch_encode_plus(
+        [x], add_special_tokens=True, padding=True)
+
+    seq = torch.Tensor(id_['input_ids']).long().squeeze()
+    mask = torch.Tensor(id_['attention_mask'])
+    return seq, mask

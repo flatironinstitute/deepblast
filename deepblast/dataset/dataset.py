@@ -8,24 +8,14 @@ from deepblast.constants import m
 from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
-    path_distance_matrix, gap_mask
+    path_distance_matrix, gap_mask,
+    reshape, get_sequence
 )
 from Bio import SeqIO
 
 
-def reshape(x, N, M):
-    # Motherfucker ...
-    if x.shape != (N, M) and x.shape != (M, N):
-        raise ValueError(f'The shape of `x` {x.shape} '
-                         f'does not agree with ({N}, {M})')
-    if tuple(x.shape) != (N, M):
-        return x.t()
-    else:
-        return x
-
-
 class AlignmentDataset(Dataset):
-    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
+    def __init__(self, pairs, tokenizer):
         self.tokenizer = tokenizer
         self.pairs = pairs
 
@@ -55,7 +45,7 @@ class TMAlignDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, path, tokenizer=UniprotTokenizer(),
+    def __init__(self, path, tokenizer,
                  tm_threshold=0.4, max_len=1024, pad_ends=False,
                  clip_ends=True, mask_gaps=True, return_names=False,
                  construct_paths=False):
@@ -140,6 +130,12 @@ class TMAlignDataset(AlignmentDataset):
         path_matrix : torch.Tensor
            Pairwise path distances, where the smallest distance
            to the path is computed for every element in the matrix.
+        g_mask : torch.Tensor
+           Gap mask
+        gene_name : str
+           Name of protein 1
+        pos_name : str
+           Name of protein 2
         """
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
@@ -152,31 +148,38 @@ class TMAlignDataset(AlignmentDataset):
         if self.pad_ends:
             states = [m] + states + [m]
 
+        # encode proteins
+        gene_id, gene_attention_mask = get_sequence(gene, self.tokenizer)
+        pos_id, pos_attention_mask = get_sequence(gene, self.tokenizer)
+
+        # encode states
         states = torch.Tensor(states).long()
-        gene = self.tokenizer(str.encode(gene))
-        pos = self.tokenizer(str.encode(pos))
-        gene = torch.Tensor(gene).long()
-        pos = torch.Tensor(pos).long()
         alignment_matrix = torch.from_numpy(
             states2matrix(states))
         path_matrix = torch.empty(*alignment_matrix.shape)
         g_mask = torch.ones(*alignment_matrix.shape)
+        # This is to handle the start/end tokens with tokenizer
+        lg, lp = len(gene) - 2, len(pos) - 2
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
-            path_matrix = reshape(path_matrix, len(gene), len(pos))
+            path_matrix = reshape(path_matrix, lg, lp)
         if self.mask_gaps:
             g_mask = torch.from_numpy(gap_mask(st)).bool()
 
-        alignment_matrix = reshape(alignment_matrix, len(gene), len(pos))
-        g_mask = reshape(g_mask, len(gene), len(pos))
+        alignment_matrix = reshape(alignment_matrix, lg, lp)
+        g_mask = reshape(g_mask, lg, lp)
         if not self.return_names:
-            return gene, pos, states, alignment_matrix, path_matrix, g_mask
+            return (gene, pos, states, alignment_matrix, path_matrix, g_mask,
+                    gene_attention_mask, pos_attention_mask)
         else:
             gene_name = self.pairs.iloc[i]['chain1_name']
             pos_name = self.pairs.iloc[i]['chain2_name']
+
             return (gene, pos, states, alignment_matrix,
-                    path_matrix, g_mask, gene_name, pos_name)
+                    path_matrix, g_mask,
+                    gene_attention_mask, pos_attention_mask,
+                    gene_name, pos_name)
 
 
 class MaliAlignmentDataset(AlignmentDataset):
@@ -257,8 +260,16 @@ class FastaDataset(IterableDataset):
         query_seqs = SeqIO.parse(self.query_file, format='fasta')
         db = next(self.db_seqs)
         dbid, dbseq = db.id, str(db.seq)
-        for q in query_seqs:
+        db_id = self.tokenizer.batch_encode_plus(
+            [dbseq], add_special_tokens=True, padding=True)
+
+        for q in range(query_seqs):
             qid, qseq = q.id, str(q.seq)
-            dbtoks = torch.Tensor(self.tokenizer(str.encode(dbseq))).long()
-            qtoks = torch.Tensor(self.tokenizer(str.encode(qseq))).long()
+
+            query_id = self.tokenizer.batch_encode_plus(
+                [qseq], add_special_tokens=True, padding=True)
+
+            qtoks = torch.Tensor(query_id['input_ids']).long().squeeze()
+            dbtoks = torch.Tensor(db_id['input_ids']).long().squeeze()
+
             yield qid, dbid, qtoks, dbtoks

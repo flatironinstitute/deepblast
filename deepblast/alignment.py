@@ -1,16 +1,16 @@
 import torch
 import torch.nn as nn
-from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
-from deepblast.embedding import StackedRNN, EmbedLinear
+from deepblast.embedding import StackedRNN, StackedCNN
 from deepblast.dataset.utils import unpack_sequences
+
 import torch.nn.functional as F
 
 
 class NeedlemanWunschAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, lm=None, device='gpu'):
+                 n_layers=2, dropout=0, lm=None, layer_type='cnn'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -29,34 +29,54 @@ class NeedlemanWunschAligner(nn.Module):
            Pretrained language model (optional)
         padding_idx : int
            Location of padding index in embedding (default -1)
-        transform : function
-           Activation function (default relu)
-        sparse : False?
+        layer_type : str
+           Intermediate layer type
+
+        Notes
+        -----
+        This only works on GPU at the moment.
         """
         super(NeedlemanWunschAligner, self).__init__()
-        if lm is None:
-            path = pretrained_language_models['bilstm']
-            self.lm = BiLM()
-            self.lm.load_state_dict(torch.load(path))
-            self.lm.eval()
-        if n_layers > 1:
-            self.match_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-            self.gap_embedding = StackedRNN(
-                n_alpha, n_input, n_units, n_embed, n_layers, lm=lm)
-        else:
-            self.match_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
-            self.gap_embedding = EmbedLinear(
-                n_alpha, n_input, n_embed, lm=lm)
+        assert lm is not None
 
-        # TODO: make cpu compatible version
-        # if device == 'cpu':
-        #     self.nw = NWDecoderCPU(operator='softmax')
-        # else:
+        self.lm = lm
+
+        if n_layers > 1:
+            if layer_type == 'rnn':
+                self.match_embedding = StackedRNN(
+                    n_input, n_units, n_embed, n_layers,
+                    dropout=dropout)
+                self.gap_embedding = StackedRNN(
+                    n_input, n_units, n_embed, n_layers,
+                    dropout=dropout)
+            elif layer_type == 'cnn':
+                self.match_embedding = StackedCNN(
+                    n_input, n_units, n_embed, n_layers)
+                self.gap_embedding = StackedCNN(
+                    n_input, n_units, n_embed, n_layers)
+            else:
+                raise ValueError(f'Layer {layer_type} not supported.')
+        else:
+            self.match_embedding = nn.Linear(n_embed, n_embed)
+            self.gap_embedding = nn.Linear(n_embed, n_embed)
+
         self.nw = NWDecoderCUDA(operator='softmax')
 
-    def forward(self, x, order):
+    def blosum_factor(self, x, mask=None):
+        """ Computes factors for blosum parameters using a single sequence
+
+        Parameters
+        ----------
+        x : torch.Tensor
+           Representation of a single protein sequence
+           with dimensions B x (N + 2) x D
+        """
+        hx = self.lm.encode(x, mask)
+        zx = self.match_embedding(hx)
+        gx = self.gap_embedding(hx)
+        return zx, gx
+
+    def forward(self, x, order, mask=None):
         """ Generate alignment matrix.
 
         Parameters
@@ -65,6 +85,8 @@ class NeedlemanWunschAligner(nn.Module):
             Packed sequence object of proteins to align.
         order : np.array
             The origin order of the sequences
+        mask : tuple of torch.Tensor
+            Attention masks for pairs of proteins.
 
         Returns
         -------
@@ -72,8 +94,9 @@ class NeedlemanWunschAligner(nn.Module):
             Alignment Matrix (dim B x N x M)
         """
         with torch.enable_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
+            hx, _, hy, _ = unpack_sequences(x, order)
+            zx, gx = self.blosum_factor(hx, mask[0])
+            zy, gy = self.blosum_factor(hy, mask[1])
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -81,10 +104,11 @@ class NeedlemanWunschAligner(nn.Module):
             aln = self.nw.decode(theta, A)
             return aln, theta, A
 
-    def score(self, x, order):
+    def score(self, x, order, mask=None):
         with torch.no_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, _, gy, _ = unpack_sequences(self.gap_embedding(x), order)
+            hx, _, hy, _ = unpack_sequences(x, order)
+            zx, gx = self.blosum_factor(hx, mask[0])
+            zy, gy = self.blosum_factor(hy, mask[1])
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -92,7 +116,7 @@ class NeedlemanWunschAligner(nn.Module):
             ascore = self.nw(theta, A)
             return ascore
 
-    def traceback(self, x, order):
+    def traceback(self, x, order, mask):
         """ Generate alignment matrix.
 
         Parameters
@@ -101,6 +125,7 @@ class NeedlemanWunschAligner(nn.Module):
             Packed sequence object of proteins to align.
         order : np.array
             The origin order of the sequences
+
 
         Returns
         -------
@@ -111,8 +136,9 @@ class NeedlemanWunschAligner(nn.Module):
         """
         # dim B x N x D
         with torch.enable_grad():
-            zx, _, zy, _ = unpack_sequences(self.match_embedding(x), order)
-            gx, xlen, gy, ylen = unpack_sequences(self.gap_embedding(x), order)
+            hx, xlen, hy, ylen = unpack_sequences(x, order)
+            zx, gx = self.blosum_factor(hx, mask[0])
+            zy, gy = self.blosum_factor(hy, mask[1])
             match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = match.shape

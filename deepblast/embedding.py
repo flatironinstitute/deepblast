@@ -83,26 +83,12 @@ class EmbedLinear(nn.Module):
 
 
 class StackedRNN(nn.Module):
-    def __init__(self, nin, nembed, nunits, nout, nlayers=2,
-                 padding_idx=-1, dropout=0, rnn_type='lstm',
-                 sparse=False, lm=None):
+    def __init__(self, nembed, nunits, nout, nlayers=2,
+                 dropout=0, rnn_type='lstm',
+                 sparse=False):
         super(StackedRNN, self).__init__()
-
-        if padding_idx == -1:
-            padding_idx = nin - 1
-
-        if lm is not None:
-            self.embed = LMEmbed(
-                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
-            nembed = self.embed.nout
-            self.lm = True
-        else:
-            self.embed = nn.Embedding(
-                nin, nembed, padding_idx=padding_idx, sparse=sparse)
-            self.lm = False
-
+        self.embed = nn.Linear(nembed, nembed)
         if rnn_type == 'lstm':
-
             RNN = nn.LSTM
         elif rnn_type == 'gru':
             RNN = nn.GRU
@@ -118,14 +104,11 @@ class StackedRNN(nn.Module):
 
     def forward(self, x):
 
-        if self.lm:
-            h = self.embed(x)
+        if type(x) is PackedSequence:
+            h = self.embed(x.data)
+            h = PackedSequence(h, x.batch_sizes)
         else:
-            if type(x) is PackedSequence:
-                h = self.embed(x.data)
-                h = PackedSequence(h, x.batch_sizes)
-            else:
-                h = self.embed(x)
+            h = self.embed(x)
 
         h, _ = self.rnn(h)
 
@@ -144,43 +127,32 @@ class StackedRNN(nn.Module):
 
 
 class StackedCNN(nn.Module):
-    def __init__(self, nin, nembed, nout, k_size=5, nlayers=2, padding_idx=-1, dropout=0, sparse=False, lm=None):
+    def __init__(self, nembed, nout, k_size=5, nlayers=2,
+                 dropout=0, sparse=False):
         super(StackedCNN, self).__init__()
-        self.conv = nn.Sequential(*([nn.Conv1d(in_channels=nembed if layer == 0 else nout,
-                                               out_channels=nout,
-                                               kernel_size=k_size,
-                                               padding=k_size // 2) for layer in range(nlayers)]))
+        self.conv = nn.Sequential(*(
+            [nn.Conv1d(in_channels=nembed if layer == 0 else nout,
+                       out_channels=nout,
+                       kernel_size=k_size,
+                       padding=k_size // 2) for layer in range(nlayers)]))
         self.dropout = nn.Dropout(p=dropout)
-
-        if padding_idx == -1:
-            padding_idx = nin - 1
-
-        if lm is not None:
-            self.embed = LMEmbed(
-                nin, nembed, lm, padding_idx=padding_idx, sparse=sparse)
-            nembed = self.embed.nout
-            self.lm = True
-        else:
-            self.embed = nn.Embedding(
-                nin, nembed, padding_idx=padding_idx, sparse=sparse)
-            self.lm = False
+        self.embed = nn.Linear(nembed, nembed)
         self.nout = nout
 
     def forward(self, x):
-        if self.lm:
-            h = self.embed(x)
+        if type(x) is PackedSequence:
+            h = self.embed(x.data)
+            h = PackedSequence(h, x.batch_sizes)
         else:
-            if type(x) is PackedSequence:
-                h = self.embed(x.data)
-                h = PackedSequence(h, x.batch_sizes)
-            else:
-                h = self.embed(x)
+            h = self.embed(x)
 
-        # stupid thing with conv1d in pytorch is that it expects input_shape: (batch_size, n_channels, L), so I have to do:
+        # conv1d in pytorch expects input_shape:
+        # (batch_size, n_channels, L), so ...
         h = h.permute((0, 2, 1))
         # before applying conv
         z = self.conv(h)
-        # then I have to reshape it back to input_shape: (batch_size, L, n_channels)
+        # then I have to reshape it back to input_shape:
+        # (batch_size, L, n_channels)
         z = z.permute((0, 2, 1))
         z = self.dropout(z)
 
