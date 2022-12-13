@@ -150,7 +150,9 @@ class TMAlignDataset(AlignmentDataset):
 
         # encode proteins
         gene_id, gene_attention_mask = get_sequence(gene, self.tokenizer)
-        pos_id, pos_attention_mask = get_sequence(gene, self.tokenizer)
+        pos_id, pos_attention_mask = get_sequence(pos, self.tokenizer)
+        print(gene, gene_id)
+        print(pos, pos_id)
 
         # encode states
         states = torch.Tensor(states).long()
@@ -159,7 +161,8 @@ class TMAlignDataset(AlignmentDataset):
         path_matrix = torch.empty(*alignment_matrix.shape)
         g_mask = torch.ones(*alignment_matrix.shape)
         # This is to handle the start/end tokens with tokenizer
-        lg, lp = len(gene) - 2, len(pos) - 2
+        # lg, lp = len(gene) - 2, len(pos) - 2
+        lg, lp = len(gene), len(pos)
         if self.construct_paths:
             pi = states2edges(states)
             path_matrix = torch.from_numpy(path_distance_matrix(pi))
@@ -170,12 +173,12 @@ class TMAlignDataset(AlignmentDataset):
         alignment_matrix = reshape(alignment_matrix, lg, lp)
         g_mask = reshape(g_mask, lg, lp)
         if not self.return_names:
-            return (gene, pos, states, alignment_matrix, path_matrix, g_mask,
+            return (gene_id, pos_id, states, alignment_matrix,
+                    path_matrix, g_mask,
                     gene_attention_mask, pos_attention_mask)
         else:
             gene_name = self.pairs.iloc[i]['chain1_name']
             pos_name = self.pairs.iloc[i]['chain2_name']
-
             return (gene, pos, states, alignment_matrix,
                     path_matrix, g_mask,
                     gene_attention_mask, pos_attention_mask,
@@ -187,7 +190,7 @@ class MaliAlignmentDataset(AlignmentDataset):
 
     This is appropriate for the Malisam / Malidup datasets.
     """
-    def __init__(self, pairs, tokenizer=UniprotTokenizer()):
+    def __init__(self, pairs, tokenizer):
         """ Read in pairs of proteins
 
         Parameters

@@ -7,16 +7,27 @@ import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from deepblast.trainer import DeepBLAST
+from transformers import T5EncoderModel, T5Tokenizer
 
 
 def main(args):
+
+
     print('args', args)
     if args.load_from_checkpoint is not None:
         model = DeepBLAST.load_from_checkpoint(
             args.load_from_checkpoint)
     else:
-        model = DeepBLAST(args)
+        tokenizer = T5Tokenizer.from_pretrained(
+            "Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
+
+        lm = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
+        dargs = vars(args)
+        dargs['lm'] = lm
+        tokenizer['tokenizer'] = tokenizer
+        model = DeepBLAST(**dargs)
     # profiler = AdvancedProfiler()
+
 
     trainer = Trainer(
         max_epochs=args.epochs,
@@ -24,7 +35,6 @@ def main(args):
         num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         gradient_clip_val=args.grad_clip,
-
         distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,

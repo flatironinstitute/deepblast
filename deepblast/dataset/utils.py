@@ -1,3 +1,4 @@
+import re
 import numpy as np
 import torch
 from torch.nn.utils.rnn import pad_packed_sequence, pack_sequence
@@ -251,19 +252,26 @@ def collate_f(batch):
     alignments = [x[3] for x in batch]
     paths = [x[4] for x in batch]
     masks = [x[5] for x in batch]
+    g_masks = [x[6] for x in batch]
+    o_masks = [x[7] for x in batch]
     max_x = max(map(len, genes))
     max_y = max(map(len, others))
     B = len(genes)
     dm = torch.zeros((B, max_x, max_y))
     p = torch.zeros((B, max_x, max_y))
+    gM = torch.zeros((B, max_x))
+    oM = torch.zeros((B, max_y))
     G = torch.zeros((B, max_x, max_y)).bool()
     G.requires_grad = False
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
+        print(n, m, alignments[b].shape)
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
         G[b, :n, :m] = masks[b].bool()
-    return genes, others, states, dm, p, G
+        gM[b, :n] = g_masks[b]
+        oM[b, :m] = o_masks[b]
+    return genes, others, states, dm, p, G, gM, oM
 
 
 def test_collate_f(batch):
@@ -461,9 +469,10 @@ def reshape(x, N, M):
 
 
 def get_sequence(x, tokenizer):
+    x = [re.sub(r"[UZOB]", "X", ' '.join(list(x)))]
     id_ = tokenizer.batch_encode_plus(
-        [x], add_special_tokens=True, padding=True)
+        x, add_special_tokens=False, padding=True)
 
     seq = torch.Tensor(id_['input_ids']).long().squeeze()
-    mask = torch.Tensor(id_['attention_mask'])
+    mask = torch.Tensor(id_['attention_mask']).squeeze()
     return seq, mask

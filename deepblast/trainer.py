@@ -10,7 +10,6 @@ from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
 from deepblast.alignment import NeedlemanWunschAligner
-from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     decode, states2edges, collate_f, test_collate_f,
@@ -21,36 +20,36 @@ from deepblast.losses import (
     SoftAlignmentLoss, SoftPathLoss, MatrixCrossEntropy)
 from deepblast.score import (roc_edges, alignment_visualization,
                              alignment_text, filter_gaps)
-from transformers import T5EncoderModel, T5Tokenizer
 
 
 class DeepBLAST(pl.LightningModule):
 
     def __init__(self, batch_size=20,
+                 hidden_dim=512,
                  embedding_dim=512,
                  epochs=32,
                  finetune=False,
                  gpus=1,
                  layers=1,
+                 dropout=0,
+                 lm=None,
+                 tokenizer=None,
                  learning_rate=0.0001,
                  loss='cross_entropy',
                  mask_gaps=False,
                  multitask=False,
                  num_workers=1,
                  output_directory=None,
-                 rnn_dim=512,
-                 rnn_input_dim=512,
                  scheduler='cosine',
                  test_pairs=None,
                  train_pairs=None,
                  valid_pairs=None,
                  visualization_fraction=1.0):
         super(DeepBLAST, self).__init__()
-        self.save_hyperparameters()
-
-        self.tokenizer = T5Tokenizer.from_pretrained(
-            "Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
-        lm = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
+        self.save_hyperparameters(ignore=['lm'])
+        assert tokenizer is not None
+        assert lm is not None
+        self.tokenizer = tokenizer
 
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
@@ -66,7 +65,7 @@ class DeepBLAST(pl.LightningModule):
         n_input = self.hparams.hidden_dim
         n_units = self.hparams.hidden_dim
         n_layers = self.hparams.layers
-        dropout = self.dropout
+        dropout = self.hparams.dropout
 
         self.aligner = NeedlemanWunschAligner(
             n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm)
@@ -114,6 +113,7 @@ class DeepBLAST(pl.LightningModule):
     def train_dataloader(self):
         train_dataset = TMAlignDataset(
             self.hparams.train_pairs,
+            tokenizer=self.tokenizer,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         train_dataloader = DataLoader(
             train_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -124,6 +124,7 @@ class DeepBLAST(pl.LightningModule):
     def val_dataloader(self):
         valid_dataset = TMAlignDataset(
             self.hparams.valid_pairs,
+            tokenizer=self.tokenizer,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
@@ -134,6 +135,7 @@ class DeepBLAST(pl.LightningModule):
     def test_dataloader(self):
         test_dataset = TMAlignDataset(
             self.hparams.test_pairs, return_names=True,
+            tokenizer=self.tokenizer,
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         test_dataloader = DataLoader(
             test_dataset, self.hparams.batch_size, shuffle=False,
@@ -299,10 +301,8 @@ class DeepBLAST(pl.LightningModule):
 
     def configure_optimizers(self):
         # Freeze language model
-        p.requires_grad = False
         if self.hparams.finetune is False:
-            for param in (self.aligner.lm
-                          .model.parameters()):
+            for param in (self.aligner.lm.parameters()):
                 param.requires_grad = False
 
         grad_params = list(filter(
@@ -346,12 +346,12 @@ class DeepBLAST(pl.LightningModule):
             '--valid-pairs', help='Validation pairs file', required=True)
         parser.add_argument(
             '--embedding-dim',
-            help='Embedding dimension for aligner (default 512).',
-            required=False, type=int, default=512)
+            help='Embedding dimension for aligner (default 1024).',
+            required=False, type=int, default=1024)
         parser.add_argument(
             '--hidden-dim',
-            help='Hidden dimension for intermediate layers (default 512).',
-            required=False, type=int, default=512)
+            help='Hidden dimension for intermediate layers (default 1024).',
+            required=False, type=int, default=1024)
         parser.add_argument(
             '--layers', help='Number of RNN layers (default 2).',
             required=False, type=int, default=2)
