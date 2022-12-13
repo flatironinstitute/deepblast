@@ -62,7 +62,7 @@ class NeedlemanWunschAligner(nn.Module):
 
         self.nw = NWDecoderCUDA(operator='softmax')
 
-    def blosum_factor(self, x, mask=None):
+    def blosum_factor(self, x):
         """ Computes factors for blosum parameters using a single sequence
 
         Parameters
@@ -71,12 +71,16 @@ class NeedlemanWunschAligner(nn.Module):
            Representation of a single protein sequence
            with dimensions B x (N + 2) x D
         """
-        hx = self.lm.encode(x, mask)
+        with torch.no_grad():
+            embedding = self.lm(input_ids=x,
+                                attention_mask=None)
+            hx = embedding[0]
+
         zx = self.match_embedding(hx)
         gx = self.gap_embedding(hx)
         return zx, gx
 
-    def forward(self, x, order, mask=None):
+    def forward(self, x, order):
         """ Generate alignment matrix.
 
         Parameters
@@ -95,8 +99,8 @@ class NeedlemanWunschAligner(nn.Module):
         """
         with torch.enable_grad():
             hx, _, hy, _ = unpack_sequences(x, order)
-            zx, gx = self.blosum_factor(hx, mask[0])
-            zy, gy = self.blosum_factor(hy, mask[1])
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -104,11 +108,11 @@ class NeedlemanWunschAligner(nn.Module):
             aln = self.nw.decode(theta, A)
             return aln, theta, A
 
-    def score(self, x, order, mask=None):
+    def score(self, x, order, mask):
         with torch.no_grad():
             hx, _, hy, _ = unpack_sequences(x, order)
-            zx, gx = self.blosum_factor(hx, mask[0])
-            zy, gy = self.blosum_factor(hy, mask[1])
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
 
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
@@ -116,7 +120,7 @@ class NeedlemanWunschAligner(nn.Module):
             ascore = self.nw(theta, A)
             return ascore
 
-    def traceback(self, x, order, mask):
+    def traceback(self, x, order):
         """ Generate alignment matrix.
 
         Parameters
@@ -137,8 +141,8 @@ class NeedlemanWunschAligner(nn.Module):
         # dim B x N x D
         with torch.enable_grad():
             hx, xlen, hy, ylen = unpack_sequences(x, order)
-            zx, gx = self.blosum_factor(hx, mask[0])
-            zy, gy = self.blosum_factor(hy, mask[1])
+            zx, gx = self.blosum_factor(hx)
+            zy, gy = self.blosum_factor(hy)
             match = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = match.shape

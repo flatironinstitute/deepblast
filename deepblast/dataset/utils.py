@@ -180,6 +180,10 @@ def states2alignment(states: np.array, X: str, Y: str):
     return ''.join(aligned_x), ''.join(aligned_y)
 
 
+def reverse_dict(x):
+    return dict(list(zip(list(x.values()), list(x.keys()))))
+
+
 def decode(codes, alphabet):
     """ Converts one-hot encodings to string
 
@@ -187,8 +191,8 @@ def decode(codes, alphabet):
     ----------
     code : torch.Tensor
         One-hot encodings.
-    alphabet : Alphabet
-        Matches one-hot encodings to letters.
+    alphabet : dict-like
+        Matches letters to one-hot encodings.
 
     Returns
     -------
@@ -201,8 +205,9 @@ def decode(codes, alphabet):
     dm : torch.Tensor
         B x N x M dimension matrix with padding.
     """
+    alphabet = reverse_dict(alphabet)
     s = list(map(lambda x: alphabet[int(x)], codes))
-    return ''.join(s)
+    return ''.join(s).replace('▁', '')
 
 
 def pack_sequences(genes, others):
@@ -265,7 +270,6 @@ def collate_f(batch):
     G.requires_grad = False
     for b in range(B):
         n, m = len(genes[b]), len(others[b])
-        print(n, m, alignments[b].shape)
         dm[b, :n, :m] = alignments[b]
         p[b, :n, :m] = paths[b]
         G[b, :n, :m] = masks[b].bool()

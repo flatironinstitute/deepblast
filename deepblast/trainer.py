@@ -164,18 +164,18 @@ class DeepBLAST(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         self.aligner.train()
-        genes, others, s, A, P, G, gM, oM = batch
+        genes, others, s, A, P, G, _, _ = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         _, xlen, _, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
         assert torch.isnan(loss).item() is False
-        if len(self.trainer.lr_schedulers) >= 1:
-            current_lr = self.trainer.lr_schedulers[0]['scheduler']
-            current_lr = current_lr.get_last_lr()[0]
-        else:
-            current_lr = self.hparams.learning_rate
-        tensorboard_logs = {'train_loss': loss, 'lr': current_lr}
+        # if len(self.trainer.lr_schedulers) >= 1:
+        #     current_lr = self.trainer.lr_schedulers[0]['scheduler']
+        #     current_lr = current_lr.get_last_lr()[0]
+        # else:
+        #     current_lr = self.hparams.learning_rate
+        tensorboard_logs = {'train_loss': loss}
         # log the learning rate
         return {'loss': loss, 'log': tensorboard_logs}
 
@@ -186,10 +186,10 @@ class DeepBLAST(pl.LightningModule):
             # TODO: Issue #47
             x_str = decode(
                 list(x[b, :xlen[b]].squeeze().cpu().detach().numpy()),
-                self.tokenizer.alphabet)
+                self.tokenizer.get_vocab())
             y_str = decode(
                 list(y[b, :ylen[b]].squeeze().cpu().detach().numpy()),
-                self.tokenizer.alphabet)
+                self.tokenizer.get_vocab())
             decoded, _ = next(gen)
             pred_x, pred_y, pred_states = list(zip(*decoded))
             pred_states = np.array(list(pred_states))
@@ -225,7 +225,7 @@ class DeepBLAST(pl.LightningModule):
         return statistics
 
     def validation_step(self, batch, batch_idx):
-        genes, others, s, A, P, G, gM, oM = batch
+        genes, others, s, A, P, G, _, _ = batch
         seq, order = pack_sequences(genes, others)
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)

@@ -151,8 +151,6 @@ class TMAlignDataset(AlignmentDataset):
         # encode proteins
         gene_id, gene_attention_mask = get_sequence(gene, self.tokenizer)
         pos_id, pos_attention_mask = get_sequence(pos, self.tokenizer)
-        print(gene, gene_id)
-        print(pos, pos_id)
 
         # encode states
         states = torch.Tensor(states).long()

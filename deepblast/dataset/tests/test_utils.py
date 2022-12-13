@@ -3,12 +3,13 @@ from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
     pack_sequences, unpack_sequences,
-    gap_mask, remove_orphans, revstate_f)
+    gap_mask, remove_orphans, revstate_f, decode)
 from math import sqrt
 import numpy as np
 import numpy.testing as npt
 import torch
 import torch.testing as tt
+from transformers import T5EncoderModel, T5Tokenizer
 
 
 class TestDataUtils(unittest.TestCase):
@@ -346,6 +347,19 @@ class TestPreprocess(unittest.TestCase):
         s = ":1111111111:22222222222222:"
         r = remove_orphans(s, threshold=9)
         self.assertEqual(r, s)
+
+
+class TestPostProcess(unittest.TestCase):
+    def test_decode(self):
+        tokenizer = T5Tokenizer.from_pretrained(
+            "Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
+        exp = 'ARNDCQEGHILKMFPSTWYVXOUBZ'
+        chars = [' '.join(list(exp))]
+        ids = tokenizer.batch_encode_plus(chars, add_special_tokens=False, padding=True)
+        input_ids = torch.tensor(ids['input_ids'])
+        x_str = decode(list(input_ids.squeeze().cpu().detach().numpy()),
+                       tokenizer.get_vocab())
+        self.assertEqual(x_str, exp)
 
 
 if __name__ == '__main__':
