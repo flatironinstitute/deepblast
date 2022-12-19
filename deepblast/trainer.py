@@ -356,6 +356,9 @@ class DeepBLAST(pl.LightningModule):
             '--layers', help='Number of RNN layers (default 2).',
             required=False, type=int, default=2)
         parser.add_argument(
+            '--dropout', help='Dropout rate.',
+            required=False, type=float, default=0.5)
+        parser.add_argument(
             '--loss',
             help=('Loss function. Options include {sse, path, cross_entropy} '
                   '(default cross_entropy). '

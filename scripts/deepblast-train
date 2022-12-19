@@ -6,6 +6,7 @@ import os
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.strategies import DDPStrategy
 from deepblast.trainer import DeepBLAST
 from transformers import T5EncoderModel, T5Tokenizer
 
@@ -22,44 +23,61 @@ def main(args):
             "Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
 
         lm = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
-        dargs = vars(args)
-        dargs['lm'] = lm
-        tokenizer['tokenizer'] = tokenizer
-        model = DeepBLAST(**dargs)
+        model_args = vars(args)
+        model_args['lm'] = lm
+        model_args['tokenizer'] = tokenizer
+        keys = ['batch_size',
+                'hidden_dim',
+                'embedding_dim',
+                'epochs',
+                'finetune',
+                'gpus',
+                'layers',
+                'dropout',
+                'lm',
+                'tokenizer',
+                'learning_rate',
+                'loss',
+                'mask_gaps',
+                'multitask',
+                'num_workers',
+                'output_directory',
+                'scheduler',
+                'test_pairs',
+                'train_pairs',
+                'valid_pairs',
+                'visualization_fraction']
+        model_args = {k: model_args[k] for k in keys}
+        model = DeepBLAST(**model_args)
     # profiler = AdvancedProfiler()
 
+    # initialize Model Checkpoint Saver
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=args.output_directory,
+        monitor='validation_loss',
+        filename="{epoch}-{step}-{validation_loss:0.4f}",
+        verbose=True
+    )
 
     trainer = Trainer(
         max_epochs=args.epochs,
-        gpus=args.gpus,
+        devices=args.gpus,
+        accelerator='gpu',
         num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         gradient_clip_val=args.grad_clip,
-        distributed_backend=args.backend,
+        gradient_clip_algorithm="norm",
+        # distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,
         val_check_interval=0.25,
         fast_dev_run=False,
+        strategy=DDPStrategy(find_unused_parameters=True),
         # auto_scale_batch_size='power',
         # profiler=profiler,
+        callbacks=[checkpoint_callback]
     )
 
-    ckpt_path = os.path.join(
-        args.output_directory,
-        trainer.logger.name,
-        f"version_{trainer.logger.version}",
-        "checkpoints",
-    )
-    print(f'{ckpt_path}:', ckpt_path)
-    # initialize Model Checkpoint Saver
-    checkpoint_callback = ModelCheckpoint(
-        filepath=ckpt_path,
-        period=1,
-        monitor='validation_loss',
-        mode='min',
-        verbose=True
-    )
-    trainer.checkpoint_callback = checkpoint_callback
     print('model', model)
     trainer.fit(model)
     trainer.test()
@@ -71,9 +89,10 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--accelerator', type=str, default=None)
     parser.add_argument('--gpus', type=int, default=None)
     parser.add_argument('--grad-accum', type=int, default=1)
-    parser.add_argument('--grad-clip', type=int, default=0)
+    parser.add_argument('--grad-clip', type=int, default=10)
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=1)
     parser.add_argument('--precision', type=int, default=32)
