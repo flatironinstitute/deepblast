@@ -131,10 +131,20 @@ class StackedCNN(nn.Module):
                  dropout=0, sparse=False):
         super(StackedCNN, self).__init__()
         self.conv = nn.Sequential(*(
-            [nn.Conv1d(in_channels=nembed if layer == 0 else nout,
-                       out_channels=nout,
-                       kernel_size=k_size,
-                       padding=k_size // 2) for layer in range(nlayers)]))
+            [
+                nn.Sequential(
+                    nn.Conv1d(in_channels=nembed if layer == 0 else nout,
+                              out_channels=nout,
+                              kernel_size=k_size,
+                              padding=k_size // 2),
+                    # nn.BatchNorm1d(nout),
+                    nn.ReLU(),
+                    # nn.Dropout(p=dropout),
+                )
+                for layer in range(nlayers)
+            ]
+        )
+        )
         self.dropout = nn.Dropout(p=dropout)
         self.embed = nn.Linear(nembed, nembed)
         self.nout = nout

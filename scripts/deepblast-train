@@ -15,14 +15,13 @@ def main(args):
 
 
     print('args', args)
+    tokenizer = T5Tokenizer.from_pretrained(
+        args.pretrain_path, do_lower_case=False)
+    lm = T5EncoderModel.from_pretrained(args.pretrain_path)
     if args.load_from_checkpoint is not None:
         model = DeepBLAST.load_from_checkpoint(
-            args.load_from_checkpoint)
+            args.load_from_checkpoint, lm=lm, tokenizer=tokenizer)
     else:
-        tokenizer = T5Tokenizer.from_pretrained(
-            "Rostlab/prot_t5_xl_uniref50", do_lower_case=False)
-
-        lm = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
         model_args = vars(args)
         model_args['lm'] = lm
         model_args['tokenizer'] = tokenizer
@@ -80,7 +79,7 @@ def main(args):
 
     print('model', model)
     trainer.fit(model)
-    trainer.test()
+    # trainer.test()
 
     # In case this doesn't checkpoint
     torch.save(model.state_dict(),

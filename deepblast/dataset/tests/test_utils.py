@@ -3,7 +3,7 @@ from deepblast.dataset.utils import (
     tmstate_f, states2matrix, states2alignment,
     path_distance_matrix, clip_boundaries,
     pack_sequences, unpack_sequences,
-    gap_mask, remove_orphans, revstate_f, decode)
+    gap_mask, remove_orphans, revstate_f, decode, _trim_gap, is_subset)
 from math import sqrt
 import numpy as np
 import numpy.testing as npt
@@ -276,6 +276,32 @@ class TestDataUtils(unittest.TestCase):
                              [1, 4, 11, 13, 14, 0]])
         tt.assert_allclose(expX, resX)
         tt.assert_allclose(expY, resY)
+
+    def test_is_subset(self):
+        x = np.array([0, 1, 1, 0, 0])
+        y = np.array([1, 1])
+        res = is_subset(y, x)
+        self.assertTrue(res)
+
+    def test_trim_gap(self):
+        x = np.array([0, 1, 1, 0, 0, 0, 0])
+        exp = (0, 4)
+        res = _trim_gap(x, 2)
+        self.assertEqual(exp[0], res[0])
+        self.assertEqual(exp[1], res[1])
+
+    def test_trim_gap2(self):
+        x = np.array([0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 1])
+        exp = (2, 8)
+        i, j = _trim_gap(x, 2)
+        self.assertEqual(exp[0], i)
+        self.assertEqual(exp[1], j)
+
+    def test_trim_gap3(self):
+        # not a real use case, since this will not be evaluated
+        x = np.array([1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1])
+        exp = (0, 11)
+        _trim_gap(x, 6)
 
 
 class TestPreprocess(unittest.TestCase):

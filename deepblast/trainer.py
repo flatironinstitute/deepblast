@@ -230,21 +230,27 @@ class DeepBLAST(pl.LightningModule):
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
+
         assert torch.isnan(loss).item() is False
-        # Obtain alignment statistics + visualizations
-        gen = self.aligner.traceback(seq, order)
-        # TODO; compare the traceback and the forward
-        statistics = self.validation_stats(
-            x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
-        statistics = pd.DataFrame(
-            statistics, columns=[
-                'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-                'val_ppv', 'val_fnr', 'val_fdr'
-            ]
-        )
-        statistics = statistics.mean(axis=0).to_dict()
+
+        self.log('validation_loss', loss,
+                 batch_size=self.hparams.batch_size, sync_dist=True)
         tensorboard_logs = {'valid_loss': loss}
-        tensorboard_logs = {**tensorboard_logs, **statistics}
+
+        # Obtain alignment statistics + visualizations
+        if self.hparams.visualization_fraction > 0:
+            gen = self.aligner.traceback(seq, order)
+            # TODO; compare the traceback and the forward
+            statistics = self.validation_stats(
+                x, y, xlen, ylen, gen, s, A, predA, theta, gap, batch_idx)
+            statistics = pd.DataFrame(
+                statistics, columns=[
+                    'val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+                    'val_ppv', 'val_fnr', 'val_fdr'
+                ]
+            )
+            statistics = statistics.mean(axis=0).to_dict()
+            tensorboard_logs = {**tensorboard_logs, **statistics}
         return {'validation_loss': loss,
                 'log': tensorboard_logs}
 
@@ -284,18 +290,20 @@ class DeepBLAST(pl.LightningModule):
         losses = list(map(loss_f, outputs))
         loss = sum(losses) / len(losses)
         self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
-        metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-                   'val_ppv', 'val_fnr', 'val_fdr']
-        scores = []
-        for i, m in enumerate(metrics):
-            loss_f = lambda x: x['log'][m]
-            losses = list(map(loss_f, outputs))
-            scalar = sum(losses) / len(losses)
-            scores.append(scalar)
-            self.logger.experiment.add_scalar(m, scalar, self.global_step)
+        # self.log('validation_loss') = loss
+
+        # metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
+        #            'val_ppv', 'val_fnr', 'val_fdr']
+        # scores = []
+        # for i, m in enumerate(metrics):
+        #     loss_f = lambda x: x['log'][m]
+        #     losses = list(map(loss_f, outputs))
+        #     scalar = sum(losses) / len(losses)
+        #     scores.append(scalar)
+        #     self.logger.experiment.add_scalar(m, scalar, self.global_step)
 
         tensorboard_logs = dict(
-            [('val_loss', loss)] + list(zip(metrics, scores))
+            [('val_loss', loss)] # + list(zip(metrics, scores))
         )
         return {'val_loss': loss, 'log': tensorboard_logs}
 
@@ -344,6 +352,9 @@ class DeepBLAST(pl.LightningModule):
             '--test-pairs', help='Testing pairs file', required=True)
         parser.add_argument(
             '--valid-pairs', help='Validation pairs file', required=True)
+        parser.add_argument(
+            '--pretrain-path', help='Path to pretrained protein language model',
+            required=False, type=str, default='Rostlab/prot_t5_xl_uniref50')
         parser.add_argument(
             '--embedding-dim',
             help='Embedding dimension for aligner (default 1024).',

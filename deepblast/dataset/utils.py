@@ -7,6 +7,7 @@ from scipy.spatial import cKDTree
 from deepblast.constants import x, m, y
 from itertools import islice
 from functools import reduce
+from numba import jit
 
 
 def state_f(z):
@@ -480,3 +481,75 @@ def get_sequence(x, tokenizer):
     seq = torch.Tensor(id_['input_ids']).long().squeeze()
     mask = torch.Tensor(id_['attention_mask']).squeeze()
     return seq, mask
+
+
+@jit
+def is_subset(x, y):
+    # test if x is a subset of y
+    if x.shape[0] > y.shape[0]:
+        return False
+    k = x.shape[0]
+    for i in range(y.shape[0] - k + 1):
+        if np.all(y[i:i+k] == x):
+            return True
+    return False
+
+
+@jit
+def __trim_gap(x, k=10):
+    """
+    Parameters
+    ----------
+    x : np.array of binary values
+
+    Returns
+    -------
+    i, j : ints
+      index of longest subsequence without k consecutive gaps
+    y : np.array
+        Mask indicating longest subsequence without k consecutive gaps
+    """
+    gaps = np.zeros(k).astype(np.int64)
+    # unfortunately, we are going to have to brute force this and evaluate
+    # all O(n^2) possible substrings
+    ans = np.zeros((x.shape[0], x.shape[0]))
+    for i in range(x.shape[0]):
+        for j in range(i):
+            if is_subset(gaps, x[j:i]):
+                continue
+            else:
+                ans[i, j] = i - j
+    return ans
+
+
+def _trim_gap(x, k=10):
+    ans = __trim_gap(x, k)
+    ind = np.unravel_index(np.argmax(ans, axis=None), ans.shape)
+    i, j = ind
+    return j, i
+
+
+def trim_gap(dfX, k=10):
+    """ Gets longest subsequence without k consecutive gaps
+
+    Parameters
+    ----------
+    dfX : pd.DataFrame
+       Contains columns named `chain1`, `chain2` and `alignment`
+    """
+    dfY = dfX.copy()
+    # 1 if match, 0 if gap
+    bin_aln = (
+        ~(np.array(list(dfX['alignment'])) != ':').astype(np.bool)
+    ).astype(np.int)
+    str_aln = ''.join(map(str, list(bin_aln)))
+    if '0'*k in str_aln:
+        i, j = _trim_gap(bin_aln, k)
+        states = np.array(list(map(tmstate_f, list(dfX['alignment']))))
+        Ax, Ay = states2alignment(states, dfX['chain1'], dfX['chain2'])
+        dfY['chain1'] = Ax[i:j].replace('-', '')
+        dfY['chain2'] = Ay[i:j].replace('-', '')
+        dfY['alignment'] = dfX['alignment'][i:j]
+        return dfY
+    else:
+        return dfX

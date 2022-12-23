@@ -9,7 +9,7 @@ from deepblast.dataset.utils import (
     state_f, tmstate_f,
     clip_boundaries, states2matrix, states2edges,
     path_distance_matrix, gap_mask,
-    reshape, get_sequence
+    reshape, get_sequence, trim_gap
 )
 from Bio import SeqIO
 
@@ -46,9 +46,9 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer,
-                 tm_threshold=0.4, max_len=1024, pad_ends=False,
-                 clip_ends=True, mask_gaps=True, return_names=False,
-                 construct_paths=False):
+                 tm_threshold=0.4, max_len=1024, max_gap=5,
+                 pad_ends=False, clip_ends=True, mask_gaps=True,
+                 return_names=False, construct_paths=False):
         """ Read in pairs of proteins.
 
 
@@ -100,6 +100,11 @@ class TMAlignDataset(AlignmentDataset):
         idx = np.logical_and(self.pairs['tm'] > self.tm_threshold,
                              self.pairs['length'] < self.max_len)
         self.pairs = self.pairs.loc[idx]
+
+        if max_gap is not None:
+            self.pairs = self.pairs.apply(
+                lambda x: trim_gap(x, max_gap), axis=1)
+
         # TODO: pad_ends needs to be documented properly
         self.pad_ends = pad_ends
         self.clip_ends = clip_ends
