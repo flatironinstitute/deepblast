@@ -46,7 +46,7 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer,
-                 tm_threshold=0.4, max_len=1024, max_gap=None,
+                 tm_threshold=0.4, max_len=1024, max_gap=10,
                  pad_ends=False, clip_ends=True, mask_gaps=True,
                  return_names=False, construct_paths=False):
         """ Read in pairs of proteins.
