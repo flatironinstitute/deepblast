@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
+from deepblast.nw import NeedlemanWunschDecoder as NWDecoderNumba
 from deepblast.embedding import StackedRNN, StackedCNN
 from deepblast.dataset.utils import unpack_sequences
 
@@ -10,7 +11,7 @@ import torch.nn.functional as F
 class NeedlemanWunschAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, dropout=0, lm=None, layer_type='cnn'):
+                 n_layers=2, dropout=0, gpus=None, lm=None, layer_type='cnn'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -60,7 +61,10 @@ class NeedlemanWunschAligner(nn.Module):
             self.match_embedding = nn.Linear(n_embed, n_embed)
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
-        self.nw = NWDecoderCUDA(operator='softmax')
+        if gpus:
+            self.nw = NWDecoderCUDA(operator='softmax')
+        else:
+            self.nw = NWDecoderNumba(operator='softmax')
 
     def blosum_factor(self, x):
         """ Computes factors for blosum parameters using a single sequence

@@ -29,7 +29,7 @@ class DeepBLAST(pl.LightningModule):
                  embedding_dim=512,
                  epochs=32,
                  finetune=False,
-                 gpus=1,
+                 gpus=None,
                  layers=1,
                  dropout=0,
                  lm=None,
@@ -68,7 +68,7 @@ class DeepBLAST(pl.LightningModule):
         dropout = self.hparams.dropout
 
         self.aligner = NeedlemanWunschAligner(
-            n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm)
+            n_input, n_units, n_embed, n_layers, gpus=gpus, dropout=dropout, lm=lm)
 
     def align(self, x, y):
         x_code, _ = get_sequence(x, self.tokenizer).to(self.device)
