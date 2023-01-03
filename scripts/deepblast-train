@@ -61,7 +61,6 @@ def main(args):
     trainer = Trainer(
         max_epochs=args.epochs,
         devices=args.gpus,
-        accelerator='gpu',
         num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         gradient_clip_val=args.grad_clip,
