@@ -30,7 +30,6 @@ def main(args):
                 'embedding_dim',
                 'epochs',
                 'finetune',
-                'gpus',
                 'layers',
                 'dropout',
                 'lm',
@@ -60,24 +59,27 @@ def main(args):
 
     trainer = Trainer(
         max_epochs=args.epochs,
-        devices=args.gpus,
-        accelerator='gpu',
+        devices=args.devices,
+        accelerator=args.accelerator,
         num_nodes=args.nodes,
         accumulate_grad_batches=args.grad_accum,
         gradient_clip_val=args.grad_clip,
         gradient_clip_algorithm="norm",
-        # distributed_backend=args.backend,
         precision=args.precision,
         # check_val_every_n_epoch=1,
-        val_check_interval=0.25,
+        val_check_interval=1.0,
         fast_dev_run=False,
         strategy=DDPStrategy(find_unused_parameters=True),
+        limit_train_batches=args.limit_train_batches,
+        limit_val_batches=args.limit_val_batches,
+        # strategy='ddp',
         # auto_scale_batch_size='power',
         # profiler=profiler,
         callbacks=[checkpoint_callback]
     )
 
     print('model', model)
+    # model = torch.compile(model)  # pytorch2
     trainer.fit(model)
     # trainer.test()
 
@@ -89,13 +91,14 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--accelerator', type=str, default=None)
-    parser.add_argument('--gpus', type=int, default=None)
+    parser.add_argument('--devices', type=int, default=None)
     parser.add_argument('--grad-accum', type=int, default=1)
     parser.add_argument('--grad-clip', type=int, default=10)
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--num-workers', type=int, default=1)
+    parser.add_argument('--limit-train-batches', type=int, default=1000)
+    parser.add_argument('--limit-val-batches', type=int, default=100)
     parser.add_argument('--precision', type=int, default=32)
-    parser.add_argument('--backend', type=str, default=None)
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
     # options include ddp_cpu, dp, ddp
     parser = DeepBLAST.add_model_specific_args(parser)

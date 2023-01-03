@@ -490,7 +490,7 @@ def is_subset(x, y):
         return False
     k = x.shape[0]
     for i in range(y.shape[0] - k + 1):
-        if np.all(y[i:i+k] == x):
+        if all([y[i:i+k][j] == x[j] for j in range(len(x))]):
             return True
     return False
 

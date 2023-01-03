@@ -46,7 +46,7 @@ class TMAlignDataset(AlignmentDataset):
     This is appropriate for the Malisam / Malidup datasets.
     """
     def __init__(self, path, tokenizer,
-                 tm_threshold=0.4, max_len=1024, max_gap=10,
+                 tm_threshold=0.4, max_len=1024, max_gap=None,
                  pad_ends=False, clip_ends=True, mask_gaps=True,
                  return_names=False, construct_paths=False):
         """ Read in pairs of proteins.
@@ -107,7 +107,6 @@ class TMAlignDataset(AlignmentDataset):
 
         self.pairs['length'] = self.pairs.apply(
             lambda x: max(len(x['chain1']), len(x['chain2'])), axis=1)
-
         # TODO: pad_ends needs to be documented properly
         self.pad_ends = pad_ends
         self.clip_ends = clip_ends
@@ -148,7 +147,6 @@ class TMAlignDataset(AlignmentDataset):
         gene = self.pairs.iloc[i]['chain1']
         pos = self.pairs.iloc[i]['chain2']
         st = self.pairs.iloc[i]['alignment']
-
         states = list(map(tmstate_f, st))
         if self.clip_ends:
             gene, pos, states, st = clip_boundaries(gene, pos, states, st)

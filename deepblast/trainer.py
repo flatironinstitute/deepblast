@@ -29,7 +29,6 @@ class DeepBLAST(pl.LightningModule):
                  embedding_dim=512,
                  epochs=32,
                  finetune=False,
-                 gpus=1,
                  layers=1,
                  dropout=0,
                  lm=None,
