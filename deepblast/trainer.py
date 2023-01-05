@@ -70,8 +70,8 @@ class DeepBLAST(pl.LightningModule):
             n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm)
 
     def align(self, x, y):
-        x_code, _ = get_sequence(x, self.tokenizer).to(self.device)
-        y_code, _ = get_sequence(y, self.tokenizer).to(self.device)
+        x_code = get_sequence(x, self.tokenizer)[0].to(self.device)
+        y_code = get_sequence(y, self.tokenizer)[0].to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
