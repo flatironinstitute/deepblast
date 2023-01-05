@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import pandas as pd
 
 import torch
 from pytorch_lightning import Trainer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 from pytorch_lightning.strategies import DDPStrategy
 from deepblast.trainer import DeepBLAST
+from deepblast.dataset.parse_mali import read_mali
 from transformers import T5EncoderModel, T5Tokenizer
 
 
 def main(args):
+
+    res = read_mali(args.input_mali_dir)
     tokenizer = T5Tokenizer.from_pretrained(
         args.pretrain_path, do_lower_case=False)
     lm = T5EncoderModel.from_pretrained(args.pretrain_path)
@@ -32,7 +36,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--accelerator', type=str, default='cpu')
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
-    parser.add_argument('--input-mali-pdb-dir', type=str, default=None,
+    parser.add_argument('--input-mali-dir', type=str, default=None,
                         help="Root directory for Mali PDB files.")
     parser.add_argument('--output-alignments', type=str, default=None,
                         help="Output alignments.")
