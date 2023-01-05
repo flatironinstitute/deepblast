@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+import argparse
+import os
+
+import torch
+from pytorch_lightning import Trainer
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+from pytorch_lightning.strategies import DDPStrategy
+from deepblast.trainer import DeepBLAST
+from transformers import T5EncoderModel, T5Tokenizer
+
+
+def main(args):
+    tokenizer = T5Tokenizer.from_pretrained(
+        args.pretrain_path, do_lower_case=False)
+    lm = T5EncoderModel.from_pretrained(args.pretrain_path)
+    model = DeepBLAST.load_from_checkpoint(
+        args.load_from_checkpoint, lm=lm, tokenizer=tokenizer)
+
+    if args.accelerator == 'gpu':
+        model = model.cuda()
+
+    dps = []
+    for i in range(len(res)):
+        x = res.iloc[i][0]
+        y = res.iloc[i][1]
+        s = model.align(x, y)
+        dps.append(s)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--accelerator', type=str, default='cpu')
+    parser.add_argument('--load-from-checkpoint', type=str, default=None)
+    parser.add_argument('--input-mali-pdb-dir', type=str, default=None,
+                        help="Root directory for Mali PDB files.")
+    parser.add_argument('--output-alignments', type=str, default=None,
+                        help="Output alignments.")
