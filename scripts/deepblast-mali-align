@@ -30,6 +30,8 @@ def main(args):
         y = res.iloc[i][1]
         s = model.align(x, y)
         dps.append(s)
+    res['deepblast'] = dps
+    res.to_csv(args.output_alignments)
 
 
 if __name__ == '__main__':
