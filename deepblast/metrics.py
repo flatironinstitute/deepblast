@@ -1,5 +1,6 @@
 import numpy as np
 from collections import namedtuple
+from deepblast.dataset.parse_pdb import readPDB
 import pickle
 import warnings
 
@@ -431,7 +432,7 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
     L_orientable = len(indicies)
 
     TM_d0 = 1.24 * (L_min - 15) ** 0.333333 - 1.8  # for the TM score
-    TM_d02 = TM_d0 * *2
+    TM_d02 = TM_d0 ** 2
 
     p0 = master_p0[align_index[0]]
     p1 = master_p1[align_index[1]]
@@ -466,7 +467,7 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
             seq_aligned[indicies, 0] == seq_aligned[indicies, 1]
         )
 
-        oSeq_ident/=L_orientable
+        oSeq_ident /= L_orientable
 
         cSeq_ident = np.sum(
             seq_aligned[PSI_mask, 0] == seq_aligned[PSI_mask, 1]
@@ -481,9 +482,11 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
     # running sum of long runs with 4 or more residues in a row without gaps
     for i in range( L_aligned):
         c += 1
-        any_ai = np.any((align_index[:, i + 1] - align_index[:, i]) > 1
-        if i+1==L_aligned or any_ai) :  # a gap in either protein's alignment
-           if c > 3: aPSI + =c  # should I be checking for 3 or 4 here?
+        any_ai = np.any((align_index[:, i + 1] - align_index[:, i]) > 1)
+        # a gap in either protein's alignment
+        if (i + 1 == L_aligned or any_ai) :
+           if c > 3:
+               aPSI += c  # should I be checking for 3 or 4 here?
            c = 0
     aPSI = aPSI / L_min
 
@@ -552,38 +555,40 @@ def parseAlingmentString(j):
     return np.array([a01, a00])
 
 
-def process_alignment(kkk, palignments, pairedfiles, path0, tool='deepblast'):
+def process_alignment(alignment, seq0, seq1, file0, file1):
     """ Processes kkkth alignment
     Parameters
     ----------
-    kkk : int
-       Index
-    palignments : pd.DataFrame
-       DataFrame with sequences, pdb file names and alignment strings
-    pairedfiles : pd.DataFrame
-       Dataframe with columns named `file1` and `file2`
+    alignments : str
+       Alignment string
+    seq0 : str
+       First sequence
+    seq1 = str
+       Second sequence
+    pdb0 : path
+       Path to first PDB file
+    pdb1 : path
+       Path to seconde PDB file
 
+    Returns
+    -------
+    tuple : standard_metrics
     """
-    f0 = pairedfiles.file2[kkk]
-    _,fpnts0 = readPDB(path0 + f0)
-    f1 = pairedfiles.file1[kkk]
-    _,fpnts1 = readPDB(path0 + f1)
-    a1 =  parseAlingmentString(palignments[tool][kkk])
-    if (fpnts0.seq == palignments['1'][kkk] and
-        fpnts1.seq == palignments['0'][kkk]):
-        fpnts0, fpnts1 = fpnts1, fpnts0  # swap
-        a1[[0, 1]] = a1[[1, 0]]
-    else:
-        if (fpnts0.seq != palignments['0'][kkk] or
-            fpnts1.seq != palignments['1'][kkk]):
-            if fpnts0.seq != palignments['0'][kkk]:
-                warning.warn(
-                    "sequence {} does not match pdb {}".format(kkk,f0))
-            if fpnts1.seq != palignments['1'][kkk]:
-                warning.warn(
-                    "sequence {} does not match pdb {}".format(kkk,f1))
+    fpnts0 = readPDB(file0)
+    fpnts1 = readPDB(file1)
+    a1 = parseAlingmentString(alignment)
+    if (fpnts0.seq != seq0 or fpnts1.seq != seq1):
+        if fpnts0.seq != seq0:
+            warning.warn(
+                "sequence {} does not match pdb {}".format(seq0, pdb0))
+        if fpnts1.seq != seq1:
+            warning.warn(
+                "sequence {} does not match pdb {}".format(seq1, pdb1))
 
-    temp = fpnts0.CA, fpnts1.CA, a1
-    A, B, C = FR_TM_maxsub_score(*temp[0:3])
-    sm = standard_metrics(*temp[0:3], indicies=A.alignment, seq0=temp[-2],seq1=temp[-1], d0=4.0, UNIT=1.0)
+    A, B, C = FR_TM_maxsub_score(fpnts0.CA, fpnts1.CA, a1)
+    sm = standard_metrics(fpnts0.CA, fpnts1.CA, a1,
+                          indicies=A.alignment,
+                          seq0=seq0,
+                          seq1=seq1,
+                          d0=4.0, UNIT=1.0)
     return sm

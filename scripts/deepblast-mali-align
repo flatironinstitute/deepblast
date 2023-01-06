@@ -31,6 +31,8 @@ def main(args):
         s = model.align(y, x)
         dps.append(s)
     res['deepblast'] = dps
+    res = res.rename(
+        columns = {'0' : 'query_seq', '1': 'hit_seq', '2': 'manual'})
     res.to_csv(args.output_alignments)
 
 
