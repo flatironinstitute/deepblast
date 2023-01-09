@@ -62,10 +62,10 @@ class NeedlemanWunschAligner(nn.Module):
             self.match_embedding = nn.Linear(n_embed, n_embed)
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
-        if self.device == 'cpu':
-            self.nw = NWDecoderNumba(operator='softmax')
-        else:
+        if device == 'gpu':
             self.nw = NWDecoderCUDA(operator='softmax')
+        else:
+            self.nw = NWDecoderNumba(operator='softmax')
 
     def blosum_factor(self, x):
         """ Computes factors for blosum parameters using a single sequence
