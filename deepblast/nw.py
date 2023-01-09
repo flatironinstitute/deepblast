@@ -101,11 +101,18 @@ def _forward_pass(theta, A, operator='softmax'):
 
         Vt = V[N, M]
     else:
-        Vt, Q = _forward_pass_numba(
-            theta.detach().cpu().numpy(),
-            A.detach().cpu().numpy())
-        Vt = torch.tensor(Vt, dtype=theta.dtype)
-        Q = torch.from_numpy(Q)
+        B, N, M = theta.shape
+        Q = torch.zeros((B, N + 2, M + 2, 3),
+                        dtype=theta.dtype,
+                        device=theta.device)
+        Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
+
+        for b in range(B):
+            Vt_tmp, Q_tmp = _forward_pass_numba(
+                theta.detach().cpu().numpy()[b],
+                A.detach().cpu().numpy()[b])
+            Vt[b] = torch.tensor(Vt_tmp, dtype=theta.dtype)
+            Q[b] = torch.from_numpy(Q_tmp)
 
     return Vt, Q
 
@@ -329,14 +336,20 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         operator = ctx.others
         E, A = NeedlemanWunschFunctionBackward.apply(
             theta, A, Et, Q, operator)
-        return E[1:-1, 1:-1], A, None, None, None
+        return E[:, 1:-1, 1:-1], A, None, None, None
 
 
 class NeedlemanWunschFunctionBackward(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, theta, A, Et, Q, operator):
-        E = _backward_pass(Et, Q)
+        B, N, M = theta.shape
+        E = torch.zeros((B, N + 2, M + 2),
+                        dtype=theta.dtype,
+                        device=theta.device)
+
+        for b in range(B):
+            E[b] = _backward_pass(Et[b], Q[b])
         ctx.save_for_backward(E, Q)
         ctx.others = operator
         return E, A
@@ -355,9 +368,21 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         """
         E, Q = ctx.saved_tensors
         operator = ctx.others
-        Vtd, Qd = _adjoint_forward_pass(Q, Ztheta, ZA, operator)
-        Ed = _adjoint_backward_pass(E, Q, Qd)
-        Ed = Ed[1:-1, 1:-1]
+
+        B, ZN, ZM = Ztheta.shape
+
+        Qd = torch.zeros((B, ZN, ZM, 3),
+                         dtype=Ztheta.dtype,
+                         device=Ztheta.device)
+
+        Vtd = torch.zeros(B, dtype=Ztheta.dtype, device=Ztheta.device)
+        Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype, device=Ztheta.device)
+
+        for b in range(B):
+            Vtd[b], Qd[b] = _adjoint_forward_pass(Q[b], Ztheta[b], ZA[b], operator)
+            Ed[b] = _adjoint_backward_pass(E[b], Q[b], Qd[b])
+        Ed = Ed[:, 1:-1, 1:-1]
+
         return Ed, None, Vtd, None, None, None
 
 
