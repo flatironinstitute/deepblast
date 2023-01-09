@@ -8,10 +8,11 @@ from deepblast.dataset.utils import unpack_sequences
 import torch.nn.functional as F
 
 
+
 class NeedlemanWunschAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, dropout=0, gpus=None, lm=None, layer_type='cnn'):
+                 n_layers=2, dropout=0, lm=None, layer_type='cnn', device='gpu'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -61,7 +62,7 @@ class NeedlemanWunschAligner(nn.Module):
             self.match_embedding = nn.Linear(n_embed, n_embed)
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
-        if gpus:
+        if device == 'gpu':
             self.nw = NWDecoderCUDA(operator='softmax')
         else:
             self.nw = NWDecoderNumba(operator='softmax')

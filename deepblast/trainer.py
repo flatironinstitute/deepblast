@@ -43,7 +43,9 @@ class DeepBLAST(pl.LightningModule):
                  test_pairs=None,
                  train_pairs=None,
                  valid_pairs=None,
-                 visualization_fraction=1.0):
+                 visualization_fraction=1.0,
+                 device='gpu'
+      ):
         super(DeepBLAST, self).__init__()
         self.save_hyperparameters(ignore=['lm'])
         assert tokenizer is not None
@@ -67,11 +69,12 @@ class DeepBLAST(pl.LightningModule):
         dropout = self.hparams.dropout
 
         self.aligner = NeedlemanWunschAligner(
-            n_input, n_units, n_embed, n_layers, gpus=gpus, dropout=dropout, lm=lm)
+            n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm,
+            device=device)
 
     def align(self, x, y):
-        x_code, _ = get_sequence(x, self.tokenizer).to(self.device)
-        y_code, _ = get_sequence(y, self.tokenizer).to(self.device)
+        x_code = get_sequence(x, self.tokenizer)[0].to(self.device)
+        y_code = get_sequence(y, self.tokenizer)[0].to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
