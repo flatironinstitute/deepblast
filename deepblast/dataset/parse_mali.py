@@ -1,4 +1,5 @@
 import os
+import glob
 from deepblast.dataset.utils import state_f, revstate_f
 import pandas as pd
 import numpy as np
@@ -25,6 +26,7 @@ def read_mali(root, tool='manual', report_ids=False):
     res = []
     pdbs = []
     dirs = []
+    single_pdbs = []
     for path, directories, files in os.walk(root):
         for f in files:
             if '.ali' in f and tool in f and ('manual2' not in f):
@@ -35,6 +37,12 @@ def read_mali(root, tool='manual', report_ids=False):
                 S = ''.join(
                     list(map(revstate_f, map(state_f, list(zip(X, Y))))))
                 res.append((X.replace('-', ''), Y.replace('-', ''), S))
+                _ps = glob.glob(f'{path}/*.pdb')
+                _ps = list(map(os.path.basename, _ps))
+                check_f = lambda x: all([(y not in x) for y in ['fast', 'tm', 'manual', 'dali']])
+                _ps = sorted(list(filter(check_f, _ps)))
+
+                single_pdbs.append(_ps)
                 pdbs.append(os.path.basename(f).split(f'.{tool}.ali')[0])
                 dirs.append(os.path.basename(path))
 
@@ -44,7 +52,9 @@ def read_mali(root, tool='manual', report_ids=False):
         res['hit_id'] = (np.arange(len(res)) + len(res)).astype(np.str)
         res['pdb'] = pdbs
         res['dir'] = dirs
-
+        single_pdbs = pd.DataFrame(single_pdbs)
+        single_pdbs.columns = [f'pdb_{i}' for i in range(len(single_pdbs.columns))]
+        res = pd.concat((res, single_pdbs), axis=1)
     return res
 
 
