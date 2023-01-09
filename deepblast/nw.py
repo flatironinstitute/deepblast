@@ -370,7 +370,6 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         operator = ctx.others
 
         B, ZN, ZM = Ztheta.shape
-        bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
         Qd = torch.zeros((B, ZN, ZM, 3),
                          dtype=Ztheta.dtype,
@@ -380,7 +379,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype, device=Ztheta.device)
 
         for b in range(B):
-            Vtd[b], Qd_tmp[b] = _adjoint_forward_pass(Q[b], Ztheta[b], ZA[b], operator)
+            Vtd[b], Qd[b] = _adjoint_forward_pass(Q[b], Ztheta[b], ZA[b], operator)
             Ed[b] = _adjoint_backward_pass(E[b], Q[b], Qd[b])
         Ed = Ed[:, 1:-1, 1:-1]
 

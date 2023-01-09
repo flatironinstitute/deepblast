@@ -28,12 +28,12 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
                                 N,
                                 M,
                                 requires_grad=True,
-                                dtype=torch.float32).squeeze()
+                                dtype=torch.float32)
         self.Ztheta = torch.rand(B,
                                  N,
                                  M,
                                  requires_grad=True,
-                                 dtype=torch.float32).squeeze()
+                                 dtype=torch.float32)
         self.Et = torch.Tensor([1., 1.])
         self.A = torch.ones_like(self.theta) * -1
         self.B, self.S, self.N, self.M = B, S, N, M
@@ -41,14 +41,14 @@ class TestNeedlemanWunschDecoder(unittest.TestCase):
         self.operator = 'softmax'
 
     def test_decoding(self):
-        theta = torch.from_numpy(make_data())
+        theta = torch.from_numpy(make_data()).unsqueeze(0)
         theta.requires_grad_()
         A = torch.ones_like(theta) * 0.1
         A.requires_grad_()
         needle = NeedlemanWunschDecoder(self.operator)
         v = needle(theta, A)
         v.backward()
-        decoded = needle.traceback(theta.grad)
+        decoded = needle.traceback(theta.grad.squeeze())
         states = [(0, 0, 0), (1, 0, 0), (2, 0, 1), (3, 1, 1), (4, 2, 2),
                   (4, 3, 1)]
         self.assertListEqual(states, decoded)
