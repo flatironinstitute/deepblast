@@ -427,8 +427,8 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
     if indicies is None:
         indicies = range(np.shape(align_index)[1])
     # get the shape
-    L_min = min( np.shape(master_p0)[0],np.shape(master_p1)[0])
-    L_aligned=np.shape(align_index)[1]
+    L_min = min(np.shape(master_p0)[0], np.shape(master_p1)[0])
+    L_aligned = np.shape(align_index)[1]
     L_orientable = len(indicies)
 
     TM_d0 = 1.24 * (L_min - 15) ** 0.333333 - 1.8  # for the TM score
@@ -479,8 +479,9 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
 
     c = 0 # run length tracker
     aPSI = 0
+
     # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range( L_aligned):
+    for i in range(L_aligned - 1):
         c += 1
         any_ai = np.any((align_index[:, i + 1] - align_index[:, i]) > 1)
         # a gap in either protein's alignment
@@ -492,19 +493,19 @@ def standard_metrics(master_p0, master_p1, align_index, indicies,
 
     oPSI = 0
     # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range( L_orientable):
+    for i in range(L_orientable - 1):
         c += 1
         any_ai = np.any((
             align_index[:, indicies[i + 1]] - \
             align_index[:, indicies[i]]) > 1)
         # a gap in either protein's alignment
         if i+1 == L_orientable or any_ai :
-           if c>3: oPSI+=c  # should I be checking for 3 or 4 here?
+           if c > 3: oPSI += c  # should I be checking for 3 or 4 here?
            c=0
     oPSI = oPSI / L_min
     rPSI = 0
     # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range( L_PSI):
+    for i in range(L_PSI - 1):
         c += 1
         # a gap in either protein's alignment
         any_ai = np.any((
@@ -555,8 +556,9 @@ def parseAlingmentString(j):
     return np.array([a01, a00])
 
 
-def process_alignment(alignment, seq0, seq1, file0, file1):
-    """ Processes kkkth alignment
+def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
+    """ Processes a single alignment
+
     Parameters
     ----------
     alignments : str
@@ -574,15 +576,15 @@ def process_alignment(alignment, seq0, seq1, file0, file1):
     -------
     tuple : standard_metrics
     """
-    fpnts0 = readPDB(file0)
-    fpnts1 = readPDB(file1)
+    fpnts0 = readPDB(pdb0)
+    fpnts1 = readPDB(pdb1)
     a1 = parseAlingmentString(alignment)
     if (fpnts0.seq != seq0 or fpnts1.seq != seq1):
         if fpnts0.seq != seq0:
-            warning.warn(
+            warnings.warn(
                 "sequence {} does not match pdb {}".format(seq0, pdb0))
         if fpnts1.seq != seq1:
-            warning.warn(
+            warnings.warn(
                 "sequence {} does not match pdb {}".format(seq1, pdb1))
 
     A, B, C = FR_TM_maxsub_score(fpnts0.CA, fpnts1.CA, a1)
