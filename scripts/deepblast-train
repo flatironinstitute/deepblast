@@ -20,7 +20,8 @@ def main(args):
     lm = T5EncoderModel.from_pretrained(args.pretrain_path)
     if args.load_from_checkpoint is not None:
         model = DeepBLAST.load_from_checkpoint(
-            args.load_from_checkpoint, lm=lm, tokenizer=tokenizer)
+            args.load_from_checkpoint, lm=lm, tokenizer=tokenizer,
+            device=args.accelerator)
     else:
         model_args = vars(args)
         model_args['lm'] = lm
@@ -44,8 +45,10 @@ def main(args):
                 'test_pairs',
                 'train_pairs',
                 'valid_pairs',
-                'visualization_fraction']
+                'visualization_fraction',
+                'device']
         model_args = {k: model_args[k] for k in keys}
+        model_args['device'] = args.accelerator
         model = DeepBLAST(**model_args)
     # profiler = AdvancedProfiler()
 
