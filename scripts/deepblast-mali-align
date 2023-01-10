@@ -14,7 +14,7 @@ from transformers import T5EncoderModel, T5Tokenizer
 
 def main(args):
 
-    res = read_mali(args.input_mali_dir)
+    res = read_mali(args.input_mali_dir, report_ids=True)
     tokenizer = T5Tokenizer.from_pretrained(
         args.pretrain_path, do_lower_case=False)
     lm = T5EncoderModel.from_pretrained(args.pretrain_path)
@@ -28,9 +28,11 @@ def main(args):
     for i in range(len(res)):
         x = res.iloc[i][0]
         y = res.iloc[i][1]
-        s = model.align(x, y)
+        s = model.align(y, x)
         dps.append(s)
     res['deepblast'] = dps
+    res = res.rename(
+        columns = {'0' : 'query_seq', '1': 'hit_seq', '2': 'manual'})
     res.to_csv(args.output_alignments)
 
 
@@ -40,6 +42,8 @@ if __name__ == '__main__':
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
     parser.add_argument('--input-mali-dir', type=str, default=None,
                         help="Root directory for Mali PDB files.")
+    parser.add_argument('--pretrain-path', type=str, default=None,
+                        help="Path to pretrained model.")
     parser.add_argument('--output-alignments', type=str, default=None,
                         help="Output alignments.")
     hparams = parser.parse_args()
