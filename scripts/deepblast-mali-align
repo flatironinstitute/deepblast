@@ -19,7 +19,8 @@ def main(args):
         args.pretrain_path, do_lower_case=False)
     lm = T5EncoderModel.from_pretrained(args.pretrain_path)
     model = DeepBLAST.load_from_checkpoint(
-        args.load_from_checkpoint, lm=lm, tokenizer=tokenizer)
+        args.load_from_checkpoint, lm=lm, tokenizer=tokenizer,
+        alignment_mode=args.alignment_mode)
 
     if args.accelerator == 'gpu':
         model = model.cuda()
@@ -39,6 +40,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('--accelerator', type=str, default='cpu')
+    parser.add_argument('--alignment-mode', type=str, default='needleman-wunsch')
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
     parser.add_argument('--input-mali-dir', type=str, default=None,
                         help="Root directory for Mali PDB files.")

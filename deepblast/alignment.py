@@ -2,17 +2,20 @@ import torch
 import torch.nn as nn
 from deepblast.nw_cuda import NeedlemanWunschDecoder as NWDecoderCUDA
 from deepblast.nw import NeedlemanWunschDecoder as NWDecoderNumba
+from deepblast.sw_cuda import SmithWatermanDecoder as SWDecoderCUDA
+from deepblast.sw import SmithWatermanDecoder as SWDecoderNumba
 from deepblast.embedding import StackedRNN, StackedCNN
 from deepblast.dataset.utils import unpack_sequences
 
 import torch.nn.functional as F
 
 
-
-class NeedlemanWunschAligner(nn.Module):
+class NeuralAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
-                 n_layers=2, dropout=0, lm=None, layer_type='cnn', device='gpu'):
+                 n_layers=2, dropout=0, lm=None, layer_type='cnn',
+                 alignment_mode='needleman-wunch',
+                 device='gpu'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -38,9 +41,8 @@ class NeedlemanWunschAligner(nn.Module):
         -----
         This only works on GPU at the moment.
         """
-        super(NeedlemanWunschAligner, self).__init__()
+        super(NeuralAligner, self).__init__()
         assert lm is not None
-
         self.lm = lm
 
         if n_layers > 1:
@@ -62,10 +64,19 @@ class NeedlemanWunschAligner(nn.Module):
             self.match_embedding = nn.Linear(n_embed, n_embed)
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
-        if device == 'gpu':
-            self.nw = NWDecoderCUDA(operator='softmax')
+        if alignment_mode == 'needleman-wunch':
+            if device == 'gpu':
+                self.ddp = NWDecoderCUDA(operator='softmax')
+            else:
+                self.ddp = NWDecoderNumba(operator='softmax')
+        elif alignment_mode == 'smith-waterman':
+            if device == 'gpu':
+                self.ddp = SWDecoderCUDA(operator='softmax')
+            else:
+                self.ddp = SWDecoderNumba(operator='softmax')
         else:
-            self.nw = NWDecoderNumba(operator='softmax')
+            raise NotImplementedError(
+                'Alignment_mode {alignment_mode} not implemented.')
 
     def blosum_factor(self, x):
         """ Computes factors for blosum parameters using a single sequence
@@ -110,7 +121,7 @@ class NeedlemanWunschAligner(nn.Module):
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
-            aln = self.nw.decode(theta, A)
+            aln = self.ddp.decode(theta, A)
             return aln, theta, A
 
     def score(self, x, order, mask):
@@ -122,7 +133,7 @@ class NeedlemanWunschAligner(nn.Module):
             # Obtain theta through an inner product across latent dimensions
             theta = F.softplus(torch.einsum('bid,bjd->bij', zx, zy))
             A = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
-            ascore = self.nw(theta, A)
+            ascore = self.ddp(theta, A)
             return ascore
 
     def traceback(self, x, order):
@@ -152,9 +163,9 @@ class NeedlemanWunschAligner(nn.Module):
             gap = F.logsigmoid(torch.einsum('bid,bjd->bij', gx, gy))
             B, _, _ = match.shape
             for b in range(B):
-                aln = self.nw.decode(
+                aln = self.ddp.decode(
                     match[b, :xlen[b], :ylen[b]].unsqueeze(0),
                     gap[b, :xlen[b], :ylen[b]].unsqueeze(0)
                 )
-                decoded = self.nw.traceback(aln.squeeze())
+                decoded = self.ddp.traceback(aln.squeeze())
                 yield decoded, aln
