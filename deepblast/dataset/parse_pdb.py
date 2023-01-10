@@ -25,8 +25,8 @@ def readPDB(filename, verbose=False):
     namedtuple data structure that is specified in the code'''
     points = []
     seq = ''
-    aa321 = dict()
     aa321 = dict(list(zip(aaname3, aaname1)))
+    # aa321 = dict()
     # for tt1, tt3 in zip(aaname1, aaname3): aa321[tt3] = tt1
     last_res_num = None
     with open(filename) as pdbfile:
