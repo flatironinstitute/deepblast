@@ -137,7 +137,7 @@ MAXSUB_TM= namedtuple('MAXSUB_TM',('score','rotation','alignment','alignedRMS'))
 
 
 def FR_TM_maxsub_score(master_p0, master_p1,align_index,
-          FRAGSMALL=8,FRAGLARGE=12,TOL=7.0, UNIT = 1.0 ):
+                       FRAGSMALL=8,FRAGLARGE=12,TOL=7.0, UNIT = 1.0 ):
     ''' Computes TM-scores
 
     Parameters
