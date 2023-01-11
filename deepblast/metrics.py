@@ -137,7 +137,7 @@ MAXSUB_TM= namedtuple('MAXSUB_TM',('score','rotation','alignment','alignedRMS'))
 
 
 def FR_TM_maxsub_score(master_p0, master_p1,align_index,
-                       FRAGSMALL=8,FRAGLARGE=12,TOL=7.0, UNIT = 1.0 ):
+                       FRAGSMALL=8, FRAGLARGE=12, TOL=7.0, UNIT=1.0 ):
     ''' Computes TM-scores
 
     Parameters
@@ -199,13 +199,13 @@ def FR_TM_maxsub_score(master_p0, master_p1,align_index,
         if  raw_TM_score_temp> raw_TM_score_best:
             raw_TM_score_best = raw_TM_score_temp
             raw_TM_best_rotation = G
-            raw_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
+            raw_TM_best_seed_alignment = range(i0, i0 + FRAGSIZE)
             raw_TM_alignedRMS = raw_rmsd_temp
 
         if  raw_TM_score_temp > maxsub_TM_score_best:
             maxsub_TM_score_best = raw_TM_score_temp
             maxsub_TM_best_rotation = G
-            maxsub_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
+            maxsub_TM_best_seed_alignment = range(i0,i0 + FRAGSIZE)
             maxsub_TM_alignedRMS = raw_rmsd_temp
         # now lets apply some maxsub style iterations to improve this
         last_pair_count = 0
@@ -320,39 +320,80 @@ def standard_metrics(master_p0, master_p1, align_index, indicies, d0=4.0, UNIT=1
     alignment. However, these values are length dependent.'''
     if indicies is None:
         indicies = range(np.shape(align_index)[1])
-    L_min = min( np.shape(master_p0)[0],np.shape(master_p1)[0])  # get the shape
+    L_min = min(np.shape(master_p0)[0], np.shape(master_p1)[0])  # get the shape
     L_aligned=np.shape(align_index)[1]
     L_orientable = len(indicies)
+
+    TM_d0 = 1.24 * (L_min - 15) ** 0.333333 - 1.8  # for the TM score
+    TM_d02 = TM_d0 ** 2
 
     p0 = master_p0[align_index[0]]
     p1 = master_p1[align_index[1]]
 
-
-    p0aligned, p1aligned,G= kabsch_template_alignment(p0, p1, p0[indicies], p1[indicies])
+    p0aligned, p1aligned,G= kabsch_template_alignment(p0,p1,p0[indicies],p1[indicies])
     # rotation aligns just the selected atoms
-    deviation2 = np.sum((p0aligned - p1aligned) ** 2,axis=1)  # this is over the full alignment.
-    RMS = np.sqrt(np.sum(deviation2) / L_aligned)             #RMS over all
-    oRMS = np.sqrt(np.sum(deviation2[indicies]) / L_orientable)  # RMS over subset of resides contributing to orientation
-
-    PSI_mask =  deviation2 < (4.0 * UNIT) ** 2
+    deviation2 = np.sum((p0aligned-p1aligned) ** 2, axis=1)  # this is over the full alignment.
+    TM_score = np.sum(1.0 / (1.0 + deviation2 / TM_d02)) / L_min
+    RMS = np.sqrt(np.sum(deviation2) / L_aligned)             # RMS over all
+    # RMS over subset of resides contributing to orientation
+    oRMS = np.sqrt(np.sum(deviation2[indicies]) / L_orientable)
+    PSI_mask =  np.sqrt(deviation2) < (4.0 * UNIT)
     L_PSI = np.sum(PSI_mask)
     PSI= L_PSI / L_min
-
-    if L_PSI > 2: # RMS doesn't mean much otherwise
+    if L_PSI > 2:  # RMS doesn't mean much otherwise
         # RMS over resides contributing to PSI
-        cRMS = np.sqrt(np.sum(deviation2[PSI_mask])/L_PSI)  # or should be re-align this?  could become tailchasing?
+        # or should be re-align this?  could become tailchasing?
+        cRMS = np.sqrt(np.sum(deviation2[PSI_mask]) / L_PSI)
     else:
-        cRMS = 100.0  # fiction.
+        cRMS = np.NaN  # fiction.
+    if seq0 is not None and seq1 is not None:
+        seq_aligned = np.array([[seq0[i], seq1[j]] for i,j in align_index.T])
+        aSeq_ident = np.sum( seq_aligned[:, 0] == seq_aligned[:, 1])
+        aSeq_ident /= L_aligned
+        oSeq_ident = np.sum(seq_aligned[indicies, 0] == seq_aligned[indicies, 1])
+        oSeq_ident /= L_orientable
+        cSeq_ident = np.sum( seq_aligned[PSI_mask, 0] == seq_aligned[PSI_mask, 1])
+        cSeq_ident /= L_PSI
+    else:
+        aSeq_ident = oSeq_ident = cSeq_ident = 0
 
-    c=0  # run length tracker
-    rPSI=0  # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range( L_aligned-1):
+    c = 0     # run length tracker
+    aPSI = 0  # running sum of long runs with 4 or more residues
+              # in a row without gaps
+    for i in range( L_aligned):
         c += 1
-        if np.any((align_index[:, i+1] - align_index[:, i]) > 1):  # a gap in either protein's alignment
+        # a gap in either protein's alignment
+        if (i + 1 == L_aligned or
+            np.any((align_index[:, i + 1]-align_index[:, i]) >1)):
+           if c > 3: aPSI += c  # should I be checking for 3 or 4 here?
+           c = 0
+    aPSI = aPSI / L_min
+
+    oPSI = 0  # running sum of long runs with 4 or more residues in a row without gaps
+    for i in range( L_orientable):
+        c += 1
+        # a gap in either protein's alignment
+        if (i + 1 == L_orientable or
+            np.any((align_index[:, indicies[i + 1]] - align_index[:, indicies[i]]) > 1)):
+           if c > 3: oPSI += c  # should I be checking for 3 or 4 here?
+           c=0
+    oPSI = oPSI / L_min
+
+    rPSI=0  # running sum of long runs with 4 or more residues in a row without gaps
+    for i in range(L_PSI):
+        c += 1
+        # a gap in either protein's alignment
+        if (i + 1 == L_PSI or
+            np.any((align_index[:, PSI_mask][:, i + 1] - \
+                    align_index[:, PSI_mask][:, i]) > 1)):
            if c > 3: rPSI += c  # should I be checking for 3 or 4 here?
-           c= 0
+           c = 0
     rPSI = rPSI / L_min
-    return Metrics(PSI, rPSI, cRMS, RMS, oRMS, L_min, L_aligned, L_orientable, L_PSI)
+
+    return Metrics(TM_score, PSI, aPSI, oPSI, rPSI, cRMS, RMS, oRMS,
+                   aSeq_ident, oSeq_ident, cSeq_ident,
+                   L_min, L_aligned, L_orientable, L_PSI)
+
 
 
 def parseAlingmentString(j):
