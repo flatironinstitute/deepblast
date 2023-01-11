@@ -155,12 +155,12 @@ def FR_TM_maxsub_score(master_p0, master_p1,align_index,
     '''
     RMSTOL = TOL * UNIT   #######  CHECK THIS IS THE RIGHT DEFAULT VALUE
     L_aligned=np.shape(align_index)[1]
-    L_min = min( np.shape(master_p0)[0],np.shape(master_p0)[0])  # get the shape
-    assert(L_min >9)
+    L_min = min(np.shape(master_p0)[0], np.shape(master_p0)[0])  # get the shape
+    assert(L_min > 9)
 
-    TM_d0 = 1.24*(L_min-15)**0.333333 -1.8  # for the TM score
-    TM_d02 = TM_d0**2
-    FRAGSIZE =FRAGSMALL if L_min <100 else FRAGLARGE
+    TM_d0 = 1.24 * (L_min - 15) ** 0.333333 - 1.8  # for the TM score
+    TM_d02 = TM_d0 ** 2
+    FRAGSIZE =FRAGSMALL if L_min < 100 else FRAGLARGE
 
 
     N = np.shape(align_index)[1]
@@ -171,7 +171,7 @@ def FR_TM_maxsub_score(master_p0, master_p1,align_index,
 
     # set accumulation variables to default or triggers to replace them later
     maxsub_most = -1 # or  0?
-    maxsub_alignedRMS = 1E9*UNIT
+    maxsub_alignedRMS = 1E9 * UNIT
     maxsub_alignment=[]
     maxsub_rotation = np.eye(3)
 
@@ -181,7 +181,7 @@ def FR_TM_maxsub_score(master_p0, master_p1,align_index,
     # an illegally large value so it will get forced to be replaced below
     raw_TM_score_best = -1
     maxsub_TM_best_rotation=raw_TM_best_rotation = np.array(
-        [[1.0,0,0],[0,1.0,0.0],[0,0,1.0]]) # no rotation at all.
+        [[1.0, 0, 0], [0, 1.0, 0.0], [0, 0, 1.0]]) # no rotation at all.
     maxsub_TM_score_best = -1
 
     # loop over all initial seeds for rotation based on consecutive fragments.
@@ -189,24 +189,24 @@ def FR_TM_maxsub_score(master_p0, master_p1,align_index,
     for i0 in range( WINDOWS):
         frag0 = p0[i0 : i0 + FRAGSIZE]
         frag1 = p1[i0 : i0 + FRAGSIZE]
-        p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,frag0,frag1)
+        p0aligned, p1aligned, G=kabsch_template_alignment(p0, p1, frag0, frag1)
         # The initial alginment  might be okay, so lets record it
-        deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1) # only sum over x,y,z but not over points.
-        raw_TM_score_temp = np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min # can use L_target instead of L_min for one-to-many
+        deviation2 = np.sum((p0aligned - p1aligned) ** 2,axis=1) # only sum over x,y,z but not over points.
+        raw_TM_score_temp = np.sum(1.0 / (1.0 + deviation2 / TM_d02 )) / L_min # can use L_target instead of L_min for one-to-many
         raw_rmsd_temp= np.sqrt(np.mean(deviation2))
         if  raw_rmsd_temp>=RMSTOL : next  # don't even bother!  (not a problem for mammoth but is for arbitrary alignments)
 
         if  raw_TM_score_temp> raw_TM_score_best:
-             raw_TM_score_best = raw_TM_score_temp
-             raw_TM_best_rotation = G
-             raw_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
-             raw_TM_alignedRMS = raw_rmsd_temp
+            raw_TM_score_best = raw_TM_score_temp
+            raw_TM_best_rotation = G
+            raw_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
+            raw_TM_alignedRMS = raw_rmsd_temp
 
         if  raw_TM_score_temp > maxsub_TM_score_best:
-             maxsub_TM_score_best = raw_TM_score_temp
-             maxsub_TM_best_rotation = G
-             maxsub_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
-             maxsub_TM_alignedRMS = raw_rmsd_temp
+            maxsub_TM_score_best = raw_TM_score_temp
+            maxsub_TM_best_rotation = G
+            maxsub_TM_best_seed_alignment = range(i0,i0+FRAGSIZE)
+            maxsub_TM_alignedRMS = raw_rmsd_temp
         # now lets apply some maxsub style iterations to improve this
         last_pair_count = 0
         indicies= []  # list(fragment_indices) # copy current fragment indicies in list
