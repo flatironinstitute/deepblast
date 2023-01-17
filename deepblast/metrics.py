@@ -136,391 +136,336 @@ def kabsch_template_alignment(p1, p2, t1, t2):
 MAXSUB_TM= namedtuple('MAXSUB_TM',('score','rotation','alignment','alignedRMS'))
 
 
-def FR_TM_maxsub_score(master_p0, master_p1, align_index,
-                       FRAGSMALL=8, FRAGLARGE=12, TOL=7.0, UNIT=1.0, debug=0):
-    ''' Computes TM-scores
+def FR_TM_maxsub_score(master_p0, master_p1,align_index,
+          FRAGSMALL=8,FRAGLARGE=12,TOL=7.0, UNIT = 1.0, debug=0 ):
+    '''Inputs:
+    master_pX Nxk points list where k=3 for 3D, and N is all points.
+    align_index[X][i] translates i'th alingment point to the index in master
 
-    Parameters
-    ----------
-    p1 : np.array
-       Point cloud of N d-dimensional points
-    p2 : np.array
-       Point cloud of M d-dimensional points
-    align_index : np.array
-       Translates i'th alingment point to the index in master
-
-    Returns
-    -------
-    Tuple of metrics
     '''
-    RMSTOL = TOL * UNIT   #######  CHECK THIS IS THE RIGHT DEFAULT VALUE
-    L_aligned = np.shape(align_index)[1]
-    L_min = min(np.shape(master_p0)[0], np.shape(master_p1)[0])  # get the shape
+    RMSTOL = TOL*UNIT   #######  CHECK THIS IS THE RIGHT DEFAULT VALUE
+    L_aligned=np.shape(align_index)[1]
+    L_min = min( np.shape(master_p0)[0],np.shape(master_p1)[0])  # get the shape
     assert(L_min >9)
 
-    TM_d0 = 1.24 * (L_min-15) ** 0.333333 -1.8  # for the TM score
-    TM_d02 = TM_d0 ** 2
-    FRAGSIZE = FRAGSMALL if L_min <100 else FRAGLARGE
+    TM_d0 = 1.24*(L_min-15)**0.333333 -1.8  # for the TM score
+    TM_d02 = TM_d0**2
+    FRAGSIZE =FRAGSMALL if L_min <100 else FRAGLARGE
     FRAGSIZE=7
 
     N = np.shape(align_index)[1]
     WINDOWS = N-FRAGSIZE # +1 ?
     # grab the aligned residues out of the master lists.
+ #   print("P0 shape {} {}".format(np.shape(master_p0),align_index[0,-1]))
+ #   print("P1 shape {} {}".format(np.shape(master_p1),align_index[1,-1]))
+ #   print(align_index)
     p0 = master_p0[align_index[0]]
     p1 = master_p1[align_index[1]]
 
+
     # set accumulation variables to default or triggers to replace them later
     maxsub_most = -1 # or  0?
-    maxsub_alignedRMS = 1E9 * UNIT
+    maxsub_alignedRMS = 1E9*UNIT
     maxsub_alignment=[]
     maxsub_rotation = np.eye(3)
 
-    raw_TM_score_best = maxsub_TM_score_best=1E9 * UNIT
+    raw_TM_score_best=maxsub_TM_score_best=1E9*UNIT
 
 
     # initialize
-
-    # an illegally large value so it will get forced to be replaced below
-    raw_TM_score_best = -1
-    default = np.array([[1.0,0,0],[0,1.0,0.0],[0,0,1.0]])
-    # no rotation at all.
-    maxsub_TM_best_rotation= raw_TM_best_rotation = default
+    raw_TM_score_best = -1 # an illegally large value so it will get forced to be replaced below
+    maxsub_TM_best_rotation=raw_TM_best_rotation = np.array([[1.0,0,0],[0,1.0,0.0],[0,0,1.0]]) # no rotation at all.
     maxsub_TM_score_best = -1
     maxsub_TM_most = -1
 
-    # no rotation at all.
-    longest_TM_best_rotation=raw_TM_best_rotation = default
+    longest_TM_best_rotation=raw_TM_best_rotation = np.array([[1.0,0,0],[0,1.0,0.0],[0,0,1.0]]) # no rotation at all.
     longest_TM_score_best = -1
     longest_TM_most = -1
 
     # loop over all initial seeds for rotation based on consecutive fragments.
-    for i0 in range(WINDOWS):
-        frg = range(i0, i0 + FRAGSIZE)
+
+    for i0 in range( WINDOWS):
+        frg = range(i0,i0+FRAGSIZE)
         frag0 = p0[frg]
         frag1 = p1[frg]
 
         p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,frag0,frag1)
+      #  R,w,d,offset0,offset1 = kabsch(frag0,frag1) # just align this fragment
+
+       # p1aligned = np.matmul(p1-offset1,R.T) # apply alignment.
 
         # The initial alginment  might be okay, so lets record it
-        # only sum over x,y,z but not over points.
-        deviation2 = np.sum((p0aligned - p1aligned) ** 2, axis=1)
-        # can use L_target instead of L_min for one-to-many
-        raw_TM_score_temp = np.sum(1.0 / (1.0 + deviation2 / TM_d02 )) / L_min
+        deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1) # only sum over x,y,z but not over points.
+        raw_TM_score_temp = np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min # can use L_target instead of L_min for one-to-many
+    #    print ("iitial fragment msd ",np.sum(deviation2)/FRAGSIZE)
+    #    print (align_index[:,i0:i0+FRAGSIZE])
         raw_rmsd_temp= np.sqrt(np.mean(deviation2))
-        # don't even bother!  (not a problem for mammoth but is
-        # for arbitrary alignments)
-        if  raw_rmsd_temp >= RMSTOL : next
+        if  raw_rmsd_temp>=RMSTOL : next  # don't even bother!  (not a problem for mammoth but is for arbitrary alignments)
 
-        if raw_TM_score_temp > raw_TM_score_best:
+
+        if  raw_TM_score_temp> raw_TM_score_best:
             raw_TM_score_best = raw_TM_score_temp
             raw_TM_best_rotation = G
             raw_TM_best_seed_alignment = frg
-            raw_TM_alignedRMS = raw_rmsd_temp
+            raw_TM_alignedRMS=raw_rmsd_temp
 
-        if  raw_TM_score_temp > maxsub_TM_score_best:
+        if  raw_TM_score_temp> maxsub_TM_score_best:
             maxsub_TM_score_best = raw_TM_score_temp
             maxsub_TM_best_rotation = G
             maxsub_TM_best_seed_alignment = frg
             maxsub_TM_alignedRMS = raw_rmsd_temp
-        # now lets apply some maxsub style iterations to improve this
 
+
+        #fragment_indicies=range(i0,i0+FRAGSIZE) # put current fragment indicies in list
         last_pair_count = 0
-        #list(fragment_indices) # copy current fragment indicies in list
-        indicies= []
-        # note maybe we should insert the fragment because if t==0.1
-        # then some of the fragment won'g go in!!!!!!
+        indicies= [] #list(fragment_indices) # copy current fragment indicies in list
         TM_temp =0.0
-        # for TM_align it makes sense to make TOL larger since
-        # we want it to keep searching longer.
+        # for TM_align it makes sense to make TOL larger since we want it to keep searching longer.
         t = 0.0  #################  nayve we should start this at 1???/
         while t<TOL:  # this goes one unit over TOL.  should we fix that?
-            t += 0.1  # 0.25 * UNIT
-            t2 = t*t  # squared radius
-            # this embeds a logic error in mammoth!  need to fix that!
-            # The percentage of structural similarity (PSI) is defined
-            # as the number of aligned amino acid pairs with Cα atoms
-            # that are closer in space then 4 Å after
+          #  t+=UNIT  # e.g. one angstrom  # maybe I don't need this at all????  better without it?
+            t+=0.1 #0.25*UNIT
+            t2 = t*t # squared radius
+            # this embeds a logic error in mammoth!  need to fix that!The percentage of structural similarity (PSI) is defined as the number of aligned amino acid pairs with Cα atoms that are closer in space then 4 Å after
             # problem happens if NO residues get included on first pass
             # then the t gets raised too much!
 
             min_d2 = (TOL+UNIT)*(TOL+UNIT)
 
             # have to us a fresh copy because we will be saving this
+            #indicies= [] #list(fragment_indices) # copy current fragment indicies in list
+
+            ### thought: woould it make sense to add residues to index not based on RMS but on TM-score?  Maybe not just the closest ones
+            ###   but ones where the derivative of TM score is largest, dialing those in would actually improve the
+            ###   TM score the most. Howver those are doing to be at the raidus d2= TM_d02  not d2~0
+
+            #### thought:  apply weight matrix to the RMSD matrix composiiton so that it up weights the high TM score ones
+            ####   alternative thought:  up weight the the ones that have the  highest derivative.
+
+            ### insight:  weighting not only affects the rotation matrix but it also affects the translations vector.
+            ###  thought:  maybe you do the first run maximizing TM score then the second run starts there and
+            ####           tries maximizing according to the derivative weighting?  Maybe a linear combination of the two?
+
+
+
             for j0 in  range(N):
                 # check if we should include this atom pair
                 if j0 not in indicies:
                     deviations =(p0aligned[j0]-p1aligned[j0])**2
-                    # MSD for atom pair so it's divide by 1 not L_align
-                    d2 = np.sum(deviations)
-                    # include this if it is close enough or is in the fragment
-                    if d2<t2 or (0<=j0-i0<FRAGSIZE): # could use short circuit
+                    d2 = np.sum(deviations)  # MSD for atom pair so it's divide by 1 not L_align
+                    if d2<t2 or (0<=j0-i0<FRAGSIZE): # could use short circuit or
                         indicies.append(j0)  # change this to faster method
-                        #  and while were at it need to fix a theoreticl chance
-                        # that the RMSD of the first fragment is over RMSTOL.
 
-                    else:  # do not update min_d2 this for fragment itself
-                        min_d2 = min(min_d2,d2)  # track closest distance
+                    else: # do not update min_d2 this for fragment itself
+                        min_d2 = min(min_d2,d2) # track closest distance
                         # note this min ignores the ones in the aligned fragment.
             # did we add any new atomns in last iteration?
             L_indicies = len(indicies)
 
-            # Here we have to be careful---
-            # as long as indicies is strictly accumaltive then we can be sure
-            # that nothing in the alignemnt was added unless
-            # L_indicies > last_pair_count
-            # but if that is NOT true, and we can remove
-            # underperforming residues as the alignment focus
-            # moves to better TM scores but fewer residues then
-            # we may not trigger this since inside this we trigger
-            # the re-alignment then the evolution will stop in it's tracks!
-            if  L_indicies > last_pair_count and  L_indicies > 3:
-                # may want to chack that have atleast 3 atoms
-                # of kabsch will barf.
+            # here we have to be careful--- as long as indicies is strictly accumaltive then we can be sure
+            # that nothing in the alignemnt was added unless  L_indicies > last_pair_count
+            # but if that is NOT true, and we can remove underperforming residues as the alignment focus
+            # moves to better TM scores but fewer residues then we may not trigger this
+            # since inside this we trigger the re-alignment then the evolution will stop in it's tracks!
+            if  L_indicies > last_pair_count and  L_indicies >3:  #### may want to chack that have atleast 3 atoms of kabsch will barf.
                 last_pair_count= L_indicies
-                p0aligned, p1aligned, G = kabsch_template_alignment(
-                    p0, p1, p0[indicies], p1[indicies])
-                # rotation that aligns just the selected atoms
-                # note the sum over coords!!  # this is over the full alignment
-                deviation2 = np.sum((p0aligned - p1aligned) ** 2, axis=1)
-                # (assumes no replicates!)
-                alignedRMS = np.sqrt(np.mean(deviation2))
+                p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,p0[indicies],p1[indicies])
 
-                # MAXSUB SCORED
-                # for MAXSUB, we prefer greater number of aligned residues
-                # as long as rms<RMSTOL and amoung equal number of residues
-                # we take the smaller rms.
-                if ((L_indicies > maxsub_most and
-                     alignedRMS <= RMSTOL) or \
-                    (L_indicies == maxsub_most and
-                     alignedRMS < maxsub_alignedRMS)):
-                    # update the best we have0 72 seen so far
+                deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1)  # note the sum over coords!!  # this is over the full alignment.
+                alignedRMS = np.sqrt(np.mean(deviation2))  # (assumes no replicates!)
+
+
+                if (L_indicies>maxsub_most and alignedRMS<=RMSTOL) or \
+                    (L_indicies==maxsub_most and alignedRMS<maxsub_alignedRMS):
                     maxsub_most = L_indicies
                     maxsub_alignedRMS= alignedRMS
                     maxsub_alignment= np.array(indicies)
                     maxsub_rotation = G
 
-                #TM SCORED
-                # can use L_target instead of L_min for one-to-many
-                maxsub_TM_score_temp = \
-                    np.sum(1.0 / (1.0 + deviation2 / TM_d02)) / L_min
-                # it feels wrong to divide by L_min and not L_align
-                # because it automatically upper bounds the TM_score
-                # to L_align/L_min
-                if (((L_indicies >  longest_TM_most) and
-                     ( maxsub_TM_score_temp > 0.97 * longest_TM_score_best)) or
-                   ((L_indicies <  longest_TM_most) and
-                    ( maxsub_TM_score_temp > 1.02 * longest_TM_score_best)) or
-                   ((L_indicies == longest_TM_most) and
-                    ( maxsub_TM_score_temp > longest_TM_score_best))):
-                    longest_TM_score_best = maxsub_TM_score_temp
 
-                    longest_TM_best_rotation = G
-                    longest_TM_best_seed_alignment = np.array(indicies)
+                #TM SCORED
+                maxsub_TM_score_temp = np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min  # can use L_target instead of L_min for one-to-many
+
+               # if (maxsub_TM_most > 3*FRAGSIZE):
+                if ((L_indicies>  longest_TM_most) and  ( maxsub_TM_score_temp> 0.97*longest_TM_score_best)) or\
+                   ((L_indicies<  longest_TM_most) and  ( maxsub_TM_score_temp> 1.02*longest_TM_score_best)) or\
+                   ((L_indicies== longest_TM_most) and  ( maxsub_TM_score_temp>      longest_TM_score_best)):
+                    longest_TM_score_best = maxsub_TM_score_temp
+                    longest_TM_best_rotation = G # Do we need a copy of this? this si worthless without offset!!!!!#####
+                    longest_TM_best_seed_alignment=np.array(indicies) # copy)
                     longest_TM_alignedRMS = alignedRMS
                     longest_TM_most = L_indicies
 
                 if maxsub_TM_score_temp> maxsub_TM_score_best:
-                    maxsub_TM_score_best = maxsub_TM_score_temp
 
-                    maxsub_TM_best_rotation = G
+                    maxsub_TM_score_best = maxsub_TM_score_temp
+                    maxsub_TM_best_rotation = G # Do we need a copy of this? this si worthless without offset!!!!!#####
                     maxsub_TM_best_seed_alignment=np.array(indicies) # copy)
                     maxsub_TM_alignedRMS = alignedRMS
                     maxsub_TM_most = L_indicies
 
-            else:
                 # be careful with the logic of which array to rotate
-                # nothing was close enough at this tolerance
+            else: # nothing was close enough at this tolerance
                 t =np.sqrt(min_d2)# Will also add to this 0.1*UNIT above
-                # accelerates the search a bit. But doesn't
-                # raw_TM_score_best change the outcome if you skip this step
+
+
+
 
         L_indicies = len(indicies)
-        alignedRMS = np.sqrt(
-            np.sum(
-                (p0aligned[indicies] - p1aligned[indicies]) ** 2) / L_indicies
-        )
 
-    # now we can pick the best trade between trying for longer and
-    # trying for the best Tm
-    if (longest_TM_most > maxsub_TM_most and
-        longest_TM_score_best > 0.97 * maxsub_TM_score_best):
-        maxsub_TM_score_best = longest_TM_score_best
-        maxsub_TM_best_rotation = longest_TM_best_rotation
-        maxsub_TM_best_seed_alignment = longest_TM_best_seed_alignment
-        maxsub_TM_alignedRMS = longest_TM_alignedRMS
-        maxsub_TM_most = longest_TM_most
+        ### could the following maybe go wrong is the above isn't called?wrong.  it uses the offset for a different set sizer!!!!!!  ####$$$$$$$$$$$???????
+
+
+        alignedRMS = np.sqrt(np.sum((p0aligned[indicies]-p1aligned[indicies])**2)/L_indicies)
+
+        #### LOGIC ERROR--- WE NEED TO BE TRACKING THE maxsub score at every stage because it is
+        ## # possible tha one gets to this point and alignedRMS > RMSTOL, so we won't record it
+        #####  but there might have been an intermediate stage where there was a good one less than RMSTOL but
+        #####  but with fewer aligned residues.
+
+        #### is this an error in mammoth too?
+
+
+    # now we can pick the best trade between trying for longer and trying for the best Tm
+    if longest_TM_most> maxsub_TM_most and longest_TM_score_best > 0.97*maxsub_TM_score_best:
+        print ("length trade off {} residues @ Tm{} verus {} residues @ Tm{}".format(maxsub_TM_most,maxsub_TM_score_best,longest_TM_most,longest_TM_score_best))
+        maxsub_TM_score_best =          longest_TM_score_best
+        maxsub_TM_best_rotation =       longest_TM_best_rotation
+        maxsub_TM_best_seed_alignment=  longest_TM_best_seed_alignment
+        maxsub_TM_alignedRMS =          longest_TM_alignedRMS
+        maxsub_TM_most =                longest_TM_most
 
     # and as a final check we just do the full enchilada
-    p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,p0,p1)
-    # The initial alginment  might be okay, so lets record it
-    # only sum over x,y,z but not over points.
-    deviation2 = np.sum((p0aligned - p1aligned) ** 2, axis=1)
-    # can use L_target instead of L_min for one-to-many
-    DEBUG2_TM_score_temp = np.sum(1.0 / (1.0 + deviation2 / TM_d02)) / L_min
-    raw_rmsd_temp = np.sqrt(np.mean(deviation2))
-    p0aligned, p1aligned,G= kabsch_template_alignment(
-        p0, p1, p0[maxsub_TM_best_seed_alignment],
-        p1[maxsub_TM_best_seed_alignment])
-    # note the sum over coords!!  # this is over the full alignment.
-    deviation2 = np.sum((p0aligned - p1aligned) ** 2, axis=1)
-    alignedRMS = np.sqrt(np.mean(deviation2))  # (assumes no replicates!)
-    check_TM_SCORE =  np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min
-    if np.abs(1 - maxsub_TM_score_best / check_TM_SCORE) > 0.05:
-        raise ValueError( "ERROR!!!!!!  these should agree {}  {}".format(
-            maxsub_TM_score_best,check_TM_SCORE))
-    if maxsub_TM_score_best/DEBUG2_TM_score_temp > 1.05:
-        warnings.warn(
-            ("WHOA:  maxsub found better answer residues {} "
-             "@ Tm {}  better than {} @ Tm {}").format(
-                 maxsub_TM_most,maxsub_TM_score_best,
-                 L_aligned,DEBUG2_TM_score_temp))
-    if maxsub_TM_score_best/DEBUG2_TM_score_temp <0.94:
-        warnings.warn(("WA!!!!!! maxsub is worse than the "
-                       "full length alignment {} {}").format(
-                           maxsub_TM_most, maxsub_TM_score_best,
-                           L_aligned, DEBUG2_TM_score_temp))
+    if True:  # since were going to score_metric anyhow, we can skip this
+        p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,p0,p1)
+      #  R,w,d,offset0,offset1 = kabsch(frag0,frag1) # just align this fragment
 
-    best = MAXSUB_TM(maxsub_TM_score_best, maxsub_TM_best_rotation,
-                     maxsub_TM_best_seed_alignment, maxsub_TM_alignedRMS)
-    raw = MAXSUB_TM(raw_TM_score_best, raw_TM_best_rotation,
-                    raw_TM_best_seed_alignment, raw_TM_alignedRMS),
-    most = MAXSUB_TM(maxsub_most, maxsub_rotation,
-                     maxsub_alignment, maxsub_alignedRMS)
-    return best, raw, most
+       # p1aligned = np.matmul(p1-offset1,R.T) # apply alignment.
+
+        # The initial alginment  might be okay, so lets record it
+        deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1) # only sum over x,y,z but not over points.
+        DEBUG2_TM_score_temp = np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min # can use L_target instead of L_min for one-to-many
+        #    print ("iitial fragment msd ",np.sum(deviation2)/FRAGSIZE)
+        #    print (align_index[:,i0:i0+FRAGSIZE])
+        raw_rmsd_temp= np.sqrt(np.mean(deviation2))
 
 
-Metrics = namedtuple('Metrics', ['TM','PSI','aPSI','oPSI','rPSI',
-                                 'cRMS','aRMS','oRMS',
-                                 'aSeq_ident','oSeq_ident','cSeq_Ident',
-                                 'L_min','L_aligned','L_orientable','L_PSI'])
+#         if  maxsub_TM_score_best < raw_TM_score_temp:
+#             maxsub_TM_score_best = raw_TM_score_temp
+#             maxsub_TM_best_rotation = G
+#             maxsub_TM_best_seed_alignment = range(L_aligned)
+#             maxsub_TM_alignedRMS=raw_rmsd_temp
+    # this is debug check
+        p0aligned,p1aligned,G=kabsch_template_alignment(p0,p1,p0[maxsub_TM_best_seed_alignment],p1[maxsub_TM_best_seed_alignment])
+        deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1)  # note the sum over coords!!  # this is over the full alignment.
+        alignedRMS = np.sqrt(np.mean(deviation2))  # (assumes no replicates!)
+        check_TM_SCORE =  np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min
+        print( "debug Tm scores \nrecomputed maxsub Tm{} =? best {} >? full_protein{}\nlen orietned {} full {}".format(check_TM_SCORE ,maxsub_TM_score_best, DEBUG2_TM_score_temp,len(maxsub_TM_best_seed_alignment),L_aligned))
+        if   np.abs(1-maxsub_TM_score_best/ check_TM_SCORE) >0.05:
+            print( "ERROR!!!!!!  these should agree {}  {}".format(maxsub_TM_score_best,check_TM_SCORE))
+        if  maxsub_TM_score_best/DEBUG2_TM_score_temp > 1.05:
+            print("WHOA:  maxsub found better answer residues {} @ Tm {}  better than {} @ Tm {}".format(maxsub_TM_most,maxsub_TM_score_best,L_aligned,DEBUG2_TM_score_temp))
+        if   maxsub_TM_score_best/DEBUG2_TM_score_temp <0.94:
+            print( "WA!!!!!! maxsub is worse than the full length alignment {} {}".format(maxsub_TM_most,maxsub_TM_score_best,L_aligned,DEBUG2_TM_score_temp))
+        print("metrix")
+        print(standard_metrics( master_p0,  master_p1,align_index,indicies=maxsub_TM_best_seed_alignment,seq0=None,seq1=None,d0=4.0, UNIT=1.0) )
+        print(standard_metrics( master_p0,  master_p1,align_index,indicies=None,seq0=None,seq1=None,d0=4.0, UNIT=1.0) )
+    return (MAXSUB_TM(maxsub_TM_score_best,maxsub_TM_best_rotation,maxsub_TM_best_seed_alignment,maxsub_TM_alignedRMS),
+            MAXSUB_TM (raw_TM_score_best,raw_TM_best_rotation,raw_TM_best_seed_alignment,raw_TM_alignedRMS),
+            MAXSUB_TM(maxsub_most,maxsub_rotation,maxsub_alignment,maxsub_alignedRMS))
 
 
-def standard_metrics(master_p0, master_p1, align_index, indicies,
-                     seq0=None, seq1=None, d0=4.0, UNIT=1.0):
-    ''' Compute multiple structural alignment goodness-of-fit metrics
+Metrics = namedtuple('Metrics',['TM','PSI','aPSI','oPSI','rPSI','cRMS','aRMS','oRMS','aSeq_ident','oSeq_ident','cSeq_Ident','L_min','L_aligned','L_orientable','L_PSI'])
 
-    Parameters
-    ----------
-    p1 : np.array
-       Point cloud of N d-dimensional points
-    p2 : np.array
-       Point cloud of M d-dimensional points
-    align_index : np.array
-       Translates i'th alingment point to the index in master
 
-    Returns
-    -------
-    Tuple of metrics
-
-    Notes
-    -----
-    The percentage of structural similarity (PSI) is defined as the
-    number of aligned amino acid pairs with Cα atoms that are closer in space
-    then 4 Å after optimal superposition normalized by the length of the
-    shorter chain in the alignment. The relevant PSI (rPSI) value does not
-    include fragments shorter than four aligned amino acid from the
-    calculated PSI value. The coordinate RMSD (cRMSD) is computed
-    for all aligned pairs after optimal superposition. The cRMSD (core) is
-    computed for those aligned pairs that contribute to the PSI value [35].
-    Here, PSI/rPSI provides a more detailed view of the alignment.
-    However, these values are length dependent.'''
+def standard_metrics(master_p0, master_p1,align_index,indicies,seq0=None,seq1=None,d0=4.0, UNIT=1.0):
+    '''The percentage of structural similarity (PSI) is defined as the number of aligned
+    amino acid pairs with Cα atoms that are closer in space then 4 Å after optimal superposition
+    normalized by the length of the shorter chain in the alignment.
+    The relevant PSI (rPSI) value does not include fragments shorter than four aligned amino acid
+    from the calculated PSI value. The coordinate RMSD (cRMSD) is computed for all aligned pairs
+    after optimal superposition. The cRMSD (core) is computed for those aligned pairs that
+    contribute to the PSI value [35]. Here, PSI/rPSI provides a more detailed view of the
+    alignment. However, these values are length dependent.'''
     if indicies is None:
         indicies = range(np.shape(align_index)[1])
-    # get the shape
-    L_min = min(np.shape(master_p0)[0], np.shape(master_p1)[0])
-    L_aligned = np.shape(align_index)[1]
+    L_min = min( np.shape(master_p0)[0],np.shape(master_p1)[0])  # get the shape
+    L_aligned=np.shape(align_index)[1]
     L_orientable = len(indicies)
 
-    TM_d0 = 1.24 * (L_min - 15) ** 0.333333 - 1.8  # for the TM score
-    TM_d02 = TM_d0 ** 2
+    TM_d0 = 1.24*(L_min-15)**0.333333 -1.8  # for the TM score
+    TM_d02 = TM_d0**2
 
     p0 = master_p0[align_index[0]]
     p1 = master_p1[align_index[1]]
 
-    p0aligned, p1aligned, G = kabsch_template_alignment(
-        p0, p1, p0[indicies], p1[indicies]
-    )
+
+
+
+    p0aligned, p1aligned,G= kabsch_template_alignment(p0,p1,p0[indicies],p1[indicies])
     # rotation aligns just the selected atoms
-    # this is over the full alignment.
-    deviation2 = np.sum((p0aligned - p1aligned) ** 2, axis=1)
-    TM_score = np.sum(1.0 / (1.0 + deviation2 / TM_d02)) / L_min
-    # RMS over all
-    RMS = np.sqrt(np.sum(deviation2) / L_aligned)
-    # RMS over subset of resides contributing to orientation
-    oRMS = np.sqrt(np.sum(deviation2[indicies]) / L_orientable)
 
-    PSI_mask =  np.sqrt(deviation2) < (4.0 * UNIT)
+    deviation2 = np.sum((p0aligned-p1aligned)**2,axis=1)  # this is over the full alignment.
+
+
+    TM_score = np.sum(1.0/(1.0+deviation2/TM_d02 ))/L_min
+
+
+    RMS = np.sqrt(np.sum(deviation2)/L_aligned)             #RMS over all
+    oRMS = np.sqrt(np.sum(deviation2[indicies])/ L_orientable)  # RMS over subset of resides contributing to orientation
+
+    PSI_mask =  np.sqrt(deviation2)<(4.0*UNIT)
     L_PSI = np.sum(PSI_mask)
-    PSI = L_PSI / L_min
+    PSI= L_PSI/L_min
 
-    if L_PSI > 2: # RMS doesn't mean much otherwise
+
+    if L_PSI>2: # RMS doesn't mean much otherwise
         # RMS over resides contributing to PSI
-        # or should be re-align this?  could become tailchasing?
-        cRMS = np.sqrt(np.sum(deviation2[PSI_mask]) / L_PSI)
+        cRMS = np.sqrt(np.sum(deviation2[PSI_mask])/L_PSI)  # or should be re-align this?  could become tailchasing?
     else:
         cRMS = np.NaN  # fiction.
     if seq0 is not None and seq1 is not None:
-        seq_aligned = np.array([ [seq0[i], seq1[j]] for i,j in align_index.T ])
-        aSeq_ident = np.sum( seq_aligned[:, 0] == seq_aligned[:, 1])
-        aSeq_ident /= L_aligned
-        oSeq_ident = np.sum(
-            seq_aligned[indicies, 0] == seq_aligned[indicies, 1]
-        )
+        seq_aligned = np.array([ [seq0[i],seq1[j]] for i,j in align_index.T ])
+        aSeq_ident= np.sum( seq_aligned[:,0]==seq_aligned[:,1])
 
-        oSeq_ident /= L_orientable
+        aSeq_ident/=L_aligned
 
-        cSeq_ident = np.sum(
-            seq_aligned[PSI_mask, 0] == seq_aligned[PSI_mask, 1]
-        )
+        oSeq_ident=np.sum( seq_aligned[indicies,0]==seq_aligned[indicies,1])
 
-        cSeq_ident /= L_PSI
+        oSeq_ident/=L_orientable
+
+        cSeq_ident=np.sum( seq_aligned[PSI_mask,0]==seq_aligned[PSI_mask,1])
+
+        cSeq_ident/=L_PSI
     else:
-        aSeq_ident = oSeq_ident = cSeq_ident = 0
+        aSeq_ident=oSeq_ident=cSeq_ident=0
 
-    c = 0 # run length tracker
-    aPSI = 0
-
-    # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range(L_aligned - 1):
-        c += 1
-        any_ai = np.any((align_index[:, i + 1] - align_index[:, i]) > 1)
-        # a gap in either protein's alignment
-        if (i + 1 == L_aligned or any_ai) :
-           if c > 3:
-               aPSI += c  # should I be checking for 3 or 4 here?
-           c = 0
-    aPSI = aPSI / L_min
-
-    oPSI = 0
-    # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range(L_orientable - 1):
-        c += 1
-        any_ai = np.any((
-            align_index[:, indicies[i + 1]] - \
-            align_index[:, indicies[i]]) > 1)
-        # a gap in either protein's alignment
-        if i+1 == L_orientable or any_ai :
-           if c > 3: oPSI += c  # should I be checking for 3 or 4 here?
+    c=0 # run length tracker
+    aPSI=0 # running sum of long runs with 4 or more residues in a row without gaps
+    for i in range( L_aligned):
+        c+=1
+        if i+1==L_aligned or np.any((align_index[:,i+1]-align_index[:,i])>1) :  # a gap in either protein's alignment
+           if c>3: aPSI+=c  # should I be checking for 3 or 4 here?
            c=0
-    oPSI = oPSI / L_min
-    rPSI = 0
-    # running sum of long runs with 4 or more residues in a row without gaps
-    for i in range(L_PSI - 1):
-        c += 1
-        # a gap in either protein's alignment
-        any_ai = np.any((
-            align_index[:, PSI_mask][:, i + 1] - \
-            align_index[:, PSI_mask][:, i]) > 1
-        )
-        if i+1==L_PSI or any_ai:
-           if c > 3: rPSI += c  # should I be checking for 3 or 4 here?
+    aPSI = aPSI/L_min
+
+    oPSI=0 # running sum of long runs with 4 or more residues in a row without gaps
+    for i in range( L_orientable):
+        c+=1
+        if i+1== L_orientable or np.any((align_index[:,indicies[i+1]]-align_index[:,indicies[i]])>1) :  # a gap in either protein's alignment
+           if c>3: oPSI+=c  # should I be checking for 3 or 4 here?
            c=0
-    rPSI = rPSI / L_min
+    oPSI = oPSI/L_min
 
+    rPSI=0 # running sum of long runs with 4 or more residues in a row without gaps
+    for i in range( L_PSI):
+        c+=1
+        if i+1==L_PSI or np.any((align_index[:,PSI_mask][:,i+1]-align_index[:,PSI_mask][:,i])>1) :  # a gap in either protein's alignment
+           if c>3: rPSI+=c  # should I be checking for 3 or 4 here?
+           c=0
+    rPSI = rPSI/L_min
 
-    return Metrics(TM_score, PSI, aPSI, oPSI, rPSI, cRMS, RMS, oRMS,
-                   aSeq_ident, oSeq_ident, cSeq_ident,
-                   L_min, L_aligned, L_orientable, L_PSI)
+    return Metrics(TM_score,PSI,aPSI,oPSI,rPSI,cRMS,RMS,oRMS,aSeq_ident,oSeq_ident,cSeq_ident,L_min,L_aligned,L_orientable,L_PSI)
 
 
 def parseAlingmentString(j):
@@ -556,7 +501,7 @@ def parseAlingmentString(j):
     return np.array([a01, a00])
 
 
-def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
+def process_alignment(alignment, seq0=None, seq1=None, pdb0=None, pdb1=None, transpose=True):
     """ Processes a single alignment
 
     Parameters
@@ -576,9 +521,17 @@ def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
     -------
     tuple : standard_metrics
     """
-    fpnts0 = readPDB(pdb0)
-    fpnts1 = readPDB(pdb1)
+    _, fpnts0 = readPDB(pdb0)
+    _, fpnts1 = readPDB(pdb1)  
+    if transpose:
+        fpnts0, fpnts1 = fpnts1, fpnts0
+        seq0, seq1 = seq1, seq0
+
+      
     a1 = parseAlingmentString(alignment)
+    if seq0 is None or seq1 is None:
+        seq0 = fpnts0.seq
+        seq1 = fpnts1.seq
     if (fpnts0.seq != seq0 or fpnts1.seq != seq1):
         if fpnts0.seq != seq0:
             warnings.warn(
@@ -590,7 +543,7 @@ def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
     A, B, C = FR_TM_maxsub_score(fpnts0.CA, fpnts1.CA, a1)
     sm = standard_metrics(fpnts0.CA, fpnts1.CA, a1,
                           indicies=A.alignment,
-                          seq0=seq0,
-                          seq1=seq1,
+                          seq0=fpnts0.seq,
+                          seq1=fpnts1.seq,
                           d0=4.0, UNIT=1.0)
     return sm
