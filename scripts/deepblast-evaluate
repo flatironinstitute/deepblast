@@ -5,13 +5,21 @@ import os
 import pandas as pd
 import torch
 from pytorch_lightning import Trainer
-from deepblast.trainer import LightningAligner
+from transformers import T5EncoderModel, T5Tokenizer
+from deepblast.trainer import DeepBLAST
 
 
 def main(args):
     print('args', args)
-    model = LightningAligner.load_from_checkpoint(
-        args.load_from_checkpoint)
+    tokenizer = T5Tokenizer.from_pretrained(
+        args.pretrain_path, do_lower_case=False)
+    lm = T5EncoderModel.from_pretrained(args.pretrain_path)
+    model = DeepBLAST.load_from_checkpoint(
+        args.load_from_checkpoint, lm=lm, tokenizer=tokenizer,
+        alignment_mode=args.alignment_mode)
+
+    if args.accelerator == 'gpu':
+        model = model.cuda()
 
     trainer = Trainer(
         max_epochs=args.epochs,
@@ -37,14 +45,17 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(add_help=False)
+    parser.add_argument('--accelerator', type=str, default='cpu')
     parser.add_argument('--gpus', type=int, default=None)
     parser.add_argument('--num-workers', type=int, default=1)
     parser.add_argument('--nodes', type=int, default=1)
     parser.add_argument('--load-from-checkpoint', type=str, default=None)
+    parser.add_argument('--pretrain-path', type=str, default=None,
+                        help="Path to pretrained model.")
     parser.add_argument('--precision', type=int, default=32)
     parser.add_argument('--backend', type=str, default=None)
     # options include ddp_cpu, dp, ddp
 
-    parser = LightningAligner.add_model_specific_args(parser)
+    parser = DeepBLAST.add_model_specific_args(parser)
     hparams = parser.parse_args()
     main(hparams)

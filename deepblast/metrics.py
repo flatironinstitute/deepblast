@@ -501,7 +501,7 @@ def parseAlingmentString(j):
     return np.array([a01, a00])
 
 
-def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
+def process_alignment(alignment, seq0=None, seq1=None, pdb0=None, pdb1=None, transpose=True):
     """ Processes a single alignment
 
     Parameters
@@ -522,8 +522,16 @@ def process_alignment(alignment, seq0, seq1, pdb0, pdb1):
     tuple : standard_metrics
     """
     _, fpnts0 = readPDB(pdb0)
-    _, fpnts1 = readPDB(pdb1)
+    _, fpnts1 = readPDB(pdb1)  
+    if transpose:
+        fpnts0, fpnts1 = fpnts1, fpnts0
+        seq0, seq1 = seq1, seq0
+
+      
     a1 = parseAlingmentString(alignment)
+    if seq0 is None or seq1 is None:
+        seq0 = fpnts0.seq
+        seq1 = fpnts1.seq
     if (fpnts0.seq != seq0 or fpnts1.seq != seq1):
         if fpnts0.seq != seq0:
             warnings.warn(

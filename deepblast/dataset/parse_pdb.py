@@ -39,8 +39,6 @@ def readPDB(filename,verbose=False):
 
                 if rec.atomname==' CA ':
                     #print(line,end='')
-
-
                     if last_res_num == None:
                         first_res_num=rec.seqnum
                         last_res_num=rec.seqnum-1
@@ -56,7 +54,7 @@ def readPDB(filename,verbose=False):
                     else:
                         h = 'Z'
                         print ("WARNING: unknown residue type ", rec.resname," ",rec.seqnum)
-                        print ("%3d %1s %3s %8.3f %8.3f %8.3f\n"%(int(rec.resnum),h,rec.resname,rec.x,rec.y,rec.z))
+                        print ("%3d %1s %3s %8.3f %8.3f %8.3f\n"%(int(first_res_num),h,rec.resname,rec.x,rec.y,rec.z))
                    # print(rec)
                         flag=False
                     if rec.resname=="XXX": print ("warning: Fake residue XXX type detected at",rec.seqnum)
