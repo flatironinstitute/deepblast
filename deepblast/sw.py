@@ -1,10 +1,10 @@
+import collections
+
 import torch
 import torch.nn as nn
 from deepblast.ops import operators
 import numba
 import numpy as np
-
-use_numba = True
 
 
 @numba.njit
@@ -51,8 +51,8 @@ def _forward_pass_numba(theta, A):
     Q[N + 1, M + 1] = 1
     m, x, y = 1, 0, 2
     maxargs = np.empty(3)
-    for i in range(1, N + 1):
-        for j in range(1, M + 1):
+    for i in range(2, N + 1):
+        for j in range(2, M + 1):
             maxargs[x] = A[i - 1, j - 1] + V[i - 1, j]  # x
             maxargs[m] = V[i - 1, j - 1]  # m
             maxargs[y] = A[i - j, 1 - 1] + V[i, j - 1]  # y
@@ -62,7 +62,7 @@ def _forward_pass_numba(theta, A):
     return Vt, Q
 
 
-def _forward_pass(theta, A, operator='softmax'):
+def _forward_pass(theta, A, operator=None):
     """  Forward pass to calculate DP alignment matrix
 
     Parameters
@@ -72,8 +72,6 @@ def _forward_pass(theta, A, operator='softmax'):
         This represents the pairwise residue match scores.
     A : torch.Tensor
         Gap penality (scalar valued)
-    operator : str
-        The smoothed maximum operator.
 
     Returns
     -------
@@ -82,37 +80,18 @@ def _forward_pass(theta, A, operator='softmax'):
     Q : torch.Tensor
         Derivatives of max theta + v of dimension N x M x S.
     """
-    if not use_numba or operator != 'softmax':
-        operator = operators[operator]
-        new = theta.new
-        N, M = theta.size()
-        V = new(N + 1, M + 1).zero_()     # N x M
-        Q = new(N + 2, M + 2, 3).zero_()  # N x M x S
-        Q[N + 1, M + 1] = 1
-        for i in range(1, N + 1):
-            for j in range(1, M + 1):
-                tmp = torch.Tensor([
-                    A[i - 1, j - 1] + V[i - 1, j],
-                    V[i - 1, j - 1],
-                    A[i - 1, j - 1] + V[i, j - 1]
-                ])
-                v, Q[i, j] = operator.max(tmp)
-                V[i, j] = theta[i - 1, j - 1] + v
+    B, N, M = theta.shape
+    Q = torch.zeros((B, N + 2, M + 2, 3),
+                    dtype=theta.dtype,
+                    device=theta.device)
+    Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
 
-        Vt = V[N, M]
-    else:
-        B, N, M = theta.shape
-        Q = torch.zeros((B, N + 2, M + 2, 3),
-                        dtype=theta.dtype,
-                        device=theta.device)
-        Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
-
-        for b in range(B):
-            Vt_tmp, Q_tmp = _forward_pass_numba(
-                theta.detach().cpu().numpy()[b],
-                A.detach().cpu().numpy()[b])
-            Vt[b] = torch.tensor(Vt_tmp, dtype=theta.dtype)
-            Q[b] = torch.from_numpy(Q_tmp)
+    for b in range(B):
+        Vt_tmp, Q_tmp = _forward_pass_numba(
+            theta.detach().cpu().numpy()[b],
+            A.detach().cpu().numpy()[b])
+        Vt[b] = torch.tensor(Vt_tmp, dtype=theta.dtype)
+        Q[b] = torch.from_numpy(Q_tmp)
 
     return Vt, Q
 
@@ -125,9 +104,9 @@ def _backward_pass_numba(Et, Q):
     E = np.zeros((N + 2, M + 2))
     E[N + 1, M + 1] = Et
     Q[N + 1, M + 1] = 1
-    for ir in range(1, N + 1):
+    for ir in range(1, N + 1 - 1):
         i = N + 1 - ir
-        for jr in range(1, M + 1):
+        for jr in range(1, M + 1 - 1):
             j = M + 1 - jr
             E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
                 Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
@@ -150,27 +129,12 @@ def _backward_pass(Et, Q):
     E : torch.Tensor
         Traceback matrix of dimension N x M x S
     """
-    if not use_numba:
-        m, x, y = 1, 0, 2
-        n_1, m_1, _ = Q.shape
-        new = Q.new
-        N, M = n_1 - 2, m_1 - 2
-        E = new(N + 2, M + 2).zero_()
-        E[N + 1, M + 1] = 1 * Et
-        Q[N + 1, M + 1] = 1
-        for i in reversed(range(1, N + 1)):
-            for j in reversed(range(1, M + 1)):
-                E[i, j] = Q[i + 1, j, x] * E[i + 1, j] + \
-                    Q[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                    Q[i, j + 1, y] * E[i, j + 1]
+    if isinstance(Et, collections.abc.Sequence):
+        Et_float = float(Et[0])
     else:
-        import collections
-        if isinstance(Et, collections.abc.Sequence):
-            Et_float = float(Et[0])
-        else:
-            Et_float = float(Et)
-        E = torch.from_numpy(_backward_pass_numba(
-            Et_float, Q.detach().cpu().numpy()))
+        Et_float = float(Et)
+    E = torch.from_numpy(_backward_pass_numba(
+        Et_float, Q.detach().cpu().numpy()))
 
     return E
 
@@ -199,7 +163,7 @@ def _adjoint_forward_pass_numba(Q, Ztheta, ZA):
     return Vd[N, M], Qd
 
 
-def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
+def _adjoint_forward_pass(Q, Ztheta, ZA, operator=None):
     """ Calculate directional derivatives and Hessians.
 
     Parameters
@@ -210,8 +174,6 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
         Derivative of theta of dimension N x M
     ZA : torch.Tensor
         Derivative of gap score.
-    operator : str
-        The smoothed maximum operator.
 
     Returns
     -------
@@ -220,32 +182,12 @@ def _adjoint_forward_pass(Q, Ztheta, ZA, operator='softmax'):
     Qd : torch.Tensor
         Derivatives of Q of dimension N x M x S
     """
-    if not use_numba or operator != 'softmax':
-        m, x, y = 1, 0, 2
-        operator = operators[operator]
-        new = Ztheta.new
-        N, M = Ztheta.size()
-        N, M = N - 2, M - 2
-        Vd = new(N + 1, M + 1).zero_()     # N x M
-        Qd = new(N + 2, M + 2, 3).zero_()  # N x M x S
-        for i in range(1, N + 1):
-            for j in range(1, M + 1):
-                Vd[i, j] = Ztheta[i, j] + \
-                    Q[i, j, x] * (ZA[i - 1, j - 1] + Vd[i - 1, j]) + \
-                    Q[i, j, m] * Vd[i - 1, j - 1] + \
-                    Q[i, j, y] * (ZA[i - 1, j - 1] + Vd[i, j - 1])
-                vd = torch.Tensor([(ZA[i - 1, j - 1] + Vd[i - 1, j]),
-                                   Vd[i - 1, j - 1],
-                                   (ZA[i - 1, j - 1] + Vd[i, j - 1])])
-                Qd[i, j] = operator.hessian_product(Q[i, j], vd)
-        return Vd[N, M], Qd
-    else:
-        Vd, Qd = _adjoint_forward_pass_numba(
-            Q.detach().cpu().numpy(), Ztheta.detach().cpu().numpy(),
-            ZA.detach().cpu().numpy())
-        Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
-        Qd = torch.from_numpy(Qd)
-        return Vd, Qd
+    Vd, Qd = _adjoint_forward_pass_numba(
+        Q.detach().cpu().numpy(), Ztheta.detach().cpu().numpy(),
+        ZA.detach().cpu().numpy())
+    Vd = torch.tensor(Vd, dtype=Ztheta.dtype)
+    Qd = torch.from_numpy(Qd)
+    return Vd, Qd
 
 
 @numba.njit
@@ -289,35 +231,20 @@ def _adjoint_backward_pass(E, Q, Qd):
     Careful with Ztheta, it actually has dimensions (N + 2)  x (M + 2).
     The border elements aren't useful, only need Ztheta[1:-1, 1:-1]
     """
-    if not use_numba:
-        m, x, y = 1, 0, 2
-        n_1, m_1, _ = Q.shape
-        new = Q.new
-        N, M = n_1 - 2, m_1 - 2
-        Ed = new(N + 2, M + 2).zero_()
-        for i in reversed(range(1, N + 1)):
-            for j in reversed(range(1, M + 1)):
-                Ed[i, j] = Qd[i + 1, j, x] * E[i + 1, j] + \
-                    Q[i + 1, j, x] * Ed[i + 1, j] + \
-                    Qd[i + 1, j + 1, m] * E[i + 1, j + 1] + \
-                    Q[i + 1, j + 1, m] * Ed[i + 1, j + 1] + \
-                    Qd[i, j + 1, y] * E[i, j + 1] + \
-                    Q[i, j + 1, y] * Ed[i, j + 1]
-    else:
-        Ed = _adjoint_backward_pass_numba(
-            E.detach().cpu().numpy(), Q.detach().cpu().numpy(),
-            Qd.detach().cpu().numpy())
-        Ed = torch.tensor(Ed)
+    Ed = _adjoint_backward_pass_numba(
+        E.detach().cpu().numpy(), Q.detach().cpu().numpy(),
+        Qd.detach().cpu().numpy())
+    Ed = torch.tensor(Ed)
 
     return Ed
 
 
-class NeedlemanWunschFunction(torch.autograd.Function):
+class SmithWatermanFunction(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, theta, A, operator):
         # Return both the alignment matrix
-        Vt, Q = _forward_pass(theta, A, operator)
+        Vt, Q = _forward_pass(theta, A)
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
         return Vt
@@ -334,12 +261,12 @@ class NeedlemanWunschFunction(torch.autograd.Function):
         """
         theta, A, Q = ctx.saved_tensors
         operator = ctx.others
-        E, A = NeedlemanWunschFunctionBackward.apply(
+        E, A = SmithWatermanFunctionBackward.apply(
             theta, A, Et, Q, operator)
         return E[:, 1:-1, 1:-1], A, None, None, None
 
 
-class NeedlemanWunschFunctionBackward(torch.autograd.Function):
+class SmithWatermanFunctionBackward(torch.autograd.Function):
 
     @staticmethod
     def forward(ctx, theta, A, Et, Q, operator):
@@ -386,7 +313,7 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         return Ed, None, Vtd, None, None, None
 
 
-class NeedlemanWunschDecoder(nn.Module):
+class SmithWatermanDecoder(nn.Module):
 
     def __init__(self, operator):
         super().__init__()
@@ -395,8 +322,7 @@ class NeedlemanWunschDecoder(nn.Module):
     def forward(self, theta, A):
         theta = theta.cpu()
         A = A.cpu()
-        return NeedlemanWunschFunction.apply(
-            theta, A, self.operator)
+        return SmithWatermanFunction.apply(theta, A, self.operator)
 
     def traceback(self, grad):
         """ Computes traceback

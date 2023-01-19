@@ -9,7 +9,7 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.optim.lr_scheduler import (
     CosineAnnealingLR, CosineAnnealingWarmRestarts, StepLR, CyclicLR)
 import pytorch_lightning as pl
-from deepblast.alignment import NeedlemanWunschAligner
+from deepblast.alignment import NeuralAligner
 from deepblast.dataset import TMAlignDataset
 from deepblast.dataset.utils import (
     decode, states2edges, collate_f, test_collate_f,
@@ -43,7 +43,11 @@ class DeepBLAST(pl.LightningModule):
                  test_pairs=None,
                  train_pairs=None,
                  valid_pairs=None,
-                 visualization_fraction=1.0):
+                 visualization_fraction=1.0,
+                 device='gpu',
+                 alignment_mode='needleman-wunch'
+      ):
+
         super(DeepBLAST, self).__init__()
         self.save_hyperparameters(ignore=['lm'])
         assert tokenizer is not None
@@ -65,13 +69,15 @@ class DeepBLAST(pl.LightningModule):
         n_units = self.hparams.hidden_dim
         n_layers = self.hparams.layers
         dropout = self.hparams.dropout
+        self.aligner = NeuralAligner(
+            n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm,
+            alignment_mode=alignment_mode,
+            device=device)
 
-        self.aligner = NeedlemanWunschAligner(
-            n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm)
 
     def align(self, x, y):
-        x_code, _ = get_sequence(x, self.tokenizer).to(self.device)
-        y_code, _ = get_sequence(y, self.tokenizer).to(self.device)
+        x_code = get_sequence(x, self.tokenizer)[0].to(self.device)
+        y_code = get_sequence(y, self.tokenizer)[0].to(self.device)
         seq, order = pack_sequences([x_code], [y_code])
         gen = self.aligner.traceback(seq, order)
         decoded, _ = next(gen)
@@ -386,6 +392,13 @@ class DeepBLAST(pl.LightningModule):
             help=(
                 'Compute multitask loss between DP and matchings. '
                 'WARNING: this option is deprecated, use at your own risk.'
+            )
+        )
+        parser.add_argument(
+            '--mode', default=False, required=False, type=str,
+            help=(
+                'Aligment mode. Choices include `needleman-wunch`, '
+                '`smith-waterman`, or `gotoh`.'
             )
         )
         parser.add_argument(
