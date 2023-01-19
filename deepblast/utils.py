@@ -3,6 +3,25 @@ import numpy as np
 from scipy.stats import multivariate_normal
 import inspect
 from sklearn.metrics.pairwise import pairwise_distances
+from transformers import T5EncoderModel, T5Tokenizer
+from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
+
+
+def load_model(model_path, pretrain_path=None,
+               alignment_mode='smith-waterman'):
+    """ Load DeepBLAST model. """
+    if pretrain_path is None:
+        tokenizer = T5Tokenizer.from_pretrained(
+            'Rostlab/prot_t5_xl_uniref50', do_lower_case=False)
+        model = T5Model.from_pretrained("Rostlab/prot_t5_xl_uniref50")
+
+    tokenizer = T5Tokenizer.from_pretrained(
+        pretrain_path, do_lower_case=False)
+    lm = T5EncoderModel.from_pretrained(pretrain_path)
+    model = DeepBLAST.load_from_checkpoint(
+        model_path, lm=lm, tokenizer=tokenizer,
+        alignment_mode=alignment_mode)
+    return model
 
 
 def sample(transition_matrix, means, covs, start_state, n_samples,
