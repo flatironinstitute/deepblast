@@ -25,8 +25,8 @@ from deepblast.score import (roc_edges, alignment_visualization,
 class DeepBLAST(pl.LightningModule):
 
     def __init__(self, batch_size=20,
-                 hidden_dim=512,
-                 embedding_dim=512,
+                 hidden_dim=1024,
+                 embedding_dim=1024,
                  epochs=32,
                  finetune=False,
                  layers=1,
@@ -44,9 +44,10 @@ class DeepBLAST(pl.LightningModule):
                  train_pairs=None,
                  valid_pairs=None,
                  visualization_fraction=1.0,
+                 shuffle_validation=False,
                  device='gpu',
                  alignment_mode='needleman-wunch'
-      ):
+    ):
 
         super(DeepBLAST, self).__init__()
         self.save_hyperparameters(ignore=['lm'])
@@ -133,7 +134,8 @@ class DeepBLAST(pl.LightningModule):
             construct_paths=isinstance(self.loss_func, SoftPathLoss))
         valid_dataloader = DataLoader(
             valid_dataset, self.hparams.batch_size, collate_fn=collate_f,
-            shuffle=False, num_workers=self.hparams.num_workers,
+            shuffle=self.hparams.shuffle_validation,
+            num_workers=self.hparams.num_workers,
             pin_memory=True)
         return valid_dataloader
 
@@ -422,6 +424,10 @@ class DeepBLAST(pl.LightningModule):
             '--visualization-fraction',
             help='Fraction of alignments to be visualized per epoch',
             required=False, type=float, default=0.1)
+        parser.add_argument(
+            '--shuffle-validation',
+            help='Whether or not to shuffle the validation data.',
+            required=False, type=bool, default=False)
         parser.add_argument(
             '-o', '--output-directory',
             help='Output directory of model results', required=True)
