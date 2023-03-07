@@ -1,0 +1,47 @@
+#!/usr/bin/env python3
+import os
+import re
+import pandas as pd
+from tensorboard.backend.event_processing import event_accumulator
+import argparse
+
+
+def main(args):
+
+    ea = event_accumulator.EventAccumulator(args.event_file)
+    ea.Reload()
+    alignment_tags = ea.Tags()['tensors']
+    ftp_pattern = re.compile('tp: (\d+) fp: (\d+) fn: (\d+)')
+    per_pattern = re.compile('perc_id: (\d+\.\d+)')
+    ppv_pattern = re.compile('ppv: (\d+\.\d+)')
+    fnr_pattern = re.compile('fnr: (\d+\.\d+)')
+    fdr_pattern = re.compile('fdr: (\d+\.\d+)')
+
+    def stat_f(x):
+        y = ea.Tensors(x)[0].tensor_proto.string_val[0].decode('ascii')
+        tp, fp, fn = ftp_pattern.findall(y)[0]
+        perc_id = per_pattern.findall(y)[0]
+        ppv = ppv_pattern.findall(y)[0]
+        fnr = fnr_pattern.findall(y)[0]
+        fdr = fdr_pattern.findall(y)[0]
+        true_x = y.split('\n')[-5].strip()
+        true_y = y.split('\n')[-4].strip()
+        pred_x = y.split('\n')[-2].strip()
+        pred_y = y.split('\n')[-1].strip()
+        return (tp, fp, fn, perc_id, ppv, fnr, fdr,
+                true_x, true_y, pred_x, pred_y)
+
+    alignment_stats = list(map(stat_f, alignment_tags))
+    df = pd.DataFrame(alignment_stats,
+                      columns=['tp', 'fp', 'fn',
+                               'perc_id', 'ppv', 'fnr', 'fdr',
+                               'true_x', 'true_y', 'pred_x', 'pred_y'])
+    df.to_csv(args.csv_file)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(add_help=True)
+    parser.add_argument('--event-file', type=str, default=None)
+    parser.add_argument('--csv-file', type=str, default=None)
+    args = parser.parse_args()
+    main(args)

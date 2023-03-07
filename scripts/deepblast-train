@@ -46,6 +46,7 @@ def main(args):
                 'train_pairs',
                 'valid_pairs',
                 'visualization_fraction',
+                'shuffle_validation',
                 'device']
         model_args = {k: model_args[k] for k in keys}
         model_args['device'] = args.accelerator
