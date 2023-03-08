@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 from glob import glob
 
 classes = """
-    Development Status :: 3 - Alpha
+    Development Status :: 5 - Production/Stable
     License :: OSI Approved :: BSD License
     Topic :: Software Development :: Libraries
     Topic :: Scientific/Engineering
@@ -23,7 +23,7 @@ description = ('Deep Sequence Alignments.')
 
 
 setup(name='deepblast',
-      version='0.1.0',
+      version='1.0.0',
       license='BSD-3-Clause',
       description=description,
       author_email="jamietmorton@gmail.com",
@@ -46,6 +46,4 @@ setup(name='deepblast',
       ],
       scripts=glob('scripts/*'),
       classifiers=classifiers,
-      package_data={
-          'deepblast': ['pretrained_models/lstm2x.pt'],
-      })
+)
