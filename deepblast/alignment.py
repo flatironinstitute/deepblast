@@ -14,7 +14,7 @@ class NeuralAligner(nn.Module):
 
     def __init__(self, n_alpha, n_input, n_units, n_embed,
                  n_layers=2, dropout=0, lm=None, layer_type='cnn',
-                 alignment_mode='needleman-wunch',
+                 alignment_mode='needleman-wunsch',
                  device='gpu'):
         """ NeedlemanWunsch Alignment model
 
@@ -64,7 +64,7 @@ class NeuralAligner(nn.Module):
             self.match_embedding = nn.Linear(n_embed, n_embed)
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
-        if alignment_mode == 'needleman-wunch':
+        if alignment_mode == 'needleman-wunsch':
             if device == 'gpu':
                 self.ddp = NWDecoderCUDA(operator='softmax')
             else:
