@@ -46,11 +46,11 @@ class DeepBLAST(pl.LightningModule):
                  visualization_fraction=1.0,
                  shuffle_validation=False,
                  device='gpu',
-                 alignment_mode='needleman-wunch'
+                 alignment_mode='needleman-wunsch'
     ):
 
         super(DeepBLAST, self).__init__()
-        self.save_hyperparameters(ignore=['lm'])
+        self.save_hyperparameters(ignore=['lm', 'tokenizer'])
         assert tokenizer is not None
         assert lm is not None
         self.tokenizer = tokenizer

@@ -2,14 +2,15 @@ import os
 import numpy as np
 from scipy.stats import multivariate_normal
 import inspect
+import torch
 from sklearn.metrics.pairwise import pairwise_distances
 from deepblast.trainer import DeepBLAST
 from transformers import T5EncoderModel, T5Model, T5Tokenizer
 from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
 
-def load_model(model_path, pretrain_path,
-               alignment_mode='smith-waterman', device='gpu'):
+def load_model(model_path, pretrain_path=None, lm=None, tokenizer=None,
+               alignment_mode='needleman-wunsch', device='cuda'):
     """ Load DeepBLAST model.
 
     Parameters
@@ -17,16 +18,39 @@ def load_model(model_path, pretrain_path,
     model_path : str
        Path to DeepBLAST model
     pretrain_path : str
-       Path to ProTrans model
+       Path to ProTrans model (optional)
+    lm : torch.nn.Module
+       ProTrans language model (optional)
+    tokenizer : sentencepiece object
+       ProTrans tokenizer (optional)
     alignment_model : str
-       `smith-waterman` or `needleman-wunch` style alignment.
+       `smith-waterman` or `needleman-wunsch` style alignment.
+
+    Notes
+    -----
+    If either the `pretrain_path` or `lm` + `tokenizer` is specified,
+    the deepblast model will be loaded with those options.
+    Otherwise, the ProTrans model will be downloaded from huggingface.
     """
-    tokenizer = T5Tokenizer.from_pretrained(
-        pretrain_path, do_lower_case=False)
-    lm = T5EncoderModel.from_pretrained(pretrain_path)
-    model = DeepBLAST.load_from_checkpoint(
-        model_path, lm=lm, tokenizer=tokenizer,
-        alignment_mode=alignment_mode, device=device)
+    if pretrain_path is None:
+        if lm is None or tokenizer is None:
+            #Load the ProtTrans model and ProtTrans tokenizer
+            tokenizer = T5Tokenizer.from_pretrained("Rostlab/prot_t5_xl_uniref50",
+                                                    do_lower_case=False)
+            lm = T5EncoderModel.from_pretrained("Rostlab/prot_t5_xl_uniref50")
+    else:
+        tokenizer = T5Tokenizer.from_pretrained(pretrain_path,
+                                                do_lower_case=False)
+        lm = T5EncoderModel.from_pretrained(pretrain_path)
+
+    # Right now we only have one DeepBLAST model that we are loading.
+    # So we are inputting the default parameters for that model.
+    # Eventually this will need to be fixed.
+    model = DeepBLAST(lm=lm, tokenizer=tokenizer, layers=8,
+                      alignment_mode=alignment_mode, dropout=0.5)
+    model.load_state_dict(torch.load(model_path), strict=False)
+    model.eval()
+    model = model.to(device)
     return model
 
 
