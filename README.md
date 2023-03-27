@@ -2,6 +2,10 @@
 
 Learning protein structural similarity from sequence alone.  Our preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.11.03.365932v1)
 
+DeepBLAST is a neural-network based alignment algorithm that can estimate structural alignments. And it can generate structural alignments that are nearly identical to
+state-of-the-art structural alignment algorithms.
+![Malidup benchmark](/imgs/malidup.png)
+
 # Installation
 
 DeepBLAST can be installed from pip via
