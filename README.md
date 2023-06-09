@@ -1,3 +1,6 @@
+[![DOI](https://zenodo.org/badge/269478463.svg)](https://zenodo.org/badge/latestdoi/269478463)
+
+
 # DeepBLAST 
 
 Learning protein structural similarity from sequence alone.  Our preprint can be found [here](https://www.biorxiv.org/content/10.1101/2020.11.03.365932v1)
