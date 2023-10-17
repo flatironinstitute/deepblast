@@ -42,7 +42,6 @@ class NeuralAligner(nn.Module):
         This only works on GPU at the moment.
         """
         super(NeuralAligner, self).__init__()
-        assert lm is not None
         self.lm = lm
 
         if n_layers > 1:
@@ -76,7 +75,7 @@ class NeuralAligner(nn.Module):
                 self.ddp = SWDecoderNumba(operator='softmax')
         else:
             raise NotImplementedError(
-                'Alignment_mode {alignment_mode} not implemented.')
+                f'Alignment_mode {alignment_mode} not implemented.')
 
     def blosum_factor(self, x):
         """ Computes factors for blosum parameters using a single sequence
