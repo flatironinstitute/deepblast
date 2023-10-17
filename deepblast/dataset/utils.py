@@ -483,7 +483,7 @@ def get_sequence(x, tokenizer):
     return seq, mask
 
 
-@jit
+@jit(nopython=True)
 def is_subset(x, y):
     # test if x is a subset of y
     if x.shape[0] > y.shape[0]:
@@ -495,7 +495,7 @@ def is_subset(x, y):
     return False
 
 
-@jit
+@jit(nopython=True)
 def __trim_gap(x, k=10):
     """
     Parameters
