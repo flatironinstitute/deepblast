@@ -51,9 +51,7 @@ class DeepBLAST(pl.LightningModule):
 
         super(DeepBLAST, self).__init__()
         self.save_hyperparameters(ignore=['lm', 'tokenizer'])
-        assert tokenizer is not None
-        assert lm is not None
-        self.tokenizer = tokenizer
+
 
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()
@@ -74,7 +72,6 @@ class DeepBLAST(pl.LightningModule):
             n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm,
             alignment_mode=alignment_mode,
             device=device)
-
 
     def align(self, x, y):
         x_code = get_sequence(x, self.tokenizer)[0].to(self.device)

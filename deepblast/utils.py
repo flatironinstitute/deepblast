@@ -10,7 +10,7 @@ from pytorch_lightning.callbacks.model_checkpoint import ModelCheckpoint
 
 
 def load_model(model_path, pretrain_path=None, lm=None, tokenizer=None,
-               alignment_mode='needleman-wunsch', device='cuda'):
+               alignment_mode='smith-waterman', device='cuda'):
     """ Load DeepBLAST model.
 
     Parameters
@@ -46,9 +46,12 @@ def load_model(model_path, pretrain_path=None, lm=None, tokenizer=None,
     # Right now we only have one DeepBLAST model that we are loading.
     # So we are inputting the default parameters for that model.
     # Eventually this will need to be fixed.
-    model = DeepBLAST(lm=lm, tokenizer=tokenizer, layers=8,
+    model = DeepBLAST(layers=8,
                       alignment_mode=alignment_mode, dropout=0.5)
-    model.load_state_dict(torch.load(model_path), strict=False)
+    model.load_state_dict(torch.load(model_path))
+
+    model.tokenizer = tokenizer
+    model.aligner.lm = lm
     model.eval()
     model = model.to(device)
     return model
