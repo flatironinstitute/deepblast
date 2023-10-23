@@ -66,7 +66,7 @@ class TestSmithWatermanDecoder(unittest.TestCase):
         v.backward()
         decoded = needle.traceback(theta.grad.squeeze())
         decoded = [(x[0], x[1]) for x in decoded]
-        states = [(0, 0), (1, 0), (2, 0), (3, 1), (4, 2), (4, 3)]
+        states = [(0, 0), (0, 1), (1, 1), (2, 1), (3, 1), (4, 2), (4, 3)]
         self.assertListEqual(states, decoded)
 
     @unittest.skipUnless(torch.cuda.is_available(), 'No GPU was detected')
