@@ -48,8 +48,7 @@ class TestSmithWatermanDecoder(unittest.TestCase):
         v = smithwaterman(theta, A)
         v.backward()
         decoded = smithwaterman.traceback(theta.grad.squeeze())
-        states = [(0, 0, 0), (1, 0, 0), (2, 0, 1), (3, 1, 1), (4, 2, 2),
-                  (4, 3, 1)]
+        states = [(-1, 0, 1), (0, 1, 0), (1, 1, 0), (2, 1, 0), (3, 1, 1), (4, 2, 2), (4, 3, 1)]
         self.assertListEqual(states, decoded)
 
     def test_grad_smithwaterman_function(self):
