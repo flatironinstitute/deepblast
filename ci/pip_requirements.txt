@@ -86,7 +86,7 @@ networkx==3.0rc1
 notebook==6.5.2
 notebook_shim==0.2.2
 numba==0.55.0
-numpy==1.21.6
+numpy==1.22.0
 nvidia-cublas-cu11==11.10.3.66
 nvidia-cuda-nvrtc-cu11==11.7.99
 nvidia-cuda-runtime-cu11==11.7.99
