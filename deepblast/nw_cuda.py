@@ -1,7 +1,9 @@
 import numba
 import torch
 import torch.nn as nn
+import warnings
 from numba import cuda
+from numba.core.errors import NumbaPerformanceWarning
 from math import log, exp
 
 torch.autograd.set_detect_anomaly(True)
@@ -180,8 +182,9 @@ class NeedlemanWunschFunction(torch.autograd.Function):
                         device=theta.device)
         Vt = torch.zeros((B), dtype=theta.dtype, device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
-
-        _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), Q, Vt)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+            _forward_pass_kernel[tpb, bpg](theta.detach(), A.detach(), Q, Vt)
 
         ctx.save_for_backward(theta, A, Q)
         ctx.others = operator
@@ -218,7 +221,9 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
                         device=theta.device)
         bpg = (B + (tpb - 1)) // tpb  # blocks per grid
 
-        _backward_pass_kernel[tpb, bpg](Et.detach(), Q, E)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+            _backward_pass_kernel[tpb, bpg](Et.detach(), Q, E)
 
         ctx.save_for_backward(Q, E)
         ctx.others = operator
@@ -248,8 +253,10 @@ class NeedlemanWunschFunctionBackward(torch.autograd.Function):
         Vtd = torch.zeros(B, dtype=Ztheta.dtype, device=Ztheta.device)
         Ed = torch.zeros((B, ZN, ZM), dtype=Ztheta.dtype, device=Ztheta.device)
 
-        _adjoint_forward_pass_kernel[tpb, bpg](Q, Ztheta, ZA, Vtd, Qd)
-        _adjoint_backward_pass_kernel[tpb, bpg](E.detach(), Q, Qd, Ed)
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', category=NumbaPerformanceWarning)
+            _adjoint_forward_pass_kernel[tpb, bpg](Q, Ztheta, ZA, Vtd, Qd)
+            _adjoint_backward_pass_kernel[tpb, bpg](E.detach(), Q, Qd, Ed)
 
         Ed = Ed[:, 1:-1, 1:-1]
         return Ed, None, Vtd, None, None, None
