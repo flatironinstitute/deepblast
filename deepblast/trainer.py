@@ -45,13 +45,15 @@ class DeepBLAST(pl.LightningModule):
                  valid_pairs=None,
                  visualization_fraction=1.0,
                  shuffle_validation=False,
-                 device='gpu',
+                 device='cuda',
                  alignment_mode='needleman-wunsch'
     ):
 
         super(DeepBLAST, self).__init__()
         self.save_hyperparameters(ignore=['lm', 'tokenizer'])
 
+        if device == 'gpu':  # this is for users, in case they specify gpu
+            device = 'cuda'
 
         if self.hparams.loss == 'sse':
             self.loss_func = SoftAlignmentLoss()

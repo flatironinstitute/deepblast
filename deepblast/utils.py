@@ -25,6 +25,8 @@ def load_model(model_path, pretrain_path=None, lm=None, tokenizer=None,
        ProTrans tokenizer (optional)
     alignment_model : str
        `smith-waterman` or `needleman-wunsch` style alignment.
+    device : str
+       Specify `cpu` to use the CPU or `cuda` to use the GPU.
 
     Notes
     -----
@@ -47,12 +49,18 @@ def load_model(model_path, pretrain_path=None, lm=None, tokenizer=None,
     # So we are inputting the default parameters for that model.
     # Eventually this will need to be fixed.
     model = DeepBLAST(layers=8,
-                      alignment_mode=alignment_mode, dropout=0.5)
+                      alignment_mode=alignment_mode, dropout=0.5,
+                      device=device)
     model.load_state_dict(torch.load(model_path))
 
     model.tokenizer = tokenizer
     model.aligner.lm = lm
     model.eval()
+    if device == 'gpu':
+        warnings.warn("You specify `gpu` as the device. "
+                      "Assuming you meant `cuda`.")
+        device = 'cuda'
+
     model = model.to(device)
     return model
 

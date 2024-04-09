@@ -1,5 +1,5 @@
 import torch
-from deepblast.alignment import NeedlemanWunschAligner
+from deepblast.alignment import NeuralAligner
 from deepblast.language_model import BiLM, pretrained_language_models
 from deepblast.dataset.alphabet import UniprotTokenizer
 from deepblast.dataset.utils import collate_f
@@ -16,7 +16,7 @@ class TestAlignmentModel(unittest.TestCase):
         self.embedding.eval()
         self.tokenizer = UniprotTokenizer(pad_ends=False)
         nalpha, ninput, nunits, nembed = 22, 1024, 1024, 1024
-        self.aligner = NeedlemanWunschAligner(nalpha, ninput, nunits, nembed)
+        self.aligner = NeuralAligner(nalpha, ninput, nunits, nembed)
 
     @unittest.skipUnless(torch.cuda.is_available(), "No GPU detected")
     def test_alignment(self):
