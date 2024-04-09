@@ -15,7 +15,7 @@ class NeuralAligner(nn.Module):
     def __init__(self, n_alpha, n_input, n_units, n_embed,
                  n_layers=2, dropout=0, lm=None, layer_type='cnn',
                  alignment_mode='needleman-wunsch',
-                 device='gpu'):
+                 device='cuda'):
         """ NeedlemanWunsch Alignment model
 
         Parameters
@@ -36,10 +36,11 @@ class NeuralAligner(nn.Module):
            Location of padding index in embedding (default -1)
         layer_type : str
            Intermediate layer type
+        alignment_mode : str
+              Alignment mode (default `needleman-wunsch`)
+        device : str
+              Device to run the model on (default `cuda`)
 
-        Notes
-        -----
-        This only works on GPU at the moment.
         """
         super(NeuralAligner, self).__init__()
         self.lm = lm
@@ -64,12 +65,12 @@ class NeuralAligner(nn.Module):
             self.gap_embedding = nn.Linear(n_embed, n_embed)
 
         if alignment_mode == 'needleman-wunsch':
-            if device == 'gpu':
+            if device == 'cuda':
                 self.ddp = NWDecoderCUDA(operator='softmax')
             else:
                 self.ddp = NWDecoderNumba(operator='softmax')
         elif alignment_mode == 'smith-waterman':
-            if device == 'gpu':
+            if device == 'cuda':
                 self.ddp = SWDecoderCUDA(operator='softmax')
             else:
                 self.ddp = SWDecoderNumba(operator='softmax')
