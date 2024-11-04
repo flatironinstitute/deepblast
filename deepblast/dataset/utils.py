@@ -406,7 +406,7 @@ def gap_mask(states: str, sparse=False):
     if sparse:
         return mat
     else:
-        return mat.toarray().astype(np.bool)
+        return mat.toarray().astype(bool)
 
 
 def window(seq, n=2):

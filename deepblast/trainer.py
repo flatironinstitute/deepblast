@@ -50,6 +50,7 @@ class DeepBLAST(pl.LightningModule):
     ):
 
         super(DeepBLAST, self).__init__()
+        self.validation_step_outputs = []
         self.save_hyperparameters(ignore=['lm', 'tokenizer'])
 
         if device == 'gpu':  # this is for users, in case they specify gpu
@@ -74,6 +75,7 @@ class DeepBLAST(pl.LightningModule):
             n_input, n_units, n_embed, n_layers, dropout=dropout, lm=lm,
             alignment_mode=alignment_mode,
             device=device)
+        self.tokenizer = tokenizer
 
     def align(self, x, y):
         x_code = get_sequence(x, self.tokenizer)[0].to(self.device)
@@ -236,6 +238,7 @@ class DeepBLAST(pl.LightningModule):
         predA, theta, gap = self.aligner(seq, order)
         x, xlen, y, ylen = unpack_sequences(seq, order)
         loss = self.compute_loss(xlen, ylen, predA, A, P, G, theta)
+        self.validation_step_outputs.append(loss)
 
         assert torch.isnan(loss).item() is False
 
@@ -291,27 +294,10 @@ class DeepBLAST(pl.LightningModule):
         statistics['key_name'] = other_names
         return statistics
 
-    def validation_epoch_end(self, outputs):
-        loss_f = lambda x: x['validation_loss']
-        losses = list(map(loss_f, outputs))
-        loss = sum(losses) / len(losses)
-        self.logger.experiment.add_scalar('val_loss', loss, self.global_step)
-        # self.log('validation_loss') = loss
-
-        # metrics = ['val_tp', 'val_fp', 'val_fn', 'val_perc_id',
-        #            'val_ppv', 'val_fnr', 'val_fdr']
-        # scores = []
-        # for i, m in enumerate(metrics):
-        #     loss_f = lambda x: x['log'][m]
-        #     losses = list(map(loss_f, outputs))
-        #     scalar = sum(losses) / len(losses)
-        #     scores.append(scalar)
-        #     self.logger.experiment.add_scalar(m, scalar, self.global_step)
-
-        tensorboard_logs = dict(
-            [('val_loss', loss)] # + list(zip(metrics, scores))
-        )
-        return {'val_loss': loss, 'log': tensorboard_logs}
+    def on_validation_epoch_end(self):
+        epoch_average = torch.stack(self.validation_step_outputs).mean()
+        self.log("validation_epoch_average", epoch_average)
+        self.validation_step_outputs.clear()  # free memory
 
     def configure_optimizers(self):
         # Freeze language model
